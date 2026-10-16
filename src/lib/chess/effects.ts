@@ -2,6 +2,23 @@ import type { BoardState, Piece, PlayerColor, AlgebraicSquare, ConversionEvent, 
 import { isValidSquare, coordsToAlgebraic, getEffectiveLevel, algebraicToCoords, getActiveSets } from './utils';
 import { FRONTLINE_TYPES } from './constants';
 
+export function triggerDefiantSparks(board: BoardState, targetR: number, targetC: number, victimColor: PlayerColor) {
+  for (let dr = -1; dr <= 1; dr++) {
+    for (let dc = -1; dc <= 1; dc++) {
+      if (dr === 0 && dc === 0) continue;
+      const nr = targetR + dr; 
+      const nc = targetC + dc;
+      if (isValidSquare(nr, nc)) {
+        const ally = board[nr][nc].piece;
+        if (ally && ally.color === victimColor && ally.heldItem === 'defiant_spark') {
+          ally.isShielded = true;
+          ally.heldItem = null;
+        }
+      }
+    }
+  }
+}
+
 export function triggerPushBack(board: BoardState, r: number, c: number, color: PlayerColor, actor: Piece): { crushed: Piece | null, obliterated: Piece[], levelChanges: LevelChangeEvent[] } {
   let mainCrushed: Piece | null = null;
   const obliterated: Piece[] = [];
@@ -96,6 +113,7 @@ export function performExtendedDisplacement(board: BoardState, startR: number, s
 
         if (targetSq.piece) {
             if (obliterateInPath || displacedItem?.type === 'anvil') {
+                triggerDefiantSparks(board, nextR, nextC, targetSq.piece.color);
                 obliterated.push({ ...targetSq.piece });
                 targetSq.piece = null;
             } else {
@@ -110,9 +128,20 @@ export function performExtendedDisplacement(board: BoardState, startR: number, s
     board[currentR][currentC].item = displacedItem;
     board[currentR][currentC].piece = displacedPiece;
 
+    const finalPiece = board[currentR][currentC].piece;
+    if (finalPiece && finalPiece.heldItem === 'kinetic_coil' && (currentR !== startR || currentC !== startC)) {
+        const oldL = finalPiece.level;
+        finalPiece.level = Math.min(finalPiece.type === 'queen' ? 7 : 99, (finalPiece.level || 1) + 1);
+        if (finalPiece.level > oldL) {
+            levelChanges.push({ square: coordsToAlgebraic(currentR, currentC), delta: 1 });
+            finalPiece.isPoisoned = false; finalPiece.isExhausted = false; finalPiece.cooldownTurnsRemaining = 0;
+        }
+    }
+
     if (board[currentR][currentC].oilSlickTurnsRemaining > 0) {
         const slideResult = applyOilSlide(board, currentR, currentC, dr, dc);
         obliterated.push(...slideResult.obliterated);
+        levelChanges.push(...slideResult.levelChanges);
     }
 
     return { crushed: mainCrushed, obliterated, levelChanges };
@@ -406,10 +435,11 @@ export function processOilSlickTimers(board: BoardState, player: PlayerColor): B
     return newBoard;
 }
 
-export function applyOilSlide(board: BoardState, row: number, col: number, dr: number, dc: number): { r: number, c: number, obliterated: Piece[] } {
+export function applyOilSlide(board: BoardState, row: number, col: number, dr: number, dc: number): { r: number, c: number, obliterated: Piece[], levelChanges: LevelChangeEvent[] } {
     let currentR = row;
     let currentC = col;
     const obliterated: Piece[] = [];
+    const levelChanges: LevelChangeEvent[] = [];
 
     while (isValidSquare(currentR + dr, currentC + dc) && board[currentR][currentC].oilSlickTurnsRemaining > 0) {
         const nr = currentR + dr;
@@ -426,6 +456,14 @@ export function applyOilSlide(board: BoardState, row: number, col: number, dr: n
                 board[currentR][currentC].piece = null;
                 currentR = nr;
                 currentC = nc;
+                if (movingObjPiece.heldItem === 'kinetic_coil') {
+                    const oldL = movingObjPiece.level;
+                    movingObjPiece.level = Math.min(movingObjPiece.type === 'queen' ? 7 : 99, (movingObjPiece.level || 1) + 1);
+                    if (movingObjPiece.level > oldL) {
+                        levelChanges.push({ square: coordsToAlgebraic(currentR, currentC), delta: 1 });
+                        movingObjPiece.isPoisoned = false; movingObjPiece.isExhausted = false; movingObjPiece.cooldownTurnsRemaining = 0;
+                    }
+                }
             } else {
                 break;
             }
@@ -436,6 +474,7 @@ export function applyOilSlide(board: BoardState, row: number, col: number, dr: n
                 currentR = nr;
                 currentC = nc;
             } else if (targetSq.piece && targetSq.piece.type !== 'king' && !targetSq.piece.isShielded) {
+                triggerDefiantSparks(board, nr, nc, targetSq.piece.color);
                 obliterated.push({ ...targetSq.piece });
                 board[nr][nc].piece = null;
                 board[nr][nc].item = { ...movingObjItem };
@@ -449,7 +488,7 @@ export function applyOilSlide(board: BoardState, row: number, col: number, dr: n
             break;
         }
     }
-    return { r: currentR, c: currentC, obliterated };
+    return { r: currentR, c: currentC, obliterated, levelChanges };
 }
 
 export function triggerExhaustion(board: BoardState, r: number, c: number, color: PlayerColor) {
