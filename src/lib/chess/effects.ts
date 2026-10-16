@@ -1,4 +1,4 @@
-import type { BoardState, Piece, PlayerColor, AlgebraicSquare, ConversionEvent, LevelChangeEvent } from '@/types';
+import type { BoardState, Piece, PlayerColor, AlgebraicSquare, ConversionEvent, LevelChangeEvent, SquareState } from '@/types';
 import { isValidSquare, coordsToAlgebraic, getEffectiveLevel, algebraicToCoords, getActiveSets } from './utils';
 import { FRONTLINE_TYPES } from './constants';
 
@@ -289,6 +289,32 @@ export function syncSoulLink(board: BoardState, color: PlayerColor): { levelChan
         }));
     }
     return { levelChanges: changes };
+}
+
+export function applyReapersTithe(board: BoardState, color: PlayerColor, victim: Piece, levelChanges: LevelChangeEvent[]) {
+  const extraLevels = (victim.level || 1) - 1;
+  victim.level = 1; // Return to graveyard at level 1
+  if (extraLevels <= 0) return;
+
+  const titheItems = ['soul_harvest', 'leach_blade', 'grimoir'];
+  const collectors: SquareState[] = [];
+  board.forEach(row => row.forEach(sq => {
+    if (sq.piece && sq.piece.color === color && titheItems.includes(sq.piece.heldItem || '')) {
+      collectors.push(sq);
+    }
+  }));
+
+  if (collectors.length === 0) return;
+
+  for (let i = 0; i < extraLevels; i++) {
+    const target = collectors[Math.floor(Math.random() * collectors.length)];
+    const p = target.piece!;
+    if (p.type !== 'queen' || p.level < 7) {
+      p.level++;
+      levelChanges.push({ square: target.algebraic, delta: 1 });
+      p.isPoisoned = false; p.isExhausted = false; p.cooldownTurnsRemaining = 0;
+    }
+  }
 }
 
 export function processPoisonDamage(board: BoardState, currentPlayer: PlayerColor): { newBoard: BoardState, poisonedCaptures: Piece[], levelChanges: LevelChangeEvent[] } {
