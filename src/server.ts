@@ -428,12 +428,26 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                     if (room.gameState.currentPlayer !== playerColor) break;
 
                     const { row, col } = algebraicToCoords(data.square);
-                    if (isValidSquare(row, col) && room.gameState.board[row][col].piece?.color === playerColor) {
-                        room.gameState.board[row][col].piece.isShielded = true;
+                    const board = room.gameState.board;
+                    if (isValidSquare(row, col) && board[row][col].piece?.color === playerColor) {
+                        const targetPiece = board[row][col].piece;
+                        targetPiece.isShielded = true;
+                        
+                        // Rosary check for level-up synchronization
+                        const levelChanges = [];
+                        const rosaryArchbishop = board.flat().find((sq: any) => sq.piece && sq.piece.color === playerColor && sq.piece.heldItem === 'rosary');
+                        if (rosaryArchbishop) {
+                            const oldL = targetPiece.level;
+                            targetPiece.level = Math.min(targetPiece.type === 'queen' ? 7 : 99, (targetPiece.level || 1) + 1);
+                            if (targetPiece.level > oldL) {
+                                levelChanges.push({ square: data.square, delta: 1 });
+                            }
+                        }
+
                         broadcastToRoom(ws.roomId!, { 
                             type: 'game-move', 
                             gameState: room.gameState,
-                            events: { shield: true, shieldPos: data.square }
+                            events: { shield: true, shieldPos: data.square, levelChanges }
                         });
                     }
                     break;
@@ -445,14 +459,65 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                     if (room.gameState.currentPlayer !== playerColor) break;
 
                     const { row, col } = algebraicToCoords(data.square);
-                    if (isValidSquare(row, col) && room.gameState.board[row][col].piece?.color !== playerColor) {
-                        const sniped = room.gameState.board[row][col].piece;
-                        room.gameState.capturedPieces[sniped.color].push(sniped);
-                        room.gameState.board[row][col].piece = null;
+                    const board = room.gameState.board;
+                    if (isValidSquare(row, col) && board[row][col].piece?.color !== playerColor) {
+                        const sniped = board[row][col].piece;
+                        
+                        // Full snipe logic sync: hydra, smoke bomb, phoenix down
+                        let smokeEscaped = false;
+                        let hydraSplit = false;
+                        let phxRes = false;
+
+                        if (sniped.heldItem === 'smoke_bomb') {
+                             const backIdx = sniped.color === 'white' ? 7 : 0;
+                             const cands = [];
+                             for(let i=0; i<8; i++) if(!board[backIdx][i].piece && !board[backIdx][i].item) cands.push(i);
+                             if (cands.length > 0) {
+                                 const destC = cands[Math.floor(Math.random()*cands.length)];
+                                 board[backIdx][destC].piece = { ...sniped, heldItem: null, hasMoved: true, id: `${sniped.id}_smoke_${Date.now()}` };
+                                 board[row][col].piece = null;
+                                 smokeEscaped = true;
+                             }
+                        } else if (sniped.id.startsWith('boss-hydra')) {
+                             hydraSplit = true;
+                             board[row][col].piece = null;
+                             // Hydra spawn squares handled by applyMove result normally, 
+                             // but for snippet manually:
+                             const hAdj = [];
+                             for(let dr=-1; dr<=1; dr++) for(let dc=-1; dc<=1; dc++) {
+                                 const nr=row+dr, nc=col+dc;
+                                 if(isValidSquare(nr,nc) && !board[nr][nc].piece && !board[nr][nc].item) hAdj.push({r:nr, c:nc});
+                             }
+                             hAdj.sort(()=>Math.random()-0.5).slice(0,2).forEach((pos, i) => {
+                                 board[pos.r][pos.c].piece = { id:`h_${sniped.id}_${i}`, type:'knight', color:sniped.color, level:2, hasMoved:true };
+                             });
+                        } else if (sniped.heldItem === 'phoenix_down') {
+                             phxRes = true;
+                             board[row][col].piece = null;
+                             const em = [];
+                             for(let r=0; r<8; r++) for(let c=0; c<8; c++) if(!board[r][c].piece && !board[r][c].item) em.push({r,c});
+                             if (em.length > 0) {
+                                 const p = em[Math.floor(Math.random()*em.length)];
+                                 board[p.r][p.c].piece = { ...sniped, id:`phx_${sniped.id}`, hasMoved:true };
+                             }
+                        }
+
+                        if (!smokeEscaped && !hydraSplit && !phxRes) {
+                            room.gameState.capturedPieces[sniped.color].push(sniped);
+                            board[row][col].piece = null;
+                        }
+
                         broadcastToRoom(ws.roomId!, { 
                             type: 'game-move', 
                             gameState: room.gameState,
-                            events: { snipe: true, snipePos: data.square }
+                            events: { 
+                                snipe: true, 
+                                snipePos: data.square,
+                                smokeBomb: smokeEscaped,
+                                smokePos: smokeEscaped ? data.square : undefined,
+                                hydraSplit: hydraSplit,
+                                phoenixRes: phxRes
+                            }
                         });
                     }
                     break;

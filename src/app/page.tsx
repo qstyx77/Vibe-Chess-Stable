@@ -573,7 +573,7 @@ export default function EvolvingChessPage() {
 
   const triggerSpecialsChain = useCallback((boardToChain: BoardState, currentGraveyard: { white: Piece[], black: Piece[] }, currentKs: { white: number, black: number }, oldStreak: number, newStreak: number, isExtraTurn: boolean, nextEp: AlgebraicSquare | null, actingPlayer: PlayerColor = 'white', completedMilestones: string[] = [], capturingPieceId: string | null = null, wasCaptureThisTurn: boolean = false, movedPieceType?: PieceType | null, trackWhite?: LastMoveInfo | null, trackBlack?: LastMoveInfo | null, trackGlobal?: LastMoveInfo | null) => {
     const isAI = (actingPlayer === 'white' && isWhiteAI) || (actingPlayer === 'black' && isBlackAI);
-    const silenced = boardToChain.flat().find(sq => sq.piece?.color === actingPlayer && isSilenced(boardToChain, sq.rowIndex, sq.colIndex, actingPlayer));
+    
     let nextGraveyard = { 
         white: Array.isArray(currentGraveyard.white) ? [...currentGraveyard.white] : [],
         black: Array.isArray(currentGraveyard.black) ? [...currentGraveyard.black] : []
@@ -591,20 +591,14 @@ export default function EvolvingChessPage() {
             addLog(msg); gameOverRef.current = true; playOutcomeSound(actingPlayer); return;
         }
     }
-    if (!silenced && newStreak >= 1 && oldStreak < 1 && !completedMilestones.includes('dance')) {
-        const hasDancers = boardToChain.flat().some(sq => {
-          const p = sq.piece;
-          if (!p || p.color !== actingPlayer) return false;
-          return p.type === 'dancer';
-        });
-        if (hasDancers) {
+    if (newStreak >= 1 && oldStreak < 1 && !completedMilestones.includes('dance')) {
+        const dancerSq = boardToChain.flat().find(sq => sq.piece?.color === actingPlayer && sq.piece?.type === 'dancer');
+        const isDancerSilenced = dancerSq ? isSilenced(boardToChain, dancerSq.rowIndex, dancerSq.colIndex, actingPlayer) : false;
+        
+        if (dancerSq && !isDancerSilenced) {
             if (isAI) {
                 const nextBoard = boardToChain.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null})));
-                const aiDancerSq = nextBoard.flat().find(sq => {
-                    const p = sq.piece;
-                    if (!p || p.color !== actingPlayer) return false;
-                    return p.type === 'dancer';
-                });
+                const aiDancerSq = nextBoard.flat().find(sq => sq.piece?.color === actingPlayer && sq.piece?.type === 'dancer');
                 if (aiDancerSq) {
                     const {rowIndex: r, colIndex: c} = aiDancerSq;
                     const dancerPiece = aiDancerSq.piece!;
@@ -612,7 +606,7 @@ export default function EvolvingChessPage() {
                     const candidates: {r: number, c: number, priority: number}[] = [];
                     for(let dr=-1; dr<=1; dr++) for(let dc=-1; dc<=1; dc++) {
                         if(dr===0 && dc===0) continue;
-                        const nr = r+dr, nc = c+dc;
+                        const nr = r+dr; const nc = c+dc;
                         if (isValidSquare(nr, nc)) {
                             const tSq = nextBoard[nr][nc];
                             if (!tSq.piece && (!tSq.item || tSq.item.type === 'shroom')) {
@@ -676,8 +670,8 @@ export default function EvolvingChessPage() {
             }
         }
     }
-    if (!silenced && newStreak >= 2 && oldStreak < 2 && !completedMilestones.includes('shield')) {
-        const hasArchbishop = boardToChain.flat().some(sq => {
+    if (newStreak >= 2 && oldStreak < 2 && !completedMilestones.includes('shield')) {
+        const archbishops = boardToChain.flat().filter(sq => {
           const p = sq.piece;
           if (!p || p.color !== actingPlayer) return false;
           if (p.type === 'archbishop') return true;
@@ -689,7 +683,10 @@ export default function EvolvingChessPage() {
           }
           return false;
         });
-        if (hasArchbishop) {
+        
+        const allArchbishopsSilenced = archbishops.length > 0 && archbishops.every(sq => isSilenced(boardToChain, sq.rowIndex, sq.colIndex, actingPlayer));
+
+        if (archbishops.length > 0 && !allArchbishopsSilenced) {
             if (isAI) {
                 const nextBoard = boardToChain.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null})));
                 const targets = nextBoard.flat().filter(sq => sq.piece && sq.piece.color === actingPlayer && sq.piece.type !== 'king' && sq.piece.type !== 'queen' && !sq.piece.isShielded && sq.piece.id !== capturingPieceId).sort((a, b) => (b.piece?.level || 0) - (a.piece?.level || 0));
@@ -716,7 +713,7 @@ export default function EvolvingChessPage() {
             }
         }
     }
-    if (!silenced && newStreak >= 3 && oldStreak < 3 && !completedMilestones.includes('anvil')) {
+    if (newStreak >= 3 && oldStreak < 3 && !completedMilestones.includes('anvil')) {
         if (isAI) {
             const nextBoard = boardToChain.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null})));
             const myKingSq = nextBoard.flat().find(sq => sq.piece?.type === 'king' && sq.piece.color === actingPlayer);
@@ -762,48 +759,49 @@ export default function EvolvingChessPage() {
             }
         }
     }
-    const pieces = boardToChain.flat().filter(sq => sq.piece && sq.piece.color === actingPlayer).map(sq => sq.piece!);
-    const snipers = pieces.filter(p => { 
-        if (p.heldItem === 'weighted_helm') return false; 
-        if (p.type === 'archer') return true; 
-        if (p.type === 'mimic') {
-           let lastInfo = effGlobal;
-           if (p.heldItem === 'mirror_mask') lastInfo = actingPlayer === 'white' ? effBlack : effWhite;
-           else if (p.heldItem === 'mimic_blade') lastInfo = actingPlayer === 'white' ? effWhite : effBlack;
-           if (lastInfo?.type === 'archer') return true;
-        }
-        const coords = boardToChain.flat().find(sq => sq.piece?.id === p.id); 
-        if ((p.type === 'knight' || p.type === 'mimic') && p.heldItem === 'shortbow' && coords && getEffectiveLevel(boardToChain, coords.rowIndex, coords.colIndex) >= 3) return true; 
-        return false; 
-    });
-    const maxSniperLevel = snipers.length > 0 ? Math.max(...snipers.map(a => a.level || 1)) : 0;
-    const hasCrossbow = pieces.some(p => {
-        if (p.color !== actingPlayer || p.heldItem !== 'crossbow') return false;
-        if (p.type === 'archer') return true;
-        if (p.type === 'mimic') {
-           let lastInfo = effGlobal;
-           if (p.heldItem === 'mirror_mask') lastInfo = actingPlayer === 'white' ? effBlack : effWhite;
-           else if (p.heldItem === 'mimic_blade') lastInfo = actingPlayer === 'white' ? effWhite : effBlack;
-           return lastInfo?.type === 'archer';
-        }
-        return false;
-    });
-    const isSnipeTime = (newStreak >= 5 && oldStreak < 5 && snipers.length > 0) || (newStreak >= 3 && oldStreak < 3 && hasCrossbow);
-    if (!silenced && isSnipeTime && !completedMilestones.includes('snipe')) {
-        const oppColor = actingPlayer === 'white' ? 'black' : 'white';
-        const victims = boardToChain.flat().filter(sq => sq.piece && sq.piece.color === oppColor && sq.piece.level <= maxSniperLevel && sq.piece.type !== 'king' && sq.piece.type !== 'queen' && sq.piece.heldItem !== 'weighted_helm');
-        if (victims.length > 0) {
-            if (isAI) {
-                const nextBoard = boardToChain.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null})));
-                const victimsSorted = victims.sort((a,b) => (VAL_MAP[b.piece!.type]||0) - (VAL_MAP[a.piece!.type]||0));
-                const v = victimsSorted[0]; const {rowIndex: row, colIndex: col} = v;
-                const snipedPiece = { ...nextBoard[row][col].piece!, id: nextBoard[row][col].piece!.id }; nextBoard[row][col].piece = null; addLog(`${getPlayerDisplayName(actingPlayer)} Sniper sniped a Level ${snipedPiece.level} ${snipedPiece.type}!`);
-                const targetPile = snipedPiece.color; 
-                nextGraveyard[targetPile] = Array.isArray(nextGraveyard[targetPile]) ? [...nextGraveyard[targetPile], snipedPiece] : [snipedPiece];
-                triggerSpecialsChain(nextBoard, nextGraveyard, currentKs, oldStreak, newStreak, isExtraTurn, nextEp, actingPlayer, [...completedMilestones, 'snipe'], capturingPieceId, wasCaptureThisTurn, movedPieceType, effWhite, effBlack, effGlobal); return;
-            } else if (!localPlayerColor || actingPlayer === localPlayerColor) {
-                setSpecialActionContext({ boardForNextStep: boardToChain, playerWhoseTurnCompleted: actingPlayer, isExtraTurn: isExtraTurn, newEnPassantTarget: nextEp, oldStreak: oldStreak, newStreak: newStreak, completedMilestones: [...completedMilestones, 'snipe'], currentGraveyard: nextGraveyard, currentKs: currentKs, capturingPieceId: capturingPieceId, trackWhite: effWhite, trackBlack: effBlack, trackGlobal: effGlobal });
-                setIsAwaitingArcherSnipe(true); addLog("Sniper active! Select a target."); return;
+    
+    if (newStreak >= 5 && oldStreak < 5 && !completedMilestones.includes('snipe')) {
+        const pArr = boardToChain.flat().filter(sq => sq.piece && sq.piece.color === actingPlayer).map(sq => sq.piece!);
+        const snipers = pArr.filter(pt => { 
+            if (pt.heldItem === 'weighted_helm') return false; 
+            if (pt.type === 'archer') return true; 
+            if (pt.type === 'mimic') {
+               let lastInfo = effGlobal;
+               if (pt.heldItem === 'mirror_mask') lastInfo = actingPlayer === 'white' ? effBlack : effWhite;
+               else if (pt.heldItem === 'mimic_blade') lastInfo = actingPlayer === 'white' ? effWhite : effBlack;
+               if (lastInfo?.type === 'archer') return true;
+            }
+            const coords = boardToChain.flat().find(sq => sq.piece?.id === pt.id); 
+            if ((pt.type === 'knight' || pt.type === 'mimic') && pt.heldItem === 'shortbow' && coords && getEffectiveLevel(boardToChain, coords.rowIndex, coords.colIndex) >= 3) return true; 
+            return false; 
+        });
+        
+        const allSnipersSilenced = snipers.length > 0 && snipers.every(p => {
+            const coords = boardToChain.flat().find(sq => sq.piece?.id === p.id);
+            return coords ? isSilenced(boardToChain, coords.rowIndex, coords.colIndex, actingPlayer) : false;
+        });
+
+        const hasCrossbow = pArr.some(p => p.heldItem === 'crossbow' && (p.type === 'archer' || (p.type === 'mimic' && effGlobal?.type === 'archer')));
+        const isSnipeTime = (newStreak >= 5 && oldStreak < 5 && snipers.length > 0 && !allSnipersSilenced) || (newStreak >= 3 && oldStreak < 3 && hasCrossbow);
+
+        if (isSnipeTime) {
+            const oppColor = actingPlayer === 'white' ? 'black' : 'white';
+            const maxSniperLevel = snipers.length > 0 ? Math.max(...snipers.map(a => a.level || 1)) : 0;
+            const victims = boardToChain.flat().filter(sq => sq.piece && sq.piece.color === oppColor && sq.piece.level <= maxSniperLevel && sq.piece.type !== 'king' && sq.piece.type !== 'queen' && sq.piece.heldItem !== 'weighted_helm');
+            
+            if (victims.length > 0) {
+                if (isAI) {
+                    const nextBoard = boardToChain.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null})));
+                    const victimsSorted = victims.sort((a,b) => (VAL_MAP[b.piece!.type]||0) - (VAL_MAP[a.piece!.type]||0));
+                    const v = victimsSorted[0]; const {rowIndex: row, colIndex: col} = v;
+                    const snipedPiece = { ...nextBoard[row][col].piece!, id: nextBoard[row][col].piece!.id }; nextBoard[row][col].piece = null; addLog(`${getPlayerDisplayName(actingPlayer)} Sniper sniped a Level ${snipedPiece.level} ${snipedPiece.type}!`);
+                    const targetPile = snipedPiece.color; 
+                    nextGraveyard[targetPile] = Array.isArray(nextGraveyard[targetPile]) ? [...nextGraveyard[targetPile], snipedPiece] : [snipedPiece];
+                    triggerSpecialsChain(nextBoard, nextGraveyard, currentKs, oldStreak, newStreak, isExtraTurn, nextEp, actingPlayer, [...completedMilestones, 'snipe'], capturingPieceId, wasCaptureThisTurn, movedPieceType, effWhite, effBlack, effGlobal); return;
+                } else if (!localPlayerColor || actingPlayer === localPlayerColor) {
+                    setSpecialActionContext({ boardForNextStep: boardToChain, playerWhoseTurnCompleted: actingPlayer, isExtraTurn: isExtraTurn, newEnPassantTarget: nextEp, oldStreak: oldStreak, newStreak: newStreak, completedMilestones: [...completedMilestones, 'snipe'], currentGraveyard: nextGraveyard, currentKs: currentKs, capturingPieceId: capturingPieceId, trackWhite: effWhite, trackBlack: effBlack, trackGlobal: effGlobal });
+                    setIsAwaitingArcherSnipe(true); addLog("Sniper active! Select a target."); return;
+                }
             }
         }
     }
@@ -1821,7 +1819,7 @@ export default function EvolvingChessPage() {
            </div>
         </div> 
         <div className={cn("text-center text-[0.8rem] font-bold min-h-[1.5rem] uppercase w-full", (gameInfo.isCheck || isTournamentIntermission) && !gameInfo.gameOver && "text-primary animate-pulse")}> {statusMessage} </div>
-        <div className="w-full"> <ChessBoard boardState={board} selectedSquare={isAnySpecialModeActive ? (isAwaitingDanceTarget ? dancerToDance : (isAwaitingGrappleThrow ? selectedSquare : (isAwaitingRayTarget ? selectedSquare : null))) : selectedSquare} possibleMoves={isAnySpecialModeActive ? [] : possibleMoves} enemySelectedSquare={isAnySpecialModeActive ? null : enemySelectedSquare} enemyPossibleMoves={isAnySpecialModeActive ? [] : enemyPossibleMoves} onSquareClick={handleSquareClick} playerColor={boardOrientation} currentPlayerColor={currentPlayer} isInteractionDisabled={isMoveProcessing || gameInfo.gameOver || (isAnySpecialModeActive && currentPlayer === localPlayerColor)} playerInCheck={gameInfo.playerWithKingInCheck} viewMode={viewMode} animatedSquareTo={animatedSquareTo} lastMoveFrom={lastMoveFrom} lastMoveTo={lastMoveTo} isAwaitingPawnSacrifice={isAwaitingPawnSacrifice} playerToSacrificePawn={playerToSacrificePawn} isEnPassantTarget={enPassantTargetSquare} onPieceHover={handlePieceHover} effects={effects} promotingSquare={promotionSquare} isAwaitingAnvilDrop={isAwaitingAnvilDrop} playerToDropAnvil={playerToDropAnvil || null} isInventoryOpen={isInventoryOpen} selectedInventoryItemType={selectedInventoryItemType} localPlayerColor={localPlayerColor} isAwaitingHolyShield={isAwaitingHolyShield} isAwaitingArcherSnipe={isAwaitingArcherSnipe} isAwaitingGrappleThrow={isAwaitingGrappleThrow} isAwaitingDanceTarget={isAwaitingDanceTarget} dancerToDance={dancerToDance} grappledPieceSubject={grappledPieceSubject} isAwaitingEarthquakeScrollTarget={isAwaitingEarthquakeScrollTarget} isSelectingMycoSpell={isSelectingMycoSpell} isSelectingTeleportAlly={isSelectingTeleportAlly} isSelectingTeleportShroom={isSelectingTeleportShroom} isSelectingSporeBombShroom={isSelectingSporeBombShroom} isAwaitingCommanderPromotion={isAwaitingCommanderPromotion} playerToPromoteCommander={playerWhoGotFirstBlood} isAwaitingWindScrollTarget={isAwaitingWindScrollTarget} isAwaitingAnvilScrollTarget={isAwaitingAnvilScrollTarget} isAwaitingShieldScrollTarget={isAwaitingShieldScrollTarget} isAwaitingSwapScrollTarget={isAwaitingSwapScrollTarget} isAwaitingDecreeTarget={isAwaitingDecreeTarget} isAwaitingOilSlickTarget={isAwaitingOilSlickTarget} isAwaitingRayTarget={isAwaitingRayTarget} lastMoveWhite={lastMoveWhite} lastMoveBlack={lastMoveBlack} lastMoveGlobal={lastMoveGlobal} /> </div> 
+        <div className="w-full"> <ChessBoard boardState={board} selectedSquare={isAnySpecialModeActive ? (isAwaitingDanceTarget ? dancerToDance : (isAwaitingGrappleThrow ? selectedSquare : (isAwaitingRayTarget ? selectedSquare : null))) : selectedSquare} possibleMoves={isAnySpecialModeActive ? [] : possibleMoves} enemySelectedSquare={isAnySpecialModeActive ? null : enemySelectedSquare} enemyPossibleMoves={isAnySpecialModeActive ? [] : enemyPossibleMoves} onSquareClick={handleSquareClick} playerColor={boardOrientation} currentPlayerColor={currentPlayer} isInteractionDisabled={isMoveProcessing || gameInfo.gameOver || (isAnySpecialModeActive && currentPlayer === localPlayerColor)} playerInCheck={gameInfo.playerWithKingInCheck} viewMode={viewMode} animatedSquareTo={animatedSquareTo} lastMoveFrom={lastMoveFrom} lastMoveTo={lastMoveTo} isAwaitingPawnSacrifice={isAwaitingPawnSacrifice} playerToSacrificePawn={playerToSacrificePawn} isEnPassantTarget={enPassantTargetSquare} onPieceHover={handlePieceHover} effects={effects} promotingSquare={promotionSquare} isAwaitingAnvilDrop={isAwaitingAnvilDrop} playerToDropAnvil={playerToDropAnvil || null} isInventoryOpen={isInventoryOpen} selectedInventoryItemType={selectedInventoryItemType} localPlayerColor={localPlayerColor} isAwaitingHolyShield={isAwaitingHolyShield} isAwaitingArcherSnipe={isAwaitingArcherSnipe} isAwaitingDanceTarget={isAwaitingDanceTarget} dancerToDance={dancerToDance} grappledPieceSubject={grappledPieceSubject} isAwaitingEarthquakeScrollTarget={isAwaitingEarthquakeScrollTarget} isSelectingMycoSpell={isSelectingMycoSpell} isSelectingTeleportAlly={isSelectingTeleportAlly} isSelectingTeleportShroom={isSelectingTeleportShroom} isSelectingSporeBombShroom={isSelectingSporeBombShroom} isAwaitingCommanderPromotion={isAwaitingCommanderPromotion} playerToPromoteCommander={playerWhoGotFirstBlood} isAwaitingWindScrollTarget={isAwaitingWindScrollTarget} isAwaitingAnvilScrollTarget={isAwaitingAnvilScrollTarget} isAwaitingShieldScrollTarget={isAwaitingShieldScrollTarget} isAwaitingSwapScrollTarget={isAwaitingSwapScrollTarget} isAwaitingDecreeTarget={isAwaitingDecreeTarget} isAwaitingOilSlickTarget={isAwaitingOilSlickTarget} isAwaitingRayTarget={isAwaitingRayTarget} lastMoveWhite={lastMoveWhite} lastMoveBlack={lastMoveBlack} lastMoveGlobal={lastMoveGlobal} /> </div> 
       </div>
       <div className="w-1/4 flex flex-col gap-1.5"> 
          <AuthWidget /> 

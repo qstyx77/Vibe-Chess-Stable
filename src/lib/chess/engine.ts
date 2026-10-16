@@ -145,6 +145,11 @@ export function processRookResurrectionCheck(
     return { resurrectionPerformed: false, boardWithResurrection: board, capturedPiecesAfterResurrection: graveyard };
   }
 
+  // Aura of Silence check for passive triggers
+  if (isSilenced(board, row, col, player)) {
+    return { resurrectionPerformed: false, boardWithResurrection: board, capturedPiecesAfterResurrection: graveyard };
+  }
+
   const effectiveLevel = getEffectiveLevel(board, row, col);
   if (effectiveLevel < 4) {
     return { resurrectionPerformed: false, boardWithResurrection: board, capturedPiecesAfterResurrection: graveyard };
@@ -832,12 +837,15 @@ export function applyMove(
     
     if (levelGainVal > 0) levelChanges.push({ square: coordsToAlgebraic(toRow, toCol), delta: levelGainVal });
 
-    if (originalTypeIdentifier === 'commander') { 
+    // Silence check for passive skills
+    const isLandedSilenced = isSilenced(newBoard, toRow, toCol, pieceLanded.color);
+
+    if (originalTypeIdentifier === 'commander' && !isLandedSilenced) { 
         const { ralliedSquares: rsq, levelChanges: rch } = applyRally(newBoard, pieceLanded.color, 'pawn', move.to); 
         ralliedSquares = rsq; levelChanges.push(...rch);
         rallyCryTriggered = { square: move.to, color: pieceLanded.color }; 
     }
-    if (originalTypeIdentifier === 'hero') { 
+    if (originalTypeIdentifier === 'hero' && !isLandedSilenced) { 
         const { ralliedSquares: rsq1, levelChanges: rch1 } = applyRally(newBoard, pieceLanded.color, 'all', move.to); 
         const { ralliedSquares: rsq2, levelChanges: rch2 } = applyRally(newBoard, pieceLanded.color, 'all', move.to); 
         ralliedSquares = [...rsq1, ...rsq2]; levelChanges.push(...rch1, ...rch2);
@@ -849,7 +857,7 @@ export function applyMove(
     }
     if (effectiveHeldItem === 'poison_sword') triggerPoisonSplash(newBoard, toRow, toCol, pieceLanded.color);
     if (captured.heldItem === 'poison_tunic' && pieceLanded.heldItem !== 'filter_mask') pieceLanded.isPoisoned = true;
-    if (effectiveHeldItem === 'ice_sword') {
+    if (effectiveHeldItem === 'ice_sword' && !isLandedSilenced) {
         const opC = pieceLanded.color === 'white' ? 'black' : 'white';
         [[0,1], [0,-1], [1,0], [-1,0]].forEach(([dr, dc]) => {
             const nr = toRow + dr, nc = toCol + dc;
@@ -865,7 +873,7 @@ export function applyMove(
             }
         });
     }
-    if (effectiveHeldItem === 'leach_blade') {
+    if (effectiveHeldItem === 'leach_blade' && !isLandedSilenced) {
         const opC = pieceLanded.color === 'white' ? 'black' : 'white';
         for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
             if (dr === 0 && dc === 0) continue;
@@ -908,21 +916,7 @@ export function applyMove(
     }
   }
 
-  if (didLevelUpFlag && effectiveHeldItem === 'soul_link') {
-    newBoard.forEach(row => row.forEach(sq => {
-      if (sq.piece && sq.piece.color === pieceLanded.color && sq.piece.heldItem === 'soul_link' && sq.piece.id !== pieceLanded.id) {
-        if (sq.piece.type !== 'queen' || sq.piece.level < 7) {
-            const oldSLVal = sq.piece.level;
-            sq.piece.level = Math.min(sq.piece.type === 'queen' ? 7 : 99, (sq.piece.level || 1) + levelGainVal);
-            if (sq.piece.level > oldSLVal) {
-                levelChanges.push({ square: sq.algebraic, delta: sq.piece.level - oldSLVal });
-                sq.piece.isPoisoned = false; sq.piece.isExhausted = false; sq.piece.cooldownTurnsRemaining = 0;
-            }
-        }
-      }
-    }));
-  }
-
+  // Shared Divinity (Luminous Set) check
   if (didLevelUpFlag && teamActiveSets.includes('luminous')) {
     let lowestP: SquareState | null = null;
     let minL = 100;
@@ -940,14 +934,34 @@ export function applyMove(
         const oldL = p.level;
         p.level = Math.min(p.type === 'queen' ? 7 : 99, p.level + 1);
         if (p.level > oldL) {
-            levelChanges.push({ square: lowestP.algebraic, delta: 1 });
+            levelChanges.push({ square: lowestP!.algebraic, delta: 1 });
             p.isPoisoned = false; p.isExhausted = false; p.cooldownTurnsRemaining = 0;
         }
     }
   }
 
-  if (didLevelUpFlag) { pieceLanded.isPoisoned = false; pieceLanded.isExhausted = false; pieceLanded.cooldownTurnsRemaining = 0; }
+  if (didLevelUpFlag && effectiveHeldItem === 'soul_link') {
+    newBoard.forEach(row => row.forEach(sq => {
+      if (sq.piece && sq.piece.color === pieceLanded.color && sq.piece.heldItem === 'soul_link' && sq.piece.id !== pieceLanded.id) {
+        if (sq.piece.type !== 'queen' || sq.piece.level < 7) {
+            const oldSLVal = sq.piece.level;
+            sq.piece.level = Math.min(sq.piece.type === 'queen' ? 7 : 99, (sq.piece.level || 1) + levelGainVal);
+            if (sq.piece.level > oldSLVal) {
+                levelChanges.push({ square: sq.algebraic, delta: sq.piece.level - oldSLVal });
+                sq.piece.isPoisoned = false; sq.piece.isExhausted = false; sq.piece.cooldownTurnsRemaining = 0;
+            }
+        }
+      }
+    }));
+  }
+
+  if (didLevelUpFlag) { 
+      pieceLanded.isPoisoned = false; 
+      pieceLanded.isExhausted = false; 
+      pieceLanded.cooldownTurnsRemaining = 0; 
+  }
   
+  // Exhaustion cadence logic
   if (pieceLanded.isExhausted) { 
       if (pieceLanded.heldItem === 'coffee_bean') {
           pieceLanded.isExhausted = false;
@@ -962,7 +976,10 @@ export function applyMove(
       pieceLanded.isExhausted = true;
       pieceLanded.cooldownTurnsRemaining = 2;
   }
-  if (effectiveHeldItem === 'wind_sword' && (captured || obliteratedPieces.length > 0)) {
+
+  const isLandedSilencedFinal = isSilenced(newBoard, toRow, toCol, pieceLanded.color);
+
+  if (effectiveHeldItem === 'wind_sword' && !isLandedSilencedFinal && (captured || obliteratedPieces.length > 0)) {
       const { levelChanges: pushDeltas, obliterated } = triggerPushBack(newBoard, toRow, toCol, pieceLanded.color, pieceLanded);
       levelChanges.push(...pushDeltas);
       if (obliterated.length > 0) obliteratedPieces.push(...obliterated);
@@ -980,9 +997,11 @@ export function applyMove(
     }
   }
 
-  const { levelChanges: landingPushDeltas, obliterated: landingObliterated } = triggerPushBack(newBoard, toRow, toCol, pieceLanded.color, pieceLanded);
-  levelChanges.push(...landingPushDeltas);
-  if (landingObliterated.length > 0) obliteratedPieces.push(...landingObliterated);
+  if (!isLandedSilencedFinal) {
+      const { levelChanges: landingPushDeltas, obliterated: landingObliterated } = triggerPushBack(newBoard, toRow, toCol, pieceLanded.color, pieceLanded);
+      levelChanges.push(...landingPushDeltas);
+      if (landingObliterated.length > 0) obliteratedPieces.push(...landingObliterated);
+  }
 
   triggerToxicCloud(newBoard, toRow, toCol, pieceLanded.color);
 
