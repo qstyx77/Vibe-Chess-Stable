@@ -144,7 +144,45 @@ export class VibeChessAI {
         if (player === 'white') next.lastMoveWhite = moveInfo; else next.lastMoveBlack = moveInfo;
         next.lastMoveGlobal = moveInfo;
 
-        if (move.type === 'grapple-throw') {
+        if (move.type === 'burning-ray') {
+            let totalGain = 0;
+            const dr = Math.sign(tR - fR);
+            const dc = Math.sign(tC - fC);
+            for (let i = 1; i <= 4; i++) {
+                const nr = fR + i * dr;
+                const nc = fC + i * dc;
+                if (!isValidSquareUtil(nr, nc)) break;
+                const tSq = next.board[nr][nc];
+                if (tSq.piece) {
+                    if (tSq.piece.type === 'king') break;
+                    captureCount++;
+                    totalGain += (VAL_MAP[tSq.piece.type] || 1);
+                    tSq.piece = null;
+                }
+                if (tSq.item?.type === 'anvil') tSq.item = null;
+            }
+            movingPiece.level += totalGain;
+            if (movingPiece.type === 'queen') movingPiece.level = Math.min(7, movingPiece.level);
+            movingPiece.heldItem = null;
+        } else if (move.type === 'glacial-ray') {
+            const dr = Math.sign(tR - fR);
+            const dc = Math.sign(tC - fC);
+            for (let i = 1; i <= 4; i++) {
+                const nr = fR + i * dr;
+                const nc = fC + i * dc;
+                if (!isValidSquareUtil(nr, nc)) break;
+                const tSq = next.board[nr][nc];
+                if (tSq.piece) {
+                    if (tSq.piece.heldItem === 'antifreeze') {
+                        tSq.piece.heldItem = null;
+                    } else if (tSq.piece.heldItem !== 'thermal_socks') {
+                        tSq.piece.frozenTurnsRemaining = 2;
+                        tSq.piece.cooldownTurnsRemaining = 2;
+                    }
+                }
+            }
+            movingPiece.heldItem = null;
+        } else if (move.type === 'grapple-throw') {
             if (targetPiece?.type === 'king') return next; 
             if (move.grappledFrom) {
                 const [gr, gc] = move.grappledFrom;
@@ -165,7 +203,6 @@ export class VibeChessAI {
             const anvilItem = next.board[ar][ac].item;
             next.board[ar][ac].item = null;
             
-            // Simplified crush check for AI
             if (next.board[tR][tC].piece && next.board[tR][tC].piece?.color === opponent && next.board[tR][tC].piece?.type !== 'king') {
                 captureCount++;
                 next.board[tR][tC].piece = null;
@@ -260,9 +297,13 @@ export class VibeChessAI {
             }
         }
 
+        if (movingPiece.isExhausted && !captureCount) {
+             movingPiece.cooldownTurnsRemaining = 2;
+        }
+
         if (captureCount > 0) {
             next.killStreaks[player] += captureCount; 
-        } else if (!['swap', 'dance-swap', 'grapple-hook-swap', 'myco-propagate', 'life-leach', 'antidote', 'ram-push'].includes(move.type || '')) {
+        } else if (!['swap', 'dance-swap', 'grapple-hook-swap', 'myco-propagate', 'life-leach', 'antidote', 'ram-push', 'glacial-ray', 'burning-ray'].includes(move.type || '')) {
             next.killStreaks[player] = 0;
         }
         
@@ -288,7 +329,8 @@ export class VibeChessAI {
 
         for (let r = 0; r < 8; r++) {
             for (let c = 0; c < 8; c++) {
-                const piece = gs.board[r][c].piece;
+                const sq = gs.board[r][c];
+                const piece = sq.piece;
                 if (!piece) continue;
                 const mult = piece.color === aiColor ? 1 : -1;
                 const levelIdx = Math.min(piece.level || 1, 10) - 1;
@@ -301,6 +343,10 @@ export class VibeChessAI {
                     score += 100 * mult;
                 }
 
+                if ((piece.frozenTurnsRemaining || 0) > 0) {
+                    score -= 300 * mult;
+                }
+
                 if (piece.color === aiColor) {
                     if (piece.type === 'infiltrator') {
                         const targetRank = piece.color === 'white' ? 0 : 7;
@@ -311,8 +357,7 @@ export class VibeChessAI {
                     if (['hero', 'archbishop', 'palace', 'archer'].includes(piece.type)) score += 50;
                     if (['commander', 'myco_mage', 'dancer', 'mimic', 'grappler'].includes(piece.type)) score += 30;
                     
-                    // Value consumable items
-                    if (piece.heldItem && ['life_leach', 'resurrection_scroll', 'faith_scroll', 'shield_scroll'].includes(piece.heldItem)) {
+                    if (piece.heldItem && ['life_leach', 'resurrection_scroll', 'faith_scroll', 'shield_scroll', 'burning_ray', 'glacial_ray'].includes(piece.heldItem)) {
                         score += 200;
                     }
                 } else {
@@ -363,7 +408,6 @@ export class VibeChessAI {
                 }
             }
         }
-        // Filter out moves that leave the King in check
         return moves.filter(m => !this.isInCheck(this.makeMoveOptimized(gs, m, color), color));
     }
 
@@ -421,6 +465,13 @@ export class VibeChessAI {
             if (item === 'life_leach') moves.push({from:[r,c], to:[r,c], type:'life-leach'});
             if (item === 'antidote') moves.push({from:[r,c], to:[r,c], type:'antidote'});
             if (item === 'detonation_scroll' && effLevel >= 2) moves.push({from:[r,c], to:[r,c], type:'self-destruct'});
+            if (item === 'burning_ray' || item === 'glacial_ray') {
+                const rayType = item === 'burning_ray' ? 'burning-ray' : 'glacial-ray';
+                [[0,1],[0,-1],[1,0],[-1,0]].forEach(([dr,dc]) => {
+                    const tr = r + dr, tc = c + dc;
+                    if (isValidSquareUtil(tr, tc)) moves.push({from:[r,c], to:[tr,tc], type: rayType});
+                });
+            }
         }
 
         if (!simplified && patternType === 'grappler' && !silenced) {
@@ -464,8 +515,6 @@ export class VibeChessAI {
                                 });
                             }
                         });
-                        
-                        // Add double-click capture choice
                         if (targetPiece && targetPiece.color !== p.color) {
                             moves.push({ from: [r, c], to: [pr, pc], type: 'capture' });
                         }
