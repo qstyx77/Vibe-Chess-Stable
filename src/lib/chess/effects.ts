@@ -26,7 +26,6 @@ export function triggerPushBack(board: BoardState, r: number, c: number, color: 
       const victimSq = board[nr][nc];
       const isCardinal = (dr === 0 || dc === 0);
 
-      // Check Battering Ram cardinal anvil push (3 squares + obliteration)
       if (isCardinal && hasBatteringRam && victimSq.item?.type === 'anvil') {
           const pushResult = performExtendedDisplacement(board, nr, nc, dr, dc, 3, true);
           obliterated.push(...pushResult.obliterated);
@@ -34,7 +33,6 @@ export function triggerPushBack(board: BoardState, r: number, c: number, color: 
           continue;
       }
 
-      // Check Frontline/Grip Gloves/Wind Set/Wind Cloak pushes (1 square)
       const isAnvil = victimSq.item?.type === 'anvil';
       const isEnemy = victimSq.piece && victimSq.piece.color !== color;
       
@@ -92,7 +90,6 @@ export function performExtendedDisplacement(board: BoardState, startR: number, s
         }
 
         if (targetSq.piece) {
-            // PIECES CRUSHED BY ANVILS ARE ALWAYS OBLITERATED
             if (obliterateInPath || displacedItem?.type === 'anvil') {
                 obliterated.push({ ...targetSq.piece });
                 targetSq.piece = null;
@@ -222,11 +219,9 @@ export function triggerToxicCloud(board: BoardState, r: number, c: number, color
       if (isValidSquare(nr, nc)) {
         const victim = board[nr][nc].piece;
         if (victim && victim.color === oppColor) {
-          // Rule 1: If I am a poison zone, I poison the neighbor
           if (isActingPoisonZone && victim.heldItem !== 'filter_mask') {
             victim.isPoisoned = true;
           }
-          // Rule 2: If the neighbor is a poison zone, they poison me
           const victimSets = getActiveSets(board, victim.color);
           if (victimSets.includes('toxic_cloud') && actingPiece.heldItem !== 'filter_mask') {
             actingPiece.isPoisoned = true;
@@ -244,7 +239,7 @@ export function triggerConversion(board: BoardState, r: number, c: number, color
     const nr = r+dr; const nc = c+dc;
     if(isValidSquare(nr, nc)) {
       const v = board[nr][nc].piece;
-      if(v && v.color !== color && v.type !== 'king' && Math.random() < threshold) {
+      if(v && v.color !== color && v.type !== 'king' && v.heldItem !== 'get_faith' && Math.random() < threshold) {
         const orig = {...v}; v.color = color; v.id = `conv_${v.id}_${Date.now()}`;
         events.push({ originalPiece: orig, convertedPiece: {...v}, byPiece: {...converter}, at: coordsToAlgebraic(nr, nc) });
       }
@@ -297,7 +292,7 @@ export function syncSoulLink(board: BoardState, color: PlayerColor): { levelChan
 }
 
 export function processPoisonDamage(board: BoardState, currentPlayer: PlayerColor): { newBoard: BoardState, poisonedCaptures: Piece[], levelChanges: LevelChangeEvent[] } {
-  const newBoard = board.map(row => row.map(sq => ({ ...sq, piece: sq.piece ? { ...sq.piece } : null, item: sq.item ? {...sq.item} : null, phasedPiece: sq.phasedPiece ? { ...sq.phasedPiece } : null })));
+  const newBoard = board.map(row => row.map(sq => ({ ...sq, piece: sq.piece ? { ...sq.piece } : null, item: sq.item ? {...sq.item} : null, phasedPiece: sq.phasedPiece ? { ...sq.phasedPiece } : null, oilSlickTurnsRemaining: sq.oilSlickTurnsRemaining, phasedTurnsRemaining: sq.phasedTurnsRemaining })));
   const poisonedCaptures: Piece[] = [];
   const levelChanges: LevelChangeEvent[] = [];
 
@@ -363,7 +358,7 @@ export function processPoisonDamage(board: BoardState, currentPlayer: PlayerColo
 }
 
 export function processOilSlickTimers(board: BoardState, player: PlayerColor): BoardState {
-    const newBoard = board.map(row => row.map(sq => ({ ...sq, piece: sq.piece ? { ...sq.piece } : null, item: sq.item ? {...sq.item} : null, phasedPiece: sq.phasedPiece ? { ...sq.phasedPiece } : null, oilSlickTurnsRemaining: sq.oilSlickTurnsRemaining })));
+    const newBoard = board.map(row => row.map(sq => ({ ...sq, piece: sq.piece ? { ...sq.piece } : null, item: sq.item ? {...sq.item} : null, phasedPiece: sq.phasedPiece ? { ...sq.phasedPiece } : null, oilSlickTurnsRemaining: sq.oilSlickTurnsRemaining, phasedTurnsRemaining: sq.phasedTurnsRemaining })));
     for (let r = 0; r < 8; r++) {
         for (let c = 0; c < 8; c++) {
             if (newBoard[r][c].oilSlickTurnsRemaining > 0) {
@@ -404,7 +399,6 @@ export function applyOilSlide(board: BoardState, row: number, col: number, dr: n
                 currentR = nr;
                 currentC = nc;
             } else if (targetSq.piece && targetSq.piece.type !== 'king' && !targetSq.piece.isShielded) {
-                // ANVIL SLIDING INTO PIECE = OBLITERATION
                 obliterated.push({ ...targetSq.piece });
                 board[nr][nc].piece = null;
                 board[nr][nc].item = { ...movingObjItem };

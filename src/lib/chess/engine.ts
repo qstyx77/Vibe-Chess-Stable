@@ -321,7 +321,7 @@ export function applyMove(
       const dc = Math.sign(toCol - fromCol);
       const isCardinal = dr === 0 || dc === 0;
       const dist = (isRamPushMove && isCardinal) ? 3 : 1;
-      const obliterate = true; // PIECES HIT BY ANVILS ARE ALWAYS OBLITERATED
+      const obliterate = true; 
       
       const pushRes = performExtendedDisplacement(newBoard, toRow, toCol, dr, dc, dist, obliterate);
       if (pushRes.obliterated.length > 0) obliteratedPieces.push(...pushRes.obliterated);
@@ -425,7 +425,8 @@ export function applyMove(
       if (movingPiece.level > oldDL) levelChanges.push({ square: coordsToAlgebraic(fromRow, fromCol), delta: movingPiece.level - oldDL });
       movingPiece.obliterationTurnsRemaining = 4;
       movingPiece.heldItem = null;
-      return { newBoard, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered: null, originalPieceLevel: originalLevelValue, originalPieceType: originalTypeIdentifier, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null, anvilDroppedSquares, levelChanges, obliteratedPieces: [] };
+      const pOrigL = originalLevelValue; const pOrigT = originalTypeIdentifier;
+      return { newBoard, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered: null, originalPieceLevel: pOrigL, originalPieceType: pOrigT, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null, anvilDroppedSquares, levelChanges, obliteratedPieces: [] };
   }
 
   if (move.type === 'heavy-rain') {
@@ -683,7 +684,7 @@ export function applyMove(
           const nr=fromRow+dr; const nc=fromCol+dc;
           if(isValidSquare(nr,nc)) {
               const vict = newBoard[nr][nc].piece;
-              if (vict && vict.color !== convColor && vict.type !== 'king') {
+              if (vict && vict.color !== convColor && vict.type !== 'king' && vict.heldItem !== 'get_faith') {
                   if (Math.random() < 0.5) {
                     const origVict = {...vict};
                     vict.color = convColor;
@@ -836,7 +837,6 @@ export function applyMove(
   if (captured) {
     const shardShatter = pieceLanded.heldItem === 'ice_breaker' && (captured.frozenTurnsRemaining || 0) > 0;
     
-    // Thieves' Gloves: 50% chance to steal equipment
     if (pieceLanded.heldItem === 'thieves_gloves' && captured.heldItem) {
         if (Math.random() < 0.5) {
             stolenItem = captured.heldItem;
@@ -944,7 +944,6 @@ export function applyMove(
     }
     if (shardShatter) { promotedToInfiltrator = true; obliteratedPieces.push({ ...captured, id: `shattered_${captured.id}_${Date.now()}` }); captured = null; }
 
-    // SMOKE BOMB Logic
     if (captured && captured.heldItem === 'smoke_bomb') {
         const backRankIdx = captured.color === 'white' ? 7 : 0;
         const candidates: AlgebraicSquare[] = [];
@@ -976,7 +975,6 @@ export function applyMove(
     }));
   }
 
-  // SHARED DIVINITY: LUMINOUS SET BONUS
   const teamActiveSets = getActiveSets(newBoard, pieceLanded.color);
   if (didLevelUpFlag && teamActiveSets.includes('luminous')) {
     let lowestP: SquareState | null = null;
@@ -1037,7 +1035,6 @@ export function applyMove(
   levelChanges.push(...landingPushDeltas);
   if (landingObliterated.length > 0) obliteratedPieces.push(...landingObliterated);
 
-  // TOXIC CLOUD: Trigger environmental poison logic
   triggerToxicCloud(newBoard, toRow, toCol, pieceLanded.color);
 
   if ((pieceLanded.type === 'infiltrator' || assassinAtBackRank) && toRow === (pieceLanded.color === 'white' ? 0 : 7)) infiltrationWin = true;
