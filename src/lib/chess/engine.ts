@@ -318,6 +318,34 @@ export function applyMove(
       levelChanges.push(...pushRes.levelChanges);
   }
 
+  if (move.type === 'earthquake-scroll') {
+      const oppColor = movingPiece.color === 'white' ? 'black' : 'white';
+      for (let dr = -1; dr <= 1; dr++) {
+          for (let dc = -1; dc <= 1; dc++) {
+              const nr = toRow + dr; const nc = toCol + dc;
+              if (isValidSquare(nr, nc)) {
+                  const victimSq = newBoard[nr][nc];
+                  const v = victimSq.piece;
+                  if (v && v.color === oppColor && v.type !== 'king') {
+                      const oldL = v.level;
+                      v.level = Math.max(1, v.level - 2);
+                      if (v.level < oldL) levelChanges.push({ square: coordsToAlgebraic(nr, nc), delta: v.level - oldL });
+                      
+                      const pdr = Math.sign(nr - toRow);
+                      const pdc = Math.sign(nc - toCol);
+                      if (pdr !== 0 || pdc !== 0) {
+                          const pushResult = performExtendedDisplacement(newBoard, nr, nc, pdr, pdc, 1, false);
+                          if (pushResult.obliterated.length > 0) obliteratedPieces.push(...pushResult.obliterated);
+                          levelChanges.push(...pushResult.levelChanges);
+                      }
+                  }
+              }
+          }
+      }
+      newBoard[fromRow][fromCol].piece!.heldItem = null;
+      return { newBoard, capturedPiece: null, selfDestructCaptures: [], destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered: null, originalPieceLevel: movingPiece.level, originalPieceType: movingPiece.type, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null, anvilDroppedSquares, levelChanges, obliteratedPieces };
+  }
+
   if (move.type === 'lose-thy-faith') {
       const oppColor = movingPiece.color === 'white' ? 'black' : 'white';
       newBoard.forEach(row => row.forEach(sq => {

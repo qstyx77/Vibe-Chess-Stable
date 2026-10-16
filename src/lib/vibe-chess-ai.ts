@@ -1,5 +1,5 @@
 import type { Piece, PlayerColor, PieceType, AIMove, AIGameState, AIBoardState, AISquareState, Item, AlgebraicSquare, InventoryItemType, LastMoveInfo } from '@/types';
-import { coordsToAlgebraic, algebraicToCoords, getCastlingRightsString, isPieceInvulnerableToAttack as isPieceInvulnerableToAttackUtil, isValidSquare as isValidSquareUtil, getEffectiveLevel, getPromotionLevel, FRONTLINE_TYPES } from '@/lib/chess-utils';
+import { coordsToAlgebraic, algebraicToCoords, getCastlingRightsString, isPieceInvulnerableToAttack as isPieceInvulnerableToAttackUtil, isValidSquare as isValidSquareUtil, getEffectiveLevel, getPromotionLevel, FRONTLINE_TYPES, VAL_MAP } from '@/lib/chess-utils';
 
 export class VibeChessAI {
     maxDepth: number;
@@ -144,7 +144,39 @@ export class VibeChessAI {
         if (player === 'white') next.lastMoveWhite = moveInfo; else next.lastMoveBlack = moveInfo;
         next.lastMoveGlobal = moveInfo;
 
-        if (move.type === 'burning-ray') {
+        if (move.type === 'earthquake-scroll') {
+            for (let dr = -1; dr <= 1; dr++) {
+                for (let dc = -1; dc <= 1; dc++) {
+                    const nr = tR + dr; const nc = tC + dc;
+                    if (isValidSquareUtil(nr, nc)) {
+                        const victim = next.board[nr][nc].piece;
+                        if (victim && victim.color === opponent && victim.type !== 'king') {
+                            victim.level = Math.max(1, victim.level - 2);
+                            captureCount++; // Valued as effective capture for AI bias
+                            // Simulate push
+                            const pdr = Math.sign(nr - tR); const pdc = Math.sign(nc - tC);
+                            if (isValidSquareUtil(nr + pdr, nc + pdc) && !next.board[nr + pdr][nc + pdc].piece && !next.board[nr + pdr][nc + pdc].item) {
+                                next.board[nr + pdr][nc + pdc].piece = victim;
+                                next.board[nr][nc].piece = null;
+                            }
+                        }
+                    }
+                }
+            }
+            movingPiece.heldItem = null;
+        } else if (move.type === 'oil-slick') {
+            for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+                if (isValidSquareUtil(tR + dr, tC + dc)) next.board[tR + dr][tC + dc].item = { type: 'shroom' }; // Placeholder for hazard evaluation
+            }
+            movingPiece.heldItem = null;
+        } else if (move.type === 'phase-out') {
+            for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+                if (isValidSquareUtil(fR + dr, fC + dc)) {
+                    if (next.board[fR + dr][fC + dc].piece?.type !== 'king') next.board[fR + dr][fC + dc].piece = null;
+                }
+            }
+            movingPiece.heldItem = null;
+        } else if (move.type === 'burning-ray') {
             let totalGain = 0;
             const dr = Math.sign(tR - fR);
             const dc = Math.sign(tC - fC);
@@ -303,7 +335,7 @@ export class VibeChessAI {
 
         if (captureCount > 0) {
             next.killStreaks[player] += captureCount; 
-        } else if (!['swap', 'dance-swap', 'grapple-hook-swap', 'myco-propagate', 'life-leach', 'antidote', 'ram-push', 'glacial-ray', 'burning-ray'].includes(move.type || '')) {
+        } else if (!['swap', 'dance-swap', 'grapple-hook-swap', 'myco-propagate', 'life-leach', 'antidote', 'ram-push', 'glacial-ray', 'burning-ray', 'earthquake-scroll', 'oil-slick', 'phase-out'].includes(move.type || '')) {
             next.killStreaks[player] = 0;
         }
         
@@ -357,7 +389,7 @@ export class VibeChessAI {
                     if (['hero', 'archbishop', 'palace', 'archer'].includes(piece.type)) score += 50;
                     if (['commander', 'myco_mage', 'dancer', 'mimic', 'grappler'].includes(piece.type)) score += 30;
                     
-                    if (piece.heldItem && ['life_leach', 'resurrection_scroll', 'faith_scroll', 'shield_scroll', 'burning_ray', 'glacial_ray'].includes(piece.heldItem)) {
+                    if (piece.heldItem && ['life_leach', 'resurrection_scroll', 'faith_scroll', 'shield_scroll', 'burning_ray', 'glacial_ray', 'earthquake_scroll', 'oil_slick', 'phase_out'].includes(piece.heldItem)) {
                         score += 200;
                     }
                 } else {
@@ -465,6 +497,14 @@ export class VibeChessAI {
             if (item === 'life_leach') moves.push({from:[r,c], to:[r,c], type:'life-leach'});
             if (item === 'antidote') moves.push({from:[r,c], to:[r,c], type:'antidote'});
             if (item === 'detonation_scroll' && effLevel >= 2) moves.push({from:[r,c], to:[r,c], type:'self-destruct'});
+            if (item === 'phase_out' && effLevel >= 2) moves.push({from:[r,c], to:[r,c], type:'phase-out'});
+            if (item === 'oil_slick' || (item === 'earthquake_scroll' && effLevel >= 3)) {
+                const moveType = item === 'oil_slick' ? 'oil-slick' : 'earthquake-scroll';
+                for(let dr=-2; dr<=2; dr++) for(let dc=-2; dc<=2; dc++) {
+                    const tr=r+dr, tc=c+dc;
+                    if(isValidSquareUtil(tr,tc)) moves.push({from:[r,c], to:[tr,tc], type: moveType});
+                }
+            }
             if (item === 'burning_ray' || item === 'glacial_ray') {
                 const rayType = item === 'burning_ray' ? 'burning-ray' : 'glacial-ray';
                 [[0,1],[0,-1],[1,0],[-1,0]].forEach(([dr,dc]) => {
