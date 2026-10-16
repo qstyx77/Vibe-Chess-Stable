@@ -1532,6 +1532,7 @@ export default function EvolvingChessPage() {
               if (applyRes.hydraSplitOccurred) { audioManager.playResurrect(); addLog("The Hydra regrows its heads!"); if (applyRes.hydraSpawnSquares) applyRes.hydraSpawnSquares.forEach(sq => addEffectCallback('level-change', sq, currentPlayer, 1)); }
               if (applyRes.phoenixResurrection) { addEffectCallback('light-beam', applyRes.phoenixResurrection.square); audioManager.playResurrect(); }
               if (applyRes.resurrectionScrollEvent) { addEffectCallback('light-beam', applyRes.resurrectionScrollEvent.square); audioManager.playResurrect(); }
+              if (applyRes.signalHornEvent) { addLog(`Signal Horn! ${applyRes.signalHornEvent.piece.type} gains a level.`); }
               if (applyRes.anvilDroppedSquares) applyRes.anvilDroppedSquares.forEach(sq => { setTimeout(() => { addEffectCallback('poof', sq); audioManager.playAnvil(); }, 300); });
               let rookResResult: RookResurrectionResult | null = null;
               const wasCap = streakGain > 0;
@@ -1608,7 +1609,7 @@ export default function EvolvingChessPage() {
                 if (remoteEvents.captured) { audioManager.playCapture(); addEffectCallback('poof', remoteMove.to); addLog(`${getPlayerDisplayName(actingColor)} captured a ${remoteEvents.capturedType}!`); }
                 if (remoteEvents.shroom) { audioManager.playShroom(); addLog(`${getPlayerDisplayName(actingColor)} consumed a Shroom!`); }
                 if (remoteEvents.hero) { audioManager.playLevelUp(); addLog(`${getPlayerDisplayName(actingColor)} Hero Ascended!`); }
-                if (remoteEvents.rally && remoteEvents.rallyPos) { audioManager.playRally(); addEffectCallback('shockwave', remoteEvents.rallyPos, actingColor); }
+                if (remoteEvents.rally) { audioManager.playRally(); addEffectCallback('shockwave', remoteEvents.rallyPos, actingColor); }
                 if (remoteEvents.conversions?.length > 0) { audioManager.playConversion(); remoteEvents.conversions.forEach((pos: AlgebraicSquare) => { addEffectCallback('conversion', pos); }); }
                 if (remoteEvents.reflection) { audioManager.playCapture(); addEffectCallback('poof', remoteMove.to); addLog("Attack reflected!"); }
                 if (remoteEvents.ralliedSquares?.length > 0) { remoteEvents.ralliedSquares.forEach((pos: AlgebraicSquare) => { addEffectCallback('level-change', pos, actingColor, 1); }); }
@@ -1618,22 +1619,11 @@ export default function EvolvingChessPage() {
                 if (remoteEvents.resurrection && remoteEvents.resPos) { audioManager.playResurrect(); addEffectCallback('light-beam', remoteEvents.resPos); addLog(`${getPlayerDisplayName(actingColor)} triggered Resurrection Call!`); }
                 if (remoteEvents.hydraSplit) { audioManager.playResurrect(); addLog("The Hydra regrows its heads!"); if (remoteEvents.hydraSpawnSquares) remoteEvents.hydraSpawnSquares.forEach((pos: AlgebraicSquare) => addEffectCallback('light-beam', pos)); }
                 if (remoteEvents.resScroll) { audioManager.playResurrect(); addEffectCallback('light-beam', remoteEvents.resScrollPos); }
+                if (remoteEvents.stolen) { addLog(`STOLEN: ${ITEM_METADATA[remoteEvents.stolenItem as InventoryItemType].name}!`); }
+                if (remoteEvents.smokeBomb && remoteEvents.smokePos) { audioManager.playResurrect(); addEffectCallback('poof', remoteEvents.smokePos); addLog(`${getPlayerDisplayName(actingColor)}'s unit escaped via Smoke Bomb!`); }
                 if (remoteEvents.glassShard) { addLog("Glass Shard! Capturer is exhausted."); }
-                if (remoteEvents.stolen) {
-                    addLog(`STOLEN: ${ITEM_METADATA[remoteEvents.stolenItem as InventoryItemType].name}!`);
-                    if (user && localPlayerColor === actingColor) {
-                        const newInv = [...inventory];
-                        const existing = newInv.find(i => i.type === remoteEvents.stolenItem);
-                        if (existing) existing.count++;
-                        else newInv.push({ type: remoteEvents.stolenItem, count: 1 });
-                        setInventory(newInv);
-                        saveLoadoutToFirestore(nextGs.board, newInv);
-                    }
-                }
-                if (remoteEvents.smokeBomb && remoteEvents.smokePos) {
-                    audioManager.playResurrect(); addEffectCallback('poof', remoteEvents.smokePos);
-                    addLog(`${getPlayerDisplayName(actingColor)}'s unit escaped via Smoke Bomb!`);
-                }
+                if (remoteEvents.signalHorn) { addLog(`Signal Horn! ${remoteEvents.signalHornTargetType} gains a level.`); }
+                if (remoteEvents.soulLink) { addLog(`Soul Link! ${remoteEvents.soulLinkCount} bound units collapsed.`); }
                 remoteEvents.levelChanges?.forEach((lc: any) => addEffectCallback('level-change', lc.square, actingColor, lc.delta));
                 const isCheck = isKingInCheck(nextGs.board, nextGs.currentPlayer, nextGs.enPassantTargetSquare, lastMoveWhite, lastMoveBlack, lastMoveGlobal);
                 if (isCheck) { audioManager.playCheck(); addLog("Check!"); setGameInfo(prev => ({ ...prev, isCheck: true, playerWithKingInCheck: nextGs.currentPlayer })); }

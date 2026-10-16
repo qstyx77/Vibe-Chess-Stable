@@ -121,9 +121,8 @@ const startArena = () => {
             p1.userData?.elo || 1200, 
             p2.userData?.elo || 1200, 
             p1.userData?.unlockedPieces || [], 
-            p2.userData?.unlockedPieces || [],
-            p1.userData?.equipment || {},
-            p2.userData?.equipment || {}
+            [],
+            p1.userData?.equipment || {}
         );
 
         rooms[roomId] = {
@@ -193,9 +192,8 @@ const startNextTournamentRound = (tournamentId: string) => {
             p1Data?.elo || 1200, 
             p2Data?.elo || 1200, 
             p1Data?.unlockedPieces || [], 
-            p2Data?.unlockedPieces || [],
-            p1Data?.equipment || {},
-            p2Data?.equipment || {}
+            [],
+            p1Data?.equipment || {}
         );
 
         rooms[roomId] = {
@@ -638,7 +636,11 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                             stolenItem: result.stolenItem,
                             smokeBomb: !!result.smokeBombEvent,
                             smokePos: result.smokeBombEvent?.square,
-                            glassShard: result.glassShardTriggered
+                            glassShard: result.glassShardTriggered,
+                            signalHorn: !!result.signalHornEvent,
+                            signalHornTargetType: result.signalHornEvent?.piece.type,
+                            soulLink: result.obliteratedPieces?.some(p => p.id.includes('_linked_')),
+                            soulLinkCount: result.obliteratedPieces?.filter(p => p.id.includes('_linked_')).length
                         };
 
                         broadcastToRoom(ws.roomId!, { 

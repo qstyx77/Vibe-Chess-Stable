@@ -409,6 +409,7 @@ export interface ApplyMoveResult {
   levelChanges?: LevelChangeEvent[];
   smokeBombEvent?: { piece: Piece, square: AlgebraicSquare };
   glassShardTriggered?: boolean;
+  signalHornEvent?: { piece: Piece, square: AlgebraicSquare };
 }
 
 export type ViewMode = 'flipping' | 'tabletop';

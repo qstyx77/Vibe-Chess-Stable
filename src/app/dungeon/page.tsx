@@ -568,7 +568,7 @@ export default function DungeonPage() {
     setGameInfo({ message: inC ? "Check!" : " ", isCheck: inC, playerWithKingInCheck: inC ? nxtP : null, isCheckmate: false, isStalemate: false, gameOver: false });
     if (inC) { addLog("Check!"); audioManager.playCheck(); }
     saveDungeonState(level, nB, nxtP, curKs, nG, shroomSpawnCounter, nextShroomSpawnTurn, nEp, necroResurrectionCounter, inventory);
-  }, [board, level, inventory, advanceLevel, lastMoveWhite, lastMoveBlack, lastMoveGlobal, addLog, positionHistory, shroomSpawnCounter, nextShroomSpawnTurn, necroResurrectionCounter, saveDungeonState, addEffect, getPlayerDisplayName, user, firestore, userData]);
+  }, [board, level, inventory, advanceLevel, lastMoveWhite, lastMoveBlack, lastMoveGlobal, addLog, positionHistory, shroomSpawnCounter, nextShroomSpawnTurn, necroResurrectionCounter, saveDungeonState, addEffect, findKing, user, firestore, userData]);
 
   const triggerSpecialsChain = useCallback((bCh: BoardState, cG: { white: Piece[], black: Piece[] }, cKs: { white: number, black: number }, oldS: number, newS: number, isEx: boolean, nEp: AlgebraicSquare | null, actP: PlayerColor = 'white', compM: string[] = [], capId: string | null = null, wasCap: boolean = false, movedT?: PieceType | null, trackWhite?: LastMoveInfo | null, trackBlack?: LastMoveInfo | null, trackGlobal?: LastMoveInfo | null) => {
     const isAI = actP === 'black'; const sil = bCh.flat().find(sq => sq.piece?.color === actP && isSilenced(bCh, sq.rowIndex, sq.colIndex, actP));
@@ -732,7 +732,7 @@ export default function DungeonPage() {
           return lastInfo?.type === 'archer';
         }
         const coords = bCh.flat().find(sq => sq.piece?.id === p.id); 
-        if ((p.type === 'knight' || p.type === 'mimic') && p.heldItem === 'shortbow' && coords && getEffectiveLevel(bCh, coords.rowIndex, coords.colIndex) >= 3) return true; 
+        if ((p.type === 'knight' || p.type === 'mimic') && p.heldItem === 'shortbow' && coords && getEffectiveLevel(board, coords.rowIndex, coords.colIndex) >= 3) return true; 
         return false; 
     });
     const maxSL = snipers.length > 0 ? Math.max(...snipers.map(a => a.level || 1)) : 0;
@@ -1335,9 +1335,9 @@ export default function DungeonPage() {
           
           res.levelChanges?.forEach(lc => addEffect('level-change', lc.square, 'white', lc.delta));
 
-          const totalCaptures = (res.capturedPiece ? 1 : 0) + (res.pieceCapturedByAnvil ? 1 : 0) + (res.selfDestructCaptures?.length || 0) + (res.obliteratedPieces?.length || 0) + (res.smokeBombEvent ? 1 : 0);
+          const streakGain = (res.capturedPiece ? 1 : 0) + (res.selfDestructCaptures?.length || 0) + (res.obliteratedPieces?.length || 0) + (res.smokeBombEvent ? 1 : 0);
           
-          if (res.capturedPiece || res.pieceCapturedByAnvil || res.selfDestructCaptures?.length || res.obliteratedPieces?.length || res.smokeBombEvent) { audioManager.playCapture(); addEffect('poof', alg); if (res.capturedPiece) addLog(`Hero: Captured ${res.capturedPiece.type}!`); }
+          if (res.capturedPiece || res.selfDestructCaptures?.length || res.obliteratedPieces?.length || res.smokeBombEvent) { audioManager.playCapture(); addEffect('poof', alg); if (res.capturedPiece) addLog(`Hero: Captured ${res.capturedPiece.type}!`); }
           
           if (res.glassShardTriggered) addLog("Glass Shard! Capturer is exhausted.");
 
@@ -1350,6 +1350,7 @@ export default function DungeonPage() {
           }
           if (res.phoenixResurrection) { addEffect('light-beam', res.phoenixResurrection.square); audioManager.playResurrect(); }
           if (res.resurrectionScrollEvent) { addEffect('light-beam', res.resurrectionScrollEvent.square); audioManager.playResurrect(); }
+          if (res.signalHornEvent) { addLog(`Signal Horn! ${res.signalHornEvent.piece.type} gains a level.`); }
 
           if (res.anvilDroppedSquares) res.anvilDroppedSquares.forEach(sq => {
               setTimeout(() => {
@@ -1380,7 +1381,7 @@ export default function DungeonPage() {
           if (res.selfDestructCaptures) res.selfDestructCaptures.forEach(p => { const pile = p.color; nxtG[pile] = [...nxtG[pile], p]; });
 
           let rookResResult: RookResurrectionResult | null = null;
-          if ((patternType === 'rook' || patternType === 'palace') && totalCaptures > 0) {
+          if ((patternType === 'rook' || patternType === 'palace') && streakGain > 0) {
               const resRes = processRookResurrectionCheck(nextBoardState, 'white', {from: selectedSquare, to: alg, type: mType}, alg, oL, nxtG, Date.now());
               if (resRes.resurrectionPerformed) {
                   nextBoardState = resRes.boardWithResurrection;
@@ -1396,7 +1397,7 @@ export default function DungeonPage() {
           setClickedEnemySquare(null); setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
           setTimeout(() => { 
             setIsMoveProcessing(false); clickGuard.current = false; 
-            const oS = killStreaks['white'], nS = (totalCaptures > 0) ? oS + totalCaptures : 0, isExtraTurn = res.extraTurn || (oS < 6 && nS >= 6);
+            const oS = killStreaks['white'], nS = (streakGain > 0) ? oS + streakGain : 0, isExtraTurn = res.extraTurn || (oS < 6 && nS >= 6);
             const cKs = { ...killStreaks, white: nS }; setKillStreaks(cKs);
             const q = res.multiPromotions || []; const oppRank = movingP.color === 'white' ? 0 : 7;
             if (FRONTLINE_TYPES.includes(nextBoardState[row][col].piece?.type || '') && row === oppRank) { q.push({ square: alg, targetLevel: getPromotionLevel(res.capturedPiece?.type || null) }); }
@@ -1404,7 +1405,7 @@ export default function DungeonPage() {
                 q.push({ square: rookResResult.resurrectedSquareAlg!, targetLevel: 1 });
             }
             if (q.length > 0) { setPromotionQueue(q); setIsPromotingPawn(true); setPromotionSquare(q[0].square); setPromotionTargetLevel(q[0].targetLevel); setSpecialActionContext({ boardForNextStep: nextBoardState, playerWhoseTurnCompleted: 'white', isExtraTurn: isExtraTurn, newEnPassantTarget: res.enPassantTargetSet, oldStreak: oS, newStreak: nS, currentGraveyard: nxtG, currentKs: cKs, capturingPieceId: nextBoardState[row][col].piece?.id || null, trackWhite: nextTracks.white, trackBlack: nextTracks.black, trackGlobal: nextTracks.global }); } 
-            else { processPawnSacrificeCheck(nextBoardState, nxtG, cKs, 'white', {from: selectedSquare, to: alg, type: mType}, oL, oT, oH, isExtraTurn, res.enPassantTargetSet, oS, nS, nextBoardState[row][col].piece?.id || null, totalCaptures > 0, oT, nextTracks.white, nextTracks.black, nextTracks.global); }
+            else { processPawnSacrificeCheck(nextBoardState, nxtG, cKs, 'white', {from: selectedSquare, to: alg, type: mType}, oL, oT, oH, isExtraTurn, res.enPassantTargetSet, oS, nS, nextBoardState[row][col].piece?.id || null, streakGain > 0, oT, nextTracks.white, nextTracks.black, nextTracks.global); }
           }, 800);
           return;
        }
@@ -1519,9 +1520,9 @@ export default function DungeonPage() {
         
         appRes.levelChanges?.forEach(lc => addEffect('level-change', lc.square, 'black', lc.delta));
 
-        const totalCaptures = (appRes.capturedPiece ? 1 : 0) + (appRes.pieceCapturedByAnvil ? 1 : 0) + (appRes.selfDestructCaptures?.length || 0) + (appRes.obliteratedPieces?.length || 0) + (appRes.smokeBombEvent ? 1 : 0);
+        const streakGain = (appRes.capturedPiece ? 1 : 0) + (appRes.selfDestructCaptures?.length || 0) + (appRes.obliteratedPieces?.length || 0) + (appRes.smokeBombEvent ? 1 : 0);
         
-        if (appRes.capturedPiece || appRes.pieceCapturedByAnvil || appRes.selfDestructCaptures?.length || appRes.obliteratedPieces?.length || appRes.smokeBombEvent) { audioManager.playCapture(); addEffect('poof', toAlg); }
+        if (appRes.capturedPiece || appRes.selfDestructCaptures?.length || appRes.obliteratedPieces?.length || appRes.smokeBombEvent) { audioManager.playCapture(); addEffect('poof', toAlg); }
         
         if (appRes.glassShardTriggered) addLog("Glass Shard! Dungeon is exhausted.");
 
@@ -1534,6 +1535,7 @@ export default function DungeonPage() {
         }
         if (appRes.phoenixResurrection) { addEffect('light-beam', appRes.phoenixResurrection.square); audioManager.playResurrect(); }
         if (appRes.resurrectionScrollEvent) { addEffect('light-beam', appRes.resurrectionScrollEvent.square); audioManager.playResurrect(); }
+        if (appRes.signalHornEvent) { addLog(`Signal Horn! ${appRes.signalHornEvent.piece.type} gains a level.`); }
 
         if (appRes.anvilDroppedSquares) appRes.anvilDroppedSquares.forEach(sq => {
             setTimeout(() => {
@@ -1544,7 +1546,7 @@ export default function DungeonPage() {
 
         let nextB = appRes.newBoard;
 
-        if (mP.id === 'boss-entity' && totalCaptures > 0) {
+        if (mP.id === 'boss-entity' && streakGain > 0) {
             addLog("Time Lock! The Void freezes reality!");
             audioManager.playFreeze();
             const { row: tr, col: tc } = algebraicToCoords(toAlg);
@@ -1574,7 +1576,7 @@ export default function DungeonPage() {
         let rookResResult: RookResurrectionResult | null = null;
         const patternType = (mP.type === 'mimic' && nextTracks.global?.type && nextTracks.global.type !== 'mimic') ? nextTracks.global.type : mP.type;
         
-        if ((patternType === 'rook' || patternType === 'palace') && totalCaptures > 0) {
+        if ((patternType === 'rook' || patternType === 'palace') && streakGain > 0) {
             const resRes = processRookResurrectionCheck(nextB, currentPlayer, {from: fromAlg, to: toAlg, type: 'move'}, toAlg, oL, nxtG, Date.now());
             if (resRes.resurrectionPerformed) {
                 nextB = resRes.boardWithResurrection;
@@ -1596,7 +1598,7 @@ export default function DungeonPage() {
         const oppBackRank = currentPlayer === 'black' ? 7 : 0;
         let aiPromoted = false;
         if (landed && FRONTLINE_TYPES.includes(landed.type) && move.to[0] === oppBackRank) {
-            const targetL = getPromotionLevel(appRes.capturedPiece?.type || appRes.pieceCapturedByAnvil?.type || null);
+            const targetL = getPromotionLevel(appRes.capturedPiece?.type || null);
             landed.type = 'queen';
             landed.level = Math.min(7, targetL);
             aiPromoted = true;
@@ -1606,12 +1608,12 @@ export default function DungeonPage() {
         addLog(`Dungeon: ${mP.type} to ${toAlg}${aiPromoted ? " (PROMOTED)" : ""}`);
         setTimeout(() => { 
           setIsAiThinking(false); setIsMoveProcessing(false); clickGuard.current = false; 
-          const oS = killStreaks['black'], nS = (totalCaptures > 0) ? oS + totalCaptures : 0;
+          const oS = killStreaks['black'], nS = (streakGain > 0) ? oS + streakGain : 0;
           let isExtraTurn = appRes.extraTurn || (oS < 6 && nS >= 6);
           if (landed && landed.level >= 5 && aiPromoted) isExtraTurn = true;
 
           const cKs = { ...killStreaks, black: nS }; setKillStreaks(cKs);
-          processPawnSacrificeCheck(nextB, nxtG, cKs, 'black', {from: fromAlg, to: toAlg, type: move.type as AIMoveType['type']}, oL, oT, oH, isExtraTurn, appRes.enPassantTargetSet, oS, nS, nextB[move.to[0]][move.to[1]].piece?.id || null, totalCaptures > 0, oT, nextTracks.white, nextTracks.black, nextTracks.global);
+          processPawnSacrificeCheck(nextB, nxtG, cKs, 'black', {from: fromAlg, to: toAlg, type: move.type as AIMoveType['type']}, oL, oT, oH, isExtraTurn, appRes.enPassantTargetSet, oS, nS, nextB[move.to[0]][move.to[1]].piece?.id || null, streakGain > 0, oT, nextTracks.white, nextTracks.black, nextTracks.global);
         }, 800);
     } else {
         const nextNo = aiNoMoveCounter + 1; setAiNoMoveCounter(nextNo);
@@ -1831,7 +1833,6 @@ export default function DungeonPage() {
           <AlertDialogFooter> <AlertDialogCancel className="h-10 text-[10px] uppercase">Cancel</AlertDialogCancel> <AlertDialogAction className="h-10 text-[10px] uppercase bg-destructive text-white" onClick={() => { startRun(true); setIsResetConfirmOpen(false); }}>Reset Now</AlertDialogAction> </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      <InventoryWindow isOpen={isInventoryOpen} onClose={() => setIsInventoryOpen(false)} inventory={inventory} selectedItemType={selectedInventoryItemType} onSelectItem={setSelectedInventoryItemType} onUseItem={handleUsePortalScroll} attunementSlots={attunementSlots} usedSlots={usedSlots} />
       <InventoryWindow isOpen={isInventoryOpen} onClose={() => setIsInventoryOpen(false)} inventory={inventory} selectedItemType={selectedInventoryItemType} onSelectItem={setSelectedInventoryItemType} onUseItem={handleUsePortalScroll} attunementSlots={attunementSlots} usedSlots={usedSlots} />
       <LootWinningsWindow isOpen={isLootWindowOpen} onClose={handleClaimLoot} loot={lootFound} floor={level} />
     </div>
