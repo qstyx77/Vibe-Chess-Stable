@@ -547,9 +547,8 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                         });
                         gs.killStreaks[playerColor] += result.selfDestructCaptures.length;
                         gs.didOpponentCaptureLastTurn = true;
-                    } else if (result.pieceCapturedByAnvil || (result.obliteratedPieces && result.obliteratedPieces.length > 0)) {
-                        const count = (result.pieceCapturedByAnvil ? 1 : 0) + (result.obliteratedPieces?.length || 0);
-                        gs.killStreaks[playerColor] += count;
+                    } else if (result.obliteratedPieces && result.obliteratedPieces.length > 0) {
+                        gs.killStreaks[playerColor] += result.obliteratedPieces.length;
                         gs.didOpponentCaptureLastTurn = true;
                     } else if (!isRewardMove) {
                         gs.killStreaks[playerColor] = 0;
@@ -558,7 +557,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
 
                     const toCoords = algebraicToCoords(movePayload.to);
                     const landedPiece = gs.board[toCoords.row][toCoords.col].piece;
-                    const wasCapture = !!(result.capturedPiece || result.pieceCapturedByAnvil || result.selfDestructCaptures?.length || (result.obliteratedPieces && result.obliteratedPieces.length > 0));
+                    const wasCapture = !!(result.capturedPiece || result.selfDestructCaptures?.length || (result.obliteratedPieces && result.obliteratedPieces.length > 0));
                     
                     if (landedPiece && (landedPiece.type === 'rook' || landedPiece.type === 'palace') && wasCapture) {
                         const resRes = processRookResurrectionCheck(gs.board, playerColor, movePayload, movePayload.to, movingPiece?.level || 1, gs.capturedPieces, Date.now());
@@ -619,7 +618,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                         
                         const events = {
                             captured: wasCapture,
-                            capturedType: (result.capturedPiece || result.pieceCapturedByAnvil || result.obliteratedPieces?.[0])?.type,
+                            capturedType: (result.capturedPiece || result.obliteratedPieces?.[0])?.type,
                             shroom: result.shroomConsumed,
                             hero: result.promotedToHero,
                             rally: !!result.rallyCryTriggered,

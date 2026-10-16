@@ -1016,56 +1016,56 @@ export default function DungeonPage() {
         return;
     }
     if (isInventoryOpen) {
-      if (selectedInventoryItemType && !selectedInventoryItemType.startsWith('portal_scroll_')) {
-        const itemMeta = ITEM_METADATA[selectedInventoryItemType];
-        if (itemMeta.rarity === 'rare' && board.flat().some(sq => sq.piece?.heldItem === selectedInventoryItemType)) {
-            if (piece?.heldItem !== selectedInventoryItemType) {
-                addLog(`LIMIT REACHED: Only one ${itemMeta.name} allowed!`); return;
+        if (selectedInventoryItemType && !selectedInventoryItemType.startsWith('portal_scroll_')) {
+          const itemMeta = ITEM_METADATA[selectedInventoryItemType];
+          if (itemMeta.rarity === 'rare' && board.flat().some(sq => sq.piece?.heldItem === selectedInventoryItemType)) {
+              if (piece?.heldItem !== selectedInventoryItemType) {
+                  addLog(`LIMIT REACHED: Only one ${itemMeta.name} allowed!`); return;
+              }
+          }
+          if (piece && piece.color === 'white') {
+            if (piece.heldItem === selectedInventoryItemType) { setSelectedInventoryItemType(null); return; }
+            if (!isItemValidForPiece(selectedInventoryItemType, piece.type)) return;
+  
+            if (!piece.heldItem && usedSlots >= attunementSlots) { addLog("Attunement Limit Reached!"); return; }
+  
+            const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? { ...s.item } : null, phasedPiece: s.phasedPiece ? { ...s.phasedPiece } : null })));
+            const targetP = nextBoard[row][col].piece!;
+            const oldItem = targetP.heldItem;
+            
+            targetP.heldItem = selectedInventoryItemType;
+            setBoard(nextBoard);
+  
+            let newInv = [...inventory];
+            if (oldItem) {
+                const existingOld = newInv.find(i => i.type === oldItem);
+                if (existingOld) existingOld.count++;
+                else newInv.push({ type: oldItem, count: 1 });
+                addLog(`Swapped: ${ITEM_METADATA[oldItem].name} returned to bag.`);
             }
-        }
-        if (piece && piece.color === 'white') {
-          if (piece.heldItem === selectedInventoryItemType) { setSelectedInventoryItemType(null); return; }
-          if (!isItemValidForPiece(selectedInventoryItemType, piece.type)) return;
-
-          if (!piece.heldItem && usedSlots >= attunementSlots) { addLog("Attunement Limit Reached!"); return; }
-
-          const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? { ...s.item } : null, phasedPiece: s.phasedPiece ? { ...s.phasedPiece } : null })));
-          const targetP = nextBoard[row][col].piece!;
-          const oldItem = targetP.heldItem;
-          
-          targetP.heldItem = selectedInventoryItemType;
-          setBoard(nextBoard);
-
-          let newInv = [...inventory];
-          if (oldItem) {
-              const existingOld = newInv.find(i => i.type === oldItem);
-              if (existingOld) existingOld.count++;
-              else newInv.push({ type: oldItem, count: 1 });
-              addLog(`Swapped: ${ITEM_METADATA[oldItem].name} returned to bag.`);
+  
+            const itemInBag = newInv.find(i => i.type === selectedInventoryItemType);
+            if (itemInBag) { 
+                itemInBag.count--; 
+                if (itemInBag.count <= 0) newInv = newInv.filter(i => i.type !== selectedInventoryItemType); 
+            }
+  
+            setInventory(newInv); 
+            saveDungeonState(level, nextBoard, currentPlayer, killStreaks, capturedPieces, shroomSpawnCounter, nextShroomSpawnTurn, enPassantTargetSquare, necroResurrectionCounter, newInv);
+            setSelectedInventoryItemType(null); 
+            audioManager.playLevelUp(); 
+            addLog(`Equipped ${ITEM_METADATA[selectedInventoryItemType].name}`);
           }
-
-          const itemInBag = newInv.find(i => i.type === selectedInventoryItemType);
-          if (itemInBag) { 
-              itemInBag.count--; 
-              if (itemInBag.count <= 0) newInv = newInv.filter(i => i.type !== selectedInventoryItemType); 
-          }
-
-          setInventory(newInv); 
-          saveDungeonState(level, nextBoard, currentPlayer, killStreaks, capturedPieces, shroomSpawnCounter, nextShroomSpawnTurn, enPassantTargetSquare, necroResurrectionCounter, newInv);
-          setSelectedInventoryItemType(null); 
-          audioManager.playLevelUp(); 
-          addLog(`Equipped ${ITEM_METADATA[selectedInventoryItemType].name}`);
+        } else if (piece && piece.heldItem && piece.color === 'white') {
+            const removed = piece.heldItem; const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? { ...s.item } : null, phasedPiece: s.phasedPiece ? { ...s.phasedPiece } : null })));
+            nextBoard[row][col].piece!.heldItem = null; setBoard(nextBoard);
+            const nextInv = [...inventory]; const item = nextInv.find(i => i.type === removed); if (item) item.count++; else nextInv.push({ type: removed, count: 1 });
+            setInventory(nextInv);
+            saveDungeonState(level, nextBoard, currentPlayer, killStreaks, capturedPieces, shroomSpawnCounter, nextShroomSpawnTurn, enPassantTargetSquare, necroResurrectionCounter, nextInv);
+            audioManager.playMove(); addLog(`Unequipped ${ITEM_METADATA[removed].name}`);
         }
-      } else if (piece && piece.heldItem && piece.color === 'white') {
-          const removed = piece.heldItem; const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? { ...s.item } : null, phasedPiece: s.phasedPiece ? { ...s.phasedPiece } : null })));
-          nextBoard[row][col].piece!.heldItem = null; setBoard(nextBoard);
-          const nextInv = [...inventory]; const item = nextInv.find(i => i.type === removed); if (item) item.count++; else nextInv.push({ type: removed, count: 1 });
-          setInventory(nextInv);
-          saveDungeonState(level, nextBoard, currentPlayer, killStreaks, capturedPieces, shroomSpawnCounter, nextShroomSpawnTurn, enPassantTargetSquare, necroResurrectionCounter, nextInv);
-          audioManager.playMove(); addLog(`Unequipped ${ITEM_METADATA[removed].name}`);
+        return;
       }
-      return;
-    }
     if (isAwaitingRayTarget && selectedSquare) {
         const { row: fR, col: fC } = algebraicToCoords(selectedSquare);
         const movingP = board[fR][fC].piece!;
@@ -1265,7 +1265,10 @@ export default function DungeonPage() {
                    setLastMoveGlobal(newMoveInfo);
                    const res = applyMove(board, move, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, false);
                    setBoard(res.newBoard);
-                   setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; setSelectedSquare(null); processMoveEnd(res.newBoard, capturedPieces, killStreaks, currentPlayer, false, null, false, moving.type, nextTracks.white, nextTracks.black, nextTracks.global); }, 800);
+                   const updatedG = { white: Array.isArray(capturedPieces.white) ? [...capturedPieces.white] : [], black: Array.isArray(capturedPieces.black) ? [...capturedPieces.black] : [] };
+                   if (res.selfDestructCaptures) res.selfDestructCaptures.forEach(p => updatedG[p.color].push(p));
+                   setCapturedPieces(updatedG);
+                   setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; setSelectedSquare(null); processMoveEnd(res.newBoard, updatedG, killStreaks, currentPlayer, false, null, false, moving.type, nextTracks.white, nextTracks.black, nextTracks.global); }, 800);
                    return;
                }
 
@@ -1339,9 +1342,9 @@ export default function DungeonPage() {
           
           res.levelChanges?.forEach(lc => addEffect('level-change', lc.square, 'white', lc.delta));
 
-          const isFake = res.capturedPiece?.id?.startsWith('boss-mirage-fake');
-          if (res.capturedPiece || res.pieceCapturedByAnvil || res.selfDestructCaptures?.length || res.obliteratedPieces?.length) { audioManager.playCapture(); addEffect('poof', alg); if (res.capturedPiece) addLog(`Hero: Captured ${res.capturedPiece.type}!`); }
           const totalCaptures = (res.capturedPiece ? 1 : 0) + (res.pieceCapturedByAnvil ? 1 : 0) + (res.selfDestructCaptures?.length || 0) + (res.obliteratedPieces?.length || 0);
+          
+          if (res.capturedPiece || res.pieceCapturedByAnvil || res.selfDestructCaptures?.length || res.obliteratedPieces?.length) { audioManager.playCapture(); addEffect('poof', alg); if (res.capturedPiece) addLog(`Hero: Captured ${res.capturedPiece.type}!`); }
           
           if (res.shroomConsumed) { audioManager.playShroom(); addLog("Hero: Consumed a Shroom!"); }
           if (res.ralliedSquares) res.ralliedSquares.forEach(sq => addEffect('level-change', sq, 'white', 1));
@@ -1505,10 +1508,9 @@ export default function DungeonPage() {
         
         appRes.levelChanges?.forEach(lc => addEffect('level-change', lc.square, 'black', lc.delta));
 
-        const isFake = appRes.capturedPiece?.id?.startsWith('boss-mirage-fake');
         const totalCaptures = (appRes.capturedPiece ? 1 : 0) + (appRes.pieceCapturedByAnvil ? 1 : 0) + (appRes.selfDestructCaptures?.length || 0) + (appRes.obliteratedPieces?.length || 0);
         
-        if (totalCaptures > 0) { audioManager.playCapture(); addEffect('poof', toAlg); }
+        if (appRes.capturedPiece || appRes.pieceCapturedByAnvil || appRes.selfDestructCaptures?.length || appRes.obliteratedPieces?.length) { audioManager.playCapture(); addEffect('poof', toAlg); }
         if (appRes.shroomConsumed) { audioManager.playShroom(); }
         if (appRes.ralliedSquares) appRes.ralliedSquares.forEach(sq => addEffect('level-change', sq, 'black', 1));
         
