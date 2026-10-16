@@ -270,10 +270,9 @@ const handleTournamentGameOver = (tournamentId: string, roomId: string, winnerCo
     eloInfo[winnerData.userId] = { oldElo: winnerData.elo || 1200, newElo: (winnerData.elo || 1200) + eloChanges.winnerGain };
     eloInfo[loserData.userId] = { oldElo: loserData.elo || 1200, newElo: (loserData.elo || 1200) + eloChanges.loserLoss };
 
-    // GOLD PRIZES
+    // GOLD PRIZES (ONLY FOR CHAMPIONSHIP)
     const goldEarned: Record<string, number> = {};
-    goldEarned[winnerData.userId] = 100; // Round Win
-    if (tournament.round === 3) goldEarned[winnerData.userId] += 400; // Total 500 for Champion
+    if (tournament.round === 3) goldEarned[winnerData.userId] = 500; // Grand Prize
 
     broadcastToRoom(roomId, { 
         type: 'game-over', 
@@ -694,7 +693,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                                 const changes = calculateEloChange(winnerData.elo || 1200, loserData.elo || 1200);
                                 eloInfo[winnerData.userId] = { oldElo: winnerData.elo || 1200, newElo: (winnerData.elo || 1200) + changes.winnerGain };
                                 eloInfo[loserData.userId] = { oldElo: loserData.elo || 1200, newElo: (loserData.elo || 1200) + changes.loserLoss };
-                                goldEarned[winnerData.userId] = 50;
                             }
                             broadcastToRoom(ws.roomId!, { type: 'game-over', winner: playerColor, reason: 'infiltration', eloInfo, goldEarned, moveCount: gs.gameMoveCounter });
                         }
@@ -713,7 +711,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                                 const changes = calculateEloChange(winnerData.elo || 1200, loserData.elo || 1200);
                                 eloInfo[winnerData.userId] = { oldElo: winnerData.elo || 1200, newElo: (winnerData.elo || 1200) + changes.winnerGain };
                                 eloInfo[loserData.userId] = { oldElo: loserData.elo || 1200, newElo: (loserData.elo || 1200) + changes.loserLoss };
-                                goldEarned[winnerData.userId] = 50;
                             }
                             broadcastToRoom(ws.roomId!, { type: 'game-over', winner: playerColor, reason: 'conquest', eloInfo, goldEarned, moveCount: gs.gameMoveCounter });
                         }
@@ -765,7 +762,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                                 const changes = calculateEloChange(winnerData.elo || 1200, loserData.elo || 1200);
                                 eloInfo[winnerData.userId] = { oldElo: winnerData.elo || 1200, newElo: (winnerData.elo || 1200) + changes.winnerGain };
                                 eloInfo[loserData.userId] = { oldElo: loserData.elo || 1200, newElo: (loserData.elo || 1200) + changes.loserLoss };
-                                goldEarned[winnerData.userId] = 50;
                             }
                             broadcastToRoom(ws.roomId!, { type: 'game-over', winner: playerColor, reason: 'checkmate', eloInfo, goldEarned, moveCount: gs.gameMoveCounter });
                         }

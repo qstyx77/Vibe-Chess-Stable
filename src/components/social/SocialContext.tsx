@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { useUser, useFirestore, updateDocumentNonBlocking, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, doc, setDoc, deleteDoc, getDoc, query, onSnapshot, runTransaction } from 'firebase/firestore';
+import { collection, doc, setDoc, deleteDoc, getDoc, query, onSnapshot, runTransaction, increment } from 'firebase/firestore';
 import type { ChatMessage, MessageCategory, Friend, PlayerColor, InventoryItemType } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 
@@ -292,18 +292,22 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
   }, [user, firestore, toast]);
 
   const joinTournamentQueue = useCallback(() => {
-    if (!wsRef.current || !userDataRef.current) return;
+    if (!wsRef.current || !userDataRef.current || !user || !firestore) return;
     if (userDataRef.current.goldBalance < 100) { 
         toast({ variant: 'destructive', title: "Broke!", description: "100 Gold required for entry." }); 
         return; 
     }
     
+    // DEDUCT ENTRY FEE
+    const userRef = doc(firestore, 'users', user.uid);
+    updateDocumentNonBlocking(userRef, { goldBalance: increment(-100) });
+
     const equipment = userDataRef.current.equipment || {};
     wsRef.current.send(JSON.stringify({ 
         type: 'join-tournament-queue', 
-        userId: user?.uid,
+        userId: user.uid,
         user: {
-            userId: user?.uid,
+            userId: user.uid,
             username: userDataRef.current.username,
             elo: userDataRef.current.eloRating,
             unlockedPieces: userDataRef.current.unlockedPieces || [],
@@ -311,7 +315,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
         }
     }));
     addLog("Joined Arena Queue. 100 Gold entry paid.");
-  }, [user?.uid, toast, addLog]);
+  }, [user, firestore, toast, addLog]);
 
   const sendChallenge = useCallback((friendId: string) => {
     const roomId = `duel_${Math.random().toString(36).substring(2, 9)}`;
