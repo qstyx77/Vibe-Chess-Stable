@@ -408,6 +408,7 @@ export interface ApplyMoveResult {
   anvilDroppedSquares?: AlgebraicSquare[];
   levelChanges?: LevelChangeEvent[];
   smokeBombEvent?: { piece: Piece, square: AlgebraicSquare };
+  glassShardTriggered?: boolean;
 }
 
 export type ViewMode = 'flipping' | 'tabletop';

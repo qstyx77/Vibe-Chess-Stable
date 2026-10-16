@@ -637,7 +637,8 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                             stolen: !!result.stolenItem,
                             stolenItem: result.stolenItem,
                             smokeBomb: !!result.smokeBombEvent,
-                            smokePos: result.smokeBombEvent?.square
+                            smokePos: result.smokeBombEvent?.square,
+                            glassShard: result.glassShardTriggered
                         };
 
                         broadcastToRoom(ws.roomId!, { 

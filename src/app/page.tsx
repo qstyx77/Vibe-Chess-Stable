@@ -900,6 +900,8 @@ export default function EvolvingChessPage() {
       else if (applyResult.capturedPiece || (applyResult.selfDestructCaptures && applyResult.selfDestructCaptures.length > 0)) { audioManager.playCapture(); addEffectCallback('poof', toAlg); if (applyResult.capturedPiece) addLog(`AI Captured ${applyResult.capturedPiece.type}!`); }
       else { audioManager.playMove(); addLog(`AI ${p.type} to ${toAlg}`); }
       
+      if (applyResult.glassShardTriggered) addLog("Glass Shard! AI is exhausted.");
+
       if (applyResult.smokeBombEvent) {
           addLog(`Smoke Bomb! ${applyResult.smokeBombEvent.piece.type} escaped to back rank!`);
           addEffectCallback('poof', applyResult.smokeBombEvent.square);
@@ -1077,6 +1079,8 @@ export default function EvolvingChessPage() {
                     saveLoadoutToFirestore(result.newBoard, newInv);
                     addLog(`STOLEN: ${ITEM_METADATA[result.stolenItem].name}!`);
                 }
+
+                if (result.glassShardTriggered) addLog("Glass Shard! Capturer is exhausted.");
 
                 if (result.smokeBombEvent) {
                     addLog(`Smoke Bomb! ${result.smokeBombEvent.piece.type} escaped to back rank!`);
@@ -1504,6 +1508,8 @@ export default function EvolvingChessPage() {
               } else if (applyRes.capturedPiece) {
                   updatedG[applyRes.capturedPiece.color].push(applyRes.capturedPiece);
               }
+
+              if (applyRes.glassShardTriggered) addLog("Glass Shard! Capturer is exhausted.");
               
               if (applyRes.selfDestructCaptures) applyRes.selfDestructCaptures.forEach(vic => updatedG[vic.color].push(vic));
 
@@ -1612,6 +1618,7 @@ export default function EvolvingChessPage() {
                 if (remoteEvents.resurrection && remoteEvents.resPos) { audioManager.playResurrect(); addEffectCallback('light-beam', remoteEvents.resPos); addLog(`${getPlayerDisplayName(actingColor)} triggered Resurrection Call!`); }
                 if (remoteEvents.hydraSplit) { audioManager.playResurrect(); addLog("The Hydra regrows its heads!"); if (remoteEvents.hydraSpawnSquares) remoteEvents.hydraSpawnSquares.forEach((pos: AlgebraicSquare) => addEffectCallback('light-beam', pos)); }
                 if (remoteEvents.resScroll) { audioManager.playResurrect(); addEffectCallback('light-beam', remoteEvents.resScrollPos); }
+                if (remoteEvents.glassShard) { addLog("Glass Shard! Capturer is exhausted."); }
                 if (remoteEvents.stolen) {
                     addLog(`STOLEN: ${ITEM_METADATA[remoteEvents.stolenItem as InventoryItemType].name}!`);
                     if (user && localPlayerColor === actingColor) {
