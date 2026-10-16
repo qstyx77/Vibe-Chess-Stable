@@ -56,11 +56,11 @@ interface UserData {
   lootSyncV17?: boolean;
   lootSyncV18?: boolean;
   suggaRestoreV1?: boolean;
+  paymentFulfillmentV1?: boolean;
 }
 
 const ITEM_TYPES = Object.keys(ITEM_METADATA) as InventoryItemType[];
 
-// Pieces are now earned via boss defeats or store purchases
 const PLAYTEST_UNLOCKS: string[] = [];
 
 /**
@@ -176,6 +176,56 @@ export function useUser() {
         let needsUpdate = false;
         const updates: any = {};
 
+        // SQUARE PAYMENT FULFILLMENT CHECK
+        const urlParams = new URLSearchParams(window.location.search);
+        const checkoutStatus = urlParams.get('checkout_status');
+        const itemType = urlParams.get('item_type');
+
+        if (checkoutStatus === 'success' && itemType) {
+            // Remove params from URL immediately
+            const newUrl = window.location.origin + window.location.pathname;
+            window.history.replaceState({}, document.title, newUrl);
+
+            // Simple idempotency check using timestamp window
+            const now = Date.now();
+            const transactionId = `square_${itemType}_${Math.floor(now / 10000)}`; // 10s window
+            const processed = currentData.processedTransactions || [];
+
+            if (!processed.includes(transactionId)) {
+                updates.processedTransactions = [...processed, transactionId];
+                
+                // Gold Packs
+                if (itemType === 'gold_100') updates.goldBalance = (currentData.goldBalance || 0) + 100;
+                else if (itemType === 'gold_600') updates.goldBalance = (currentData.goldBalance || 0) + 600;
+                // Daily Deal (1x Rare, 2x Uncommon, 3x Common)
+                else if (itemType === 'daily_deal') {
+                    const nextInv = [...(currentData.inventory || [])];
+                    const allItems = Object.keys(ITEM_METADATA) as InventoryItemType[];
+                    const rares = allItems.filter(i => ITEM_METADATA[i].rarity === 'rare');
+                    const uncommons = allItems.filter(i => ITEM_METADATA[i].rarity === 'uncommon');
+                    const commons = allItems.filter(i => ITEM_METADATA[i].rarity === 'common');
+                    
+                    const pick = (list: any[]) => list[Math.floor(Math.random() * list.length)];
+                    const bundle = [pick(rares), pick(uncommons), pick(uncommons), pick(commons), pick(commons), pick(commons)];
+                    
+                    bundle.forEach(t => {
+                        const idx = nextInv.findIndex(i => i.type === t);
+                        if (idx > -1) nextInv[idx].count++;
+                        else nextInv.push({ type: t, count: 1 });
+                    });
+                    updates.inventory = nextInv;
+                }
+                // Units
+                else {
+                    const unlocks = currentData.unlockedPieces || [];
+                    if (!unlocks.includes(itemType)) {
+                        updates.unlockedPieces = [...unlocks, itemType];
+                    }
+                }
+                needsUpdate = true;
+            }
+        }
+
         // Targeted restore for account SUGGA
         if (currentData.username === 'SUGGA' && !currentData.suggaRestoreV1) {
             updates.eloRating = 2100;
@@ -197,7 +247,6 @@ export function useUser() {
           return { type, count };
         });
 
-        // Forced sync for Batch 18 Playtesting (Rosary, Obsidian Blade, Lose Faith)
         if (!currentData.lootSyncV18) {
             const forceAdd: InventoryItemType[] = ['rosary', 'obsidian_blade', 'lose_faith_scroll', 'soul_spark', 'scouts_map'];
             forceAdd.forEach(t => {

@@ -25,7 +25,9 @@ import {
     triggerPushBack,
     processOilSlickTimers,
     processPoisonDamage,
-    FRONTLINE_TYPES
+    FRONTLINE_TYPES,
+    findKing,
+    isSquareAttacked
 } from './lib/chess-utils';
 import type { PlayerColor, Piece, AlgebraicSquare, PieceType, InventoryItemType, ChatMessage, Move } from './types';
 
@@ -433,7 +435,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                         const targetPiece = board[row][col].piece;
                         targetPiece.isShielded = true;
                         
-                        // Rosary check for level-up synchronization
                         const levelChanges = [];
                         const rosaryArchbishop = board.flat().find((sq: any) => sq.piece && sq.piece.color === playerColor && sq.piece.heldItem === 'rosary');
                         if (rosaryArchbishop) {
@@ -463,7 +464,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                     if (isValidSquare(row, col) && board[row][col].piece?.color !== playerColor) {
                         const sniped = board[row][col].piece;
                         
-                        // Full snipe logic sync: hydra, smoke bomb, phoenix down
                         let smokeEscaped = false;
                         let hydraSplit = false;
                         let phxRes = false;
@@ -481,8 +481,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                         } else if (sniped.id.startsWith('boss-hydra')) {
                              hydraSplit = true;
                              board[row][col].piece = null;
-                             // Hydra spawn squares handled by applyMove result normally, 
-                             // but for snippet manually:
                              const hAdj = [];
                              for(let dr=-1; dr<=1; dr++) for(let dc=-1; dc<=1; dc++) {
                                  const nr=row+dr, nc=col+dc;
@@ -655,7 +653,41 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                     }
 
                     const oppColor = playerColor === 'white' ? 'black' : 'white';
-                    if (isCheckmate(gs.board, oppColor, gs.enPassantTargetSquare, room.historyTracks.white, room.historyTracks.black, room.historyTracks.global)) {
+                    let mate = isCheckmate(gs.board, oppColor, gs.enPassantTargetSquare, room.historyTracks.white, room.historyTracks.black, room.historyTracks.global);
+                    
+                    // SERVER-SIDE KING'S RANSOM SYNC
+                    if (mate) {
+                        const kingInfo = findKing(gs.board, oppColor);
+                        if (kingInfo && kingInfo.piece.heldItem === 'kings_ransom') {
+                            const backRankIdx = oppColor === 'white' ? 7 : 0;
+                            const safe = [];
+                            for (let c = 0; c < 8; c++) {
+                                const alg = coordsToAlgebraic(backRankIdx, c);
+                                if (!gs.board[backRankIdx][c].piece && !gs.board[backRankIdx][c].item) {
+                                    if (!isSquareAttacked(gs.board, alg, playerColor, false, null, gs.enPassantTargetSquare, room.historyTracks.white, room.historyTracks.black, room.historyTracks.global, true)) {
+                                        safe.push(alg);
+                                    }
+                                }
+                            }
+                            if (safe.length > 0) {
+                                const dest = safe[Math.floor(Math.random() * safe.length)];
+                                const { row: dr, col: dc } = algebraicToCoords(dest);
+                                const { row: kr, col: kc } = algebraicToCoords(kingInfo.algebraic);
+                                gs.board[kr][kc].piece = null;
+                                gs.board[dr][dc].piece = { ...kingInfo.piece, heldItem: null, level: 1, hasMoved: true };
+                                mate = false; // Ransom consumed, checkmate averted
+                                broadcastToRoom(ws.roomId!, { type: 'chat-message', message: {
+                                    id: `ransom_${Date.now()}`,
+                                    sender: 'SYSTEM',
+                                    text: `[SYS]: ${oppColor.toUpperCase()} King saved by King's Ransom!`,
+                                    timestamp: Date.now(),
+                                    category: 'log'
+                                }});
+                            }
+                        }
+                    }
+
+                    if (mate) {
                         if (room.tournamentId) handleTournamentGameOver(room.tournamentId, ws.roomId!, playerColor, 'checkmate');
                         else broadcastToRoom(ws.roomId!, { type: 'game-over', winner: playerColor, reason: 'checkmate' });
                         return;
