@@ -98,6 +98,20 @@ const broadcastPresence = () => {
     });
 };
 
+/**
+ * Calculates standard Elo rating change based on win/loss outcome.
+ */
+function calculateEloChange(winnerElo: number, loserElo: number) {
+    const k = 32;
+    const expectedScoreWinner = 1 / (1 + Math.pow(10, (loserElo - winnerElo) / 400));
+    const expectedScoreLoser = 1 / (1 + Math.pow(10, (winnerElo - loserElo) / 400));
+    
+    return {
+        winnerGain: Math.round(k * (1 - expectedScoreWinner)),
+        loserLoss: Math.round(k * (0 - expectedScoreLoser))
+    };
+}
+
 const startArena = () => {
     if (arenaQueue.length < 8) return;
     const participants = arenaQueue.splice(0, 8);
@@ -119,7 +133,6 @@ const startArena = () => {
         tournament.participantsData[p2.userId] = p2.userData;
 
         const roomId = `arena_${tournamentId}_r1_${i}`;
-        // Elite Scaling is handled by initializeBoard using the specific player Elos
         const board = initializeBoard(
             p1.userData?.elo || 1200, 
             p2.userData?.elo || 1200, 
@@ -251,7 +264,25 @@ const handleTournamentGameOver = (tournamentId: string, roomId: string, winnerCo
     tournament.roundWinners.push(winnerData.userId);
     tournament.activeRoomIds.delete(roomId);
 
-    broadcastToRoom(roomId, { type: 'game-over', winner: winnerColor, reason });
+    // ELO CALCULATION
+    const eloChanges = calculateEloChange(winnerData.elo || 1200, loserData.elo || 1200);
+    const eloInfo: any = {};
+    eloInfo[winnerData.userId] = { oldElo: winnerData.elo || 1200, newElo: (winnerData.elo || 1200) + eloChanges.winnerGain };
+    eloInfo[loserData.userId] = { oldElo: loserData.elo || 1200, newElo: (loserData.elo || 1200) + eloChanges.loserLoss };
+
+    // GOLD PRIZES
+    const goldEarned: Record<string, number> = {};
+    goldEarned[winnerData.userId] = 100; // Round Win
+    if (tournament.round === 3) goldEarned[winnerData.userId] += 400; // Total 500 for Champion
+
+    broadcastToRoom(roomId, { 
+        type: 'game-over', 
+        winner: winnerColor, 
+        reason,
+        eloInfo,
+        goldEarned,
+        moveCount: room.gameState.gameMoveCounter
+    });
 
     const winnerWs = userConnections[winnerData.userId];
     if (winnerWs) {
@@ -398,7 +429,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                         const eq = data.user?.equipment || {};
                         const pColor = roomToJoin.gameState.players.white?.userId === ws.userId ? 'white' : 'black';
                         
-                        // ELITE PIECE SCALING (Upgrade one of each if threshold met)
+                        // ELITE PIECE SCALING 
                         const elo = data.user?.elo || 1200;
                         let bUp = false, rUp = false, nUp = false;
 
@@ -654,14 +685,38 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                     
                     if (result.infiltrationWin) {
                         if (room.tournamentId) handleTournamentGameOver(room.tournamentId, ws.roomId!, playerColor, 'infiltration');
-                        else broadcastToRoom(ws.roomId!, { type: 'game-over', winner: playerColor, reason: 'infiltration' });
+                        else {
+                            const winnerData = playerColor === 'white' ? gs.players.white : gs.players.black;
+                            const loserData = playerColor === 'white' ? gs.players.black : gs.players.white;
+                            const eloInfo: any = {};
+                            const goldEarned: any = {};
+                            if (winnerData && loserData) {
+                                const changes = calculateEloChange(winnerData.elo || 1200, loserData.elo || 1200);
+                                eloInfo[winnerData.userId] = { oldElo: winnerData.elo || 1200, newElo: (winnerData.elo || 1200) + changes.winnerGain };
+                                eloInfo[loserData.userId] = { oldElo: loserData.elo || 1200, newElo: (loserData.elo || 1200) + changes.loserLoss };
+                                goldEarned[winnerData.userId] = 50;
+                            }
+                            broadcastToRoom(ws.roomId!, { type: 'game-over', winner: playerColor, reason: 'infiltration', eloInfo, goldEarned, moveCount: gs.gameMoveCounter });
+                        }
                         return;
                     }
 
                     const actingKingSq = gs.board.flat().find(sq => sq.piece?.type === 'king' && sq.piece.color === playerColor);
                     if (gs.killStreaks[playerColor] >= 8 && actingKingSq?.piece?.heldItem === 'kings_conquest') {
                         if (room.tournamentId) handleTournamentGameOver(room.tournamentId, ws.roomId!, playerColor, 'conquest');
-                        else broadcastToRoom(ws.roomId!, { type: 'game-over', winner: playerColor, reason: 'conquest' });
+                        else {
+                            const winnerData = playerColor === 'white' ? gs.players.white : gs.players.black;
+                            const loserData = playerColor === 'white' ? gs.players.black : gs.players.white;
+                            const eloInfo: any = {};
+                            const goldEarned: any = {};
+                            if (winnerData && loserData) {
+                                const changes = calculateEloChange(winnerData.elo || 1200, loserData.elo || 1200);
+                                eloInfo[winnerData.userId] = { oldElo: winnerData.elo || 1200, newElo: (winnerData.elo || 1200) + changes.winnerGain };
+                                eloInfo[loserData.userId] = { oldElo: loserData.elo || 1200, newElo: (loserData.elo || 1200) + changes.loserLoss };
+                                goldEarned[winnerData.userId] = 50;
+                            }
+                            broadcastToRoom(ws.roomId!, { type: 'game-over', winner: playerColor, reason: 'conquest', eloInfo, goldEarned, moveCount: gs.gameMoveCounter });
+                        }
                         return;
                     }
 
@@ -701,7 +756,19 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
 
                     if (mate) {
                         if (room.tournamentId) handleTournamentGameOver(room.tournamentId, ws.roomId!, playerColor, 'checkmate');
-                        else broadcastToRoom(ws.roomId!, { type: 'game-over', winner: playerColor, reason: 'checkmate' });
+                        else {
+                            const winnerData = playerColor === 'white' ? gs.players.white : gs.players.black;
+                            const loserData = playerColor === 'white' ? gs.players.black : gs.players.white;
+                            const eloInfo: any = {};
+                            const goldEarned: any = {};
+                            if (winnerData && loserData) {
+                                const changes = calculateEloChange(winnerData.elo || 1200, loserData.elo || 1200);
+                                eloInfo[winnerData.userId] = { oldElo: winnerData.elo || 1200, newElo: (winnerData.elo || 1200) + changes.winnerGain };
+                                eloInfo[loserData.userId] = { oldElo: loserData.elo || 1200, newElo: (loserData.elo || 1200) + changes.loserLoss };
+                                goldEarned[winnerData.userId] = 50;
+                            }
+                            broadcastToRoom(ws.roomId!, { type: 'game-over', winner: playerColor, reason: 'checkmate', eloInfo, goldEarned, moveCount: gs.gameMoveCounter });
+                        }
                         return;
                     }
                     
