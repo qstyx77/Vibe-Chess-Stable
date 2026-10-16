@@ -1060,6 +1060,17 @@ export default function EvolvingChessPage() {
                 setLastMoveGlobal(newMoveInfo);
                 const result = applyMove(board, move, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, false);
                 const updatedG = { white: Array.isArray(capturedPieces?.white) ? [...capturedPieces.white] : [], black: Array.isArray(capturedPieces?.black) ? [...capturedPieces.black] : [] };
+                
+                if (result.stolenItem && user) {
+                    const newInv = [...inventory];
+                    const existing = newInv.find(i => i.type === result.stolenItem);
+                    if (existing) existing.count++;
+                    else newInv.push({ type: result.stolenItem, count: 1 });
+                    setInventory(newInv);
+                    saveLoadoutToFirestore(result.newBoard, newInv);
+                    addLog(`STOLEN: ${ITEM_METADATA[result.stolenItem].name}!`);
+                }
+
                 if (result.capturedPiece) updatedG[result.capturedPiece.color].push(result.capturedPiece);
                 setBoard(result.newBoard); setCapturedPieces(updatedG); setSelectedSquare(null); setPossibleMoves([]);
                 setTimeout(() => { 
@@ -1477,6 +1488,16 @@ export default function EvolvingChessPage() {
               if (applyRes.capturedPiece) updatedG[applyRes.capturedPiece.color].push(applyRes.capturedPiece);
               if (applyRes.selfDestructCaptures) applyRes.selfDestructCaptures.forEach(vic => updatedG[vic.color].push(vic));
 
+              if (applyRes.stolenItem && user) {
+                  const newInv = [...inventory];
+                  const existing = newInv.find(i => i.type === applyRes.stolenItem);
+                  if (existing) existing.count++;
+                  else newInv.push({ type: applyRes.stolenItem, count: 1 });
+                  setInventory(newInv);
+                  saveLoadoutToFirestore(nextB, newInv);
+                  addLog(`STOLEN: ${ITEM_METADATA[applyRes.stolenItem].name}!`);
+              }
+
               setBoard(nextB); setCapturedPieces(updatedG);
               const streakGain = (applyRes.capturedPiece ? 1 : 0) + (applyRes.selfDestructCaptures?.length || 0) + (applyRes.obliteratedPieces?.length || 0);
               
@@ -1524,7 +1545,7 @@ export default function EvolvingChessPage() {
   } else { 
     setSelectedSquare(null); setPossibleMoves([]); setClickedEnemySquare(null); setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
   }
-}, [board, currentPlayer, selectedSquare, enPassantTargetSquare, killStreaks, capturedPieces, onlineStatus, localPlayerColor, isWhiteAI, isBlackAI, boardForPostSacrifice, specialActionContext, isExtraTurnFromQueenMove, isInventoryOpen, selectedInventoryItemType, usedSlots, attunementSlots, inventory, addLog, handlePieceHover, processPawnSacrificeCheck, triggerSpecialsChain, processMoveEnd, lastMoveWhite, lastMoveBlack, lastMoveGlobal, addEffectCallback, isSelectingMycoSpell, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, teleportAllyPieceId, isMoveProcessing, gameInfo.gameOver, isAiThinking, isAwaitingCommanderPromotion, playerWhoGotFirstBlood, isAwaitingAnvilDrop, isAwaitingHolyShield, isAwaitingArcherSnipe, playerToDropAnvil, pushHistory, saveLoadoutToFirestore, getPlayerDisplayName, isAnySpecialModeActive, isAwaitingDanceTarget, dancerToDance, isAwaitingGrappleThrow, grappledPieceSubject, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget, isAwaitingRayTarget, playerToPromote, grappledItemSubject, isAwaitingOilSlickTarget, didCaptureLastTurn, positionHistory, promotionQueue, clickedEnemySquare, playOutcomeSound, isAwaitingAnvilScrollTarget, isAwaitingWindScrollTarget, isAwaitingEarthquakeScrollTarget]);
+}, [board, currentPlayer, selectedSquare, enPassantTargetSquare, killStreaks, capturedPieces, onlineStatus, localPlayerColor, isWhiteAI, isBlackAI, boardForPostSacrifice, specialActionContext, isExtraTurnFromQueenMove, isInventoryOpen, selectedInventoryItemType, usedSlots, attunementSlots, inventory, addLog, handlePieceHover, processPawnSacrificeCheck, triggerSpecialsChain, processMoveEnd, lastMoveWhite, lastMoveBlack, lastMoveGlobal, addEffectCallback, isSelectingMycoSpell, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, teleportAllyPieceId, isMoveProcessing, gameInfo.gameOver, isAiThinking, isAwaitingCommanderPromotion, playerWhoGotFirstBlood, isAwaitingAnvilDrop, isAwaitingHolyShield, isAwaitingArcherSnipe, playerToDropAnvil, pushHistory, saveLoadoutToFirestore, getPlayerDisplayName, isAnySpecialModeActive, isAwaitingDanceTarget, dancerToDance, isAwaitingGrappleThrow, grappledPieceSubject, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget, isAwaitingRayTarget, playerToPromote, grappledItemSubject, isAwaitingOilSlickTarget, didCaptureLastTurn, positionHistory, promotionQueue, clickedEnemySquare, playOutcomeSound, isAwaitingAnvilScrollTarget, isAwaitingWindScrollTarget, isAwaitingEarthquakeScrollTarget, user]);
 
   const fullGameReset = () => {
     const unlocks = userData?.unlockedPieces || []; const uElo = userData?.eloRating || 1200; let initial = initializeBoard(uElo, uElo, unlocks, unlocks);
@@ -1572,6 +1593,17 @@ export default function EvolvingChessPage() {
                 if (remoteEvents.resurrection && remoteEvents.resPos) { audioManager.playResurrect(); addEffectCallback('light-beam', remoteEvents.resPos); addLog(`${getPlayerDisplayName(actingColor)} triggered Resurrection Call!`); }
                 if (remoteEvents.hydraSplit) { audioManager.playResurrect(); addLog("The Hydra regrows its heads!"); if (remoteEvents.hydraSpawnSquares) remoteEvents.hydraSpawnSquares.forEach((pos: AlgebraicSquare) => addEffectCallback('light-beam', pos)); }
                 if (remoteEvents.resScroll) { audioManager.playResurrect(); addEffectCallback('light-beam', remoteEvents.resScrollPos); }
+                if (remoteEvents.stolen) {
+                    addLog(`STOLEN: ${ITEM_METADATA[remoteEvents.stolenItem as InventoryItemType].name}!`);
+                    if (user && localPlayerColor === actingColor) {
+                        const newInv = [...inventory];
+                        const existing = newInv.find(i => i.type === remoteEvents.stolenItem);
+                        if (existing) existing.count++;
+                        else newInv.push({ type: remoteEvents.stolenItem, count: 1 });
+                        setInventory(newInv);
+                        saveLoadoutToFirestore(nextGs.board, newInv);
+                    }
+                }
                 remoteEvents.levelChanges?.forEach((lc: any) => addEffectCallback('level-change', lc.square, actingColor, lc.delta));
                 const isCheck = isKingInCheck(nextGs.board, nextGs.currentPlayer, nextGs.enPassantTargetSquare, lastMoveWhite, lastMoveBlack, lastMoveGlobal);
                 if (isCheck) { audioManager.playCheck(); addLog("Check!"); setGameInfo(prev => ({ ...prev, isCheck: true, playerWithKingInCheck: nextGs.currentPlayer })); }
@@ -1593,7 +1625,7 @@ export default function EvolvingChessPage() {
     };
     ws.onclose = () => { setOnlineStatus('disconnected'); };
     wsRef.current = ws;
-  }, [addLog, getPlayerDisplayName, addEffectCallback, playOutcomeSound, lastMoveWhite, lastMoveBlack, lastMoveGlobal]);
+  }, [addLog, getPlayerDisplayName, addEffectCallback, playOutcomeSound, lastMoveWhite, lastMoveBlack, lastMoveGlobal, user, inventory, saveLoadoutToFirestore, localPlayerColor]);
 
   const handleOnlinePlay = useCallback((action: 'create' | 'join') => {
     if (!user) return;
@@ -1880,7 +1912,7 @@ export default function EvolvingChessPage() {
         <AlertDialogContent className="font-pixel border-2 border-primary bg-black">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-primary uppercase text-sm">Enter Arena?</AlertDialogTitle>
-            <AlertDialogDescription className="text-white text-[0.65rem] uppercase leading-relaxed"> Joining the Arena queue costs <span className="text-yellow-500">100 Gold</span>. Are you sure you want to proceed? </AlertDialogDescription>
+            <AlertDialogDescription className="text-white text-[0.65rem] uppercase leading-relaxed"> Joining the Arena battle queue costs <span className="text-yellow-500">100 Gold</span>. Are you sure you want to proceed? </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="mt-4 gap-2">
             <Accordion type="single" collapsible className="w-full mb-2">

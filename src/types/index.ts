@@ -187,6 +187,7 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'mushroom_magnet': { name: 'Shroom Magnet', description: 'Accessory. On move/capture, pulls all Shrooms within 2 spaces 1 square closer.', isConsumable: false, rarity: 'common' },
   'mimic_blade': { name: 'Mimic Blade', description: 'Mimic only. While held, the Mimic also replicates the item of the last ALLIED piece that moved.', isConsumable: false, rarity: 'rare' },
   'thieves_gloves': { name: 'Thieves\' Gloves', description: 'Glove. 50% chance to steal an enemy\'s equipment upon capture.', isConsumable: false, rarity: 'uncommon' },
+  'lead_boots': { name: 'Lead Boots', description: 'Passive. Equipped unit cannot be moved by Push-Back or Gravity effects. [HEAVY GUARD SET: w/ Blue Plate, Weighted Helm. Bonus: Frontline Push/Pull immune.]', isConsumable: false, rarity: 'common' },
   'heavy_rain': { name: 'Heavy Rain Scroll', description: 'Consumable (L3+). Randomly drops 3 Anvils on the board.', isConsumable: true, rarity: 'uncommon' },
   'kings_conquest': { name: 'Kings Conquest', description: 'Jeweled crown. Kings only. Reaching KS 8 results in an immediate win.', isConsumable: false, rarity: 'rare' },
   'power_glove': { name: 'Power Glove', description: 'Rare gauntlet. Grapplers only. Can pick up and throw Anvils. Thrown anvils crush units.', isConsumable: false, rarity: 'rare' },
@@ -389,6 +390,7 @@ export interface ApplyMoveResult {
   promotedToHero?: boolean;
   infiltrationWin?: boolean;
   shroomConsumed?: boolean;
+  enPassantTargetSquare?: AlgebraicSquare | null;
   enPassantTargetSet: AlgebraicSquare | null;
   extraTurn: boolean;
   specialCaptureSquare: AlgebraicSquare | null;
@@ -396,6 +398,7 @@ export interface ApplyMoveResult {
   reflectionOccurred?: boolean;
   resurrectionScrollEvent?: { piece: Piece, square: AlgebraicSquare };
   itemReturned?: InventoryItemType | null;
+  stolenItem?: InventoryItemType | null;
   multiPromotions?: { square: AlgebraicSquare, targetLevel: number }[];
   ralliedSquares?: AlgebraicSquare[];
   winByKingsConquest?: boolean;

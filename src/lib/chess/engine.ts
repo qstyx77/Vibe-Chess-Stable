@@ -257,6 +257,7 @@ export function applyMove(
   let reflectionOccurred = false;
   let resurrectionScrollEvent = undefined;
   let itemReturned: InventoryItemType | null = null;
+  let stolenItem: InventoryItemType | null = null;
   const multiPromotions: { square: AlgebraicSquare, targetLevel: number }[] = [];
   let ralliedSquares: AlgebraicSquare[] = [];
   let winByKingsConquest = false;
@@ -833,6 +834,14 @@ export function applyMove(
 
   if (captured) {
     const shardShatter = pieceLanded.heldItem === 'ice_breaker' && (captured.frozenTurnsRemaining || 0) > 0;
+    
+    // Thieves' Gloves: 50% chance to steal equipment
+    if (pieceLanded.heldItem === 'thieves_gloves' && captured.heldItem) {
+        if (Math.random() < 0.5) {
+            stolenItem = captured.heldItem;
+        }
+    }
+
     if (effectiveHeldItem === 'chameleon_cloak' && pieceLanded.type !== 'king') {
         pieceLanded.type = captured.type;
         pieceLanded.id = `${pieceLanded.id}_morph_${Date.now()}`;
@@ -1018,5 +1027,5 @@ export function applyMove(
       }
   }
 
-  return { newBoard, capturedPiece: captured, selfDestructCaptures, destroyedAnvils, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel: originalLevelValue, originalPieceType: originalTypeIdentifier, selfCheckByPushBack, queenLevelReducedEvents: null, promotedToInfiltrator, promotedToHero, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare, phoenixResurrection, reflectionOccurred, resurrectionScrollEvent, itemReturned, multiPromotions, ralliedSquares, winByKingsConquest, hydraSplitOccurred, hydraSpawnSquares, anvilDroppedSquares, levelChanges, obliteratedPieces };
+  return { newBoard, capturedPiece: captured, selfDestructCaptures, destroyedAnvils, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel: originalLevelValue, originalPieceType: originalTypeIdentifier, selfCheckByPushBack, queenLevelReducedEvents: null, promotedToInfiltrator, promotedToHero, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare, phoenixResurrection, reflectionOccurred, resurrectionScrollEvent, itemReturned, stolenItem, multiPromotions, ralliedSquares, winByKingsConquest, hydraSplitOccurred, hydraSpawnSquares, anvilDroppedSquares, levelChanges, obliteratedPieces };
 }
