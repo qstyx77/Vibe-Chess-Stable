@@ -318,8 +318,8 @@ export const ChessBoard = memo(({
             }
           }
 
-          const invOwnerColor = localPlayerColor || 'white';
-          let isInvTarget = isInventoryOpen && currentSquareData.piece && currentSquareData.piece.color === invOwnerColor;
+          // In Local Play (Disconnected), allow targeting ANY piece for inventory management
+          let isInvTarget = isInventoryOpen && currentSquareData.piece && (localPlayerColor === null || currentSquareData.piece.color === localPlayerColor);
           if (isInvTarget && selectedInventoryItemType) {
               const pType = currentSquareData.piece?.type || 'pawn';
               if (!isItemValidForPiece(selectedInventoryItemType, pType)) isInvTarget = false;

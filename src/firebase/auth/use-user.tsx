@@ -27,6 +27,7 @@ interface UserData {
   losses: number;
   inventory?: InventoryItem[];
   equipment?: Record<string, string>;
+  blackEquipment?: Record<string, string>;
   dungeonState?: DungeonState;
   unlockedPieces?: string[];
   colossusDefeats?: number;
@@ -142,6 +143,7 @@ export function useUser() {
             losses: 0,
             inventory: ITEM_TYPES.map(type => ({ type, count: 5 })),
             equipment: {},
+            blackEquipment: {},
             unlockedPieces: PLAYTEST_UNLOCKS,
             colossusDefeats: 0,
             mirageDefeats: 0,
