@@ -1,7 +1,7 @@
 import type { BoardState, Piece, PieceType, PlayerColor, AlgebraicSquare, InventoryItemType, ItemType, SquareState, RookResurrectionResult, LastMoveInfo, ApplyMoveResult, Move, LevelChangeEvent, ConversionEvent } from '@/types';
 import { VAL_MAP, FRONTLINE_TYPES } from './constants';
 import { algebraicToCoords, coordsToAlgebraic, isValidSquare, getEffectiveLevel, isSilenced, getPromotionLevel, findKing, isItemValidForPiece, getActiveSets } from './utils';
-import { triggerPushBack, triggerConversion, applyRally, applyKingDominion, syncSoulLink, triggerPoisonSplash, triggerToxicCloud, triggerMushroomMagnet, triggerPull, triggerExhaustion, applyOilSlide, performExtendedDisplacement, applyReapersTithe, triggerDefiantSparks } from './effects';
+import { triggerPushBack, triggerConversion, applyRally, applyKingDominion, syncSoulLink, triggerPoisonSplash, triggerToxicCloud, triggerMushroomMagnet, triggerPull, triggerExhaustion, applyOilSlide, performExtendedDisplacement, applyReapersTithe, triggerDefiantSparks, handleRemovalReactions } from './effects';
 
 export function createEmptyBoard(): BoardState {
   const board: BoardState = [];
@@ -313,7 +313,7 @@ export function applyMove(
       const dist = (isRamPushMove && isCardinal) ? 3 : 1;
       const obliterate = true; 
       
-      const pushRes = performExtendedDisplacement(newBoard, toRow, toCol, dr, dc, dist, obliterate);
+      const pushRes = performExtendedDisplacement(newBoard, toRow, toCol, dr, dc, dist, obliterate, movingPiece.color);
       if (pushRes.obliterated.length > 0) obliteratedPieces.push(...pushRes.obliterated);
       levelChanges.push(...pushRes.levelChanges);
   }
@@ -334,7 +334,7 @@ export function applyMove(
                       const pdr = Math.sign(nr - toRow);
                       const pdc = Math.sign(nc - toCol);
                       if (pdr !== 0 || pdc !== 0) {
-                          const pushResult = performExtendedDisplacement(newBoard, nr, nc, pdr, pdc, 1, false);
+                          const pushResult = performExtendedDisplacement(newBoard, nr, nc, pdr, pdc, 1, false, movingPiece.color);
                           if (pushResult.obliterated.length > 0) obliteratedPieces.push(...pushResult.obliterated);
                           levelChanges.push(...pushResult.levelChanges);
                       }
@@ -367,8 +367,8 @@ export function applyMove(
           if (tSq.piece) {
               if (tSq.piece.type === 'king') break;
               totalGain += (VAL_MAP[tSq.piece.type] || 1);
-              triggerDefiantSparks(newBoard, nr, nc, tSq.piece.color);
-              obliteratedPieces.push({ ...tSq.piece, id: `${tSq.piece.id}_burn_${Date.now()}` });
+              const extraOblits = handleRemovalReactions(newBoard, nr, nc, tSq.piece, movingPiece.color, levelChanges);
+              obliteratedPieces.push({ ...tSq.piece, id: `${tSq.piece.id}_burn_${Date.now()}` }, ...extraOblits);
               tSq.piece = null;
           }
           if (tSq.item?.type === 'anvil') tSq.item = null;
@@ -461,16 +461,18 @@ export function applyMove(
           if (dr === 0 && dc === 0) continue;
           const nr = toRow + dr; const nc = toCol + dc;
           if (isValidSquare(nr, nc)) {
-              const victim = newBoard[nr][nc];
-              if (victim.piece && victim.piece.color !== movingPiece.color && victim.piece.type !== 'king' && !victim.piece.isShielded) {
-                  triggerDefiantSparks(newBoard, nr, nc, victim.piece.color);
-                  selfDestructCaptures.push({ ...victim.piece, id: `spore_${victim.piece.id}_${Date.now()}` });
-                  victim.piece = null;
+              const victimSq = newBoard[nr][nc];
+              if (victimSq.piece && victimSq.piece.color !== movingPiece.color && victimSq.piece.type !== 'king' && !victimSq.piece.isShielded) {
+                  const victim = victimSq.piece;
+                  const extraOblits = handleRemovalReactions(newBoard, nr, nc, victim, movingPiece.color, levelChanges);
+                  selfDestructCaptures.push({ ...victim, id: `spore_${victim.id}_${Date.now()}` });
+                  obliteratedPieces.push(...extraOblits);
+                  victimSq.piece = null;
               }
           }
       }
       newBoard.forEach(row => row.forEach(sq => { if (sq.piece && sq.piece.color === movingPiece.color && sq.piece.type === 'myco_mage') sq.piece.shroomMana = Math.max(0, (sq.piece.shroomMana || 0) - 4); }));
-      return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered: null, originalPieceLevel: movingPiece.level, originalPieceType: movingPiece.type, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null, anvilDroppedSquares, levelChanges, obliteratedPieces: [] };
+      return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered: null, originalPieceLevel: movingPiece.level, originalPieceType: movingPiece.type, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null, anvilDroppedSquares, levelChanges, obliteratedPieces };
   }
 
   if (move.type === 'raise-mycelimen') {
@@ -521,7 +523,7 @@ export function applyMove(
           newBoard[gr][gc].item = null;
       }
       if (move.thrownItem === 'anvil') {
-          const pushResult = performExtendedDisplacement(newBoard, toRow, toCol, drThrow, dcThrow, 1, true);
+          const pushResult = performExtendedDisplacement(newBoard, toRow, toCol, drThrow, dcThrow, 1, true, movingPiece.color);
           if (pushResult.obliterated.length > 0) obliteratedPieces.push(...pushResult.obliterated);
           newBoard[fromRow][fromCol].piece = { ...movingPiece, hasMoved: true };
           newBoard[toRow][toCol].item = { type: 'anvil' };
@@ -532,7 +534,8 @@ export function applyMove(
           newBoard[fromRow][fromCol].piece = { ...movingPiece, hasMoved: true }; 
           if (targetPiece && targetPiece.color !== movingPiece.color && targetPiece.type !== 'king') {
               captured = { ...targetPiece };
-              triggerDefiantSparks(newBoard, toRow, toCol, captured.color);
+              const extraOblits = handleRemovalReactions(newBoard, toRow, toCol, captured, movingPiece.color, levelChanges);
+              obliteratedPieces.push(...extraOblits);
           }
       }
       return { newBoard, capturedPiece: captured, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents: [], rallyCryTriggered: null, originalPieceLevel: movingPiece.level, originalPieceType: movingPiece.type, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null, anvilDroppedSquares, levelChanges, obliteratedPieces };
@@ -547,12 +550,13 @@ export function applyMove(
       parts.forEach(p => {
           const nr = toRow + p.dr; const nc = toCol + (p.dc || 0);
           if (isValidSquare(nr, nc)) {
-              const victim = newBoard[nr][nc].piece;
+              const victimSq = newBoard[nr][nc];
+              const victim = victimSq.piece;
               if (victim && victim.color === opponentColor) {
                   if (victim.type !== 'king') {
-                    triggerDefiantSparks(newBoard, nr, nc, victim.color);
-                    obliteratedPieces.push({ ...victim, id: `${victim.id}_colossus_crush_${Date.now()}` });
-                    newBoard[nr][nc].piece = null;
+                    const extraOblits = handleRemovalReactions(newBoard, nr, nc, victim, movingPiece.color, levelChanges);
+                    obliteratedPieces.push({ ...victim, id: `${victim.id}_colossus_crush_${Date.now()}` }, ...extraOblits);
+                    victimSq.piece = null;
                   }
               }
               newBoard[nr][nc].piece = { id: p.id, type: 'king', color: movingPiece.color, level: movingPiece.level, hasMoved: true };
@@ -661,7 +665,8 @@ export function applyMove(
     const cpR = fromRow; const cpC = toCol;
     captured = newBoard[cpR][cpC].piece;
     if (captured && FRONTLINE_TYPES.includes(captured.type)) {
-        triggerDefiantSparks(newBoard, cpR, cpC, captured.color);
+        const extraOblits = handleRemovalReactions(newBoard, cpR, cpC, captured, movingPiece.color, levelChanges);
+        obliteratedPieces.push(...extraOblits);
         newBoard[cpR][cpC].piece = null;
         specialCaptureSquare = coordsToAlgebraic(cpR, cpC);
     } else { captured = null; }
@@ -669,12 +674,15 @@ export function applyMove(
       if (targetPiece.heldItem === 'mirror_shield' && !['king', 'queen'].includes(movingPiece.type)) {
           reflectionOccurred = true;
           captured = { ...movingPiece }; // Attacker is captured
+          const extraOblitsAttacker = handleRemovalReactions(newBoard, fromRow, fromCol, movingPiece, targetPiece.color, levelChanges);
+          obliteratedPieces.push(...extraOblitsAttacker);
           newBoard[fromRow][fromCol].piece = null;
           newBoard[toRow][toCol].piece = { ...targetPiece, heldItem: null, hasMoved: true }; // Shield breaks
-          return { newBoard, capturedPiece: captured, selfDestructCaptures: [], destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered: null, originalPieceLevel: originalLevelValue, originalPieceType: originalTypeIdentifier, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare, reflectionOccurred, anvilDroppedSquares: [], levelChanges: [], obliteratedPieces: [] };
+          return { newBoard, capturedPiece: captured, selfDestructCaptures: [], destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered: null, originalPieceLevel: originalLevelValue, originalPieceType: originalTypeIdentifier, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare, reflectionOccurred, anvilDroppedSquares: [], levelChanges: [], obliteratedPieces };
       } else {
           captured = { ...targetPiece }; 
-          triggerDefiantSparks(newBoard, toRow, toCol, captured.color);
+          const extraOblits = handleRemovalReactions(newBoard, toRow, toCol, captured, movingPiece.color, levelChanges);
+          obliteratedPieces.push(...extraOblits);
       }
   }
 
@@ -722,7 +730,7 @@ export function applyMove(
   const drS = Math.sign(toRow - fromRow);
   const dcS = Math.sign(toCol - fromCol);
   if ((drS !== 0 || dcS !== 0) && newBoard[toRow][toCol].oilSlickTurnsRemaining > 0) {
-      const slideResult = applyOilSlide(newBoard, toRow, toCol, drS, dcS);
+      const slideResult = applyOilSlide(newBoard, toRow, toCol, drS, dcS, pieceLanded.color);
       if (slideResult.obliterated.length > 0) obliteratedPieces.push(...slideResult.obliterated);
       levelChanges.push(...slideResult.levelChanges);
   }
@@ -780,38 +788,6 @@ export function applyMove(
         glassShardTriggered = true;
     }
 
-    if (captured.heldItem === 'signal_horn') {
-        const myColor = captured.color;
-        const myType = captured.type;
-        const sameTypeAllies: SquareState[] = [];
-        newBoard.forEach(row => row.forEach(sq => {
-            if (sq.piece && sq.piece.color === myColor && sq.piece.type === myType && sq.piece.id !== captured!.id) {
-                sameTypeAllies.push(sq);
-            }
-        }));
-        if (sameTypeAllies.length > 0) {
-            const hornTarget = sameTypeAllies[Math.floor(Math.random() * sameTypeAllies.length)];
-            const tp = hornTarget.piece!;
-            const oldHL = tp.level;
-            tp.level = Math.min(tp.type === 'queen' ? 7 : 99, (tp.level || 1) + 1);
-            if (tp.level > oldHL) {
-                levelChanges.push({ square: hornTarget.algebraic, delta: 1 });
-                tp.isPoisoned = false; tp.isExhausted = false; tp.cooldownTurnsRemaining = 0;
-                signalHornEvent = { piece: { ...tp }, square: hornTarget.algebraic };
-            }
-        }
-    }
-
-    if (captured.heldItem === 'soul_link') {
-        newBoard.forEach(row => row.forEach(sq => {
-            if (sq.piece && sq.piece.color === captured!.color && sq.piece.heldItem === 'soul_link') {
-                triggerDefiantSparks(newBoard, sq.rowIndex, sq.colIndex, captured!.color);
-                obliteratedPieces.push({ ...sq.piece, id: `${sq.piece.id}_linked_${Date.now()}` });
-                sq.piece = null;
-            }
-        }));
-    }
-
     if (pieceLanded.heldItem === 'thieves_gloves' && captured.heldItem) {
         if (Math.random() < 0.5) {
             stolenItem = captured.heldItem;
@@ -845,8 +821,8 @@ export function applyMove(
                 if (bSq.piece && bSq.piece.color !== movingPiece.color && bSq.piece.type !== 'king') {
                     const extraG = ({pawn: 1, dancer: 1, mimic: 1, grappler: 1, commander: 1, infiltrator: 1, myco_mage: 1, knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2}[bSq.piece.type] || 0);
                     baseGain += extraG;
-                    triggerDefiantSparks(newBoard, behindRow, behindCol, bSq.piece.color);
-                    obliteratedPieces.push({ ...bSq.piece, id: `${bSq.piece.id}_cleave_${Date.now()}` });
+                    const extraOblitsCleave = handleRemovalReactions(newBoard, behindRow, behindCol, bSq.piece, movingPiece.color, levelChanges);
+                    obliteratedPieces.push({ ...bSq.piece, id: `${bSq.piece.id}_cleave_${Date.now()}` }, ...extraOblitsCleave);
                     newBoard[behindRow][behindCol].piece = null;
                 }
             }
@@ -1070,4 +1046,3 @@ export function applyMove(
 
   return { newBoard, capturedPiece: captured, selfDestructCaptures, destroyedAnvils, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel: originalLevelValue, originalPieceType: originalTypeIdentifier, selfCheckByPushBack, queenLevelReducedEvents: null, promotedToInfiltrator, promotedToHero, infiltrationWin, shroomConsumed, enPassantTargetSet: enPassantTargetSquare, extraTurn, specialCaptureSquare, phoenixResurrection, reflectionOccurred, resurrectionScrollEvent, itemReturned, stolenItem, multiPromotions, ralliedSquares, winByKingsConquest, hydraSplitOccurred, hydraSpawnSquares, anvilDroppedSquares, levelChanges, obliteratedPieces, smokeBombEvent, glassShardTriggered, signalHornEvent };
 }
-

@@ -32,6 +32,7 @@ import {
   processOilSlickTimers,
   boardToPositionHash,
   getActiveSets,
+  triggerDefiantSparks,
 } from '@/lib/chess-utils';
 import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus, PieceType, Effect, InventoryItem, InventoryItemType, AIGameState, AIBoardState, AISquareState, SquareState, ItemType, ChatMessage, MessageCategory, RookResurrectionResult, AIMove as AIMoveType, ConversionEvent, LastMoveInfo } from '@/types';
 import { ITEM_METADATA } from '@/types';
@@ -337,6 +338,17 @@ export default function DungeonPage() {
     curB.flat().forEach(sq => { if (sq.piece?.heldItem) eq[sq.piece.id] = sq.piece.heldItem; });
     updateDocumentNonBlocking(userRef, { inventory: curInv, equipment: eq, dungeonState: { level: curL, board: curB.flat(), currentPlayer: curP, killStreaks: ks, capturedPieces: caps, shroomSpawnCounter: sC, nextShroomSpawnTurn: nS, enPassantTargetSquare: ep, necroResurrectionCounter: nrC } });
   }, [user, firestore]);
+
+  const deductConsumable = useCallback((type: InventoryItemType) => {
+    if (!user || !firestore) return;
+    const userRef = doc(firestore, 'users', user.uid);
+    const newInv = inventory.map(item => {
+        if (item.type === type) return { ...item, count: Math.max(0, item.count - 1) };
+        return item;
+    }).filter(item => item.count > 0);
+    setInventory(newInv);
+    updateDocumentNonBlocking(userRef, { inventory: newInv });
+  }, [user, firestore, inventory]);
 
   const isSpec = useMemo(() => 
     isInventoryOpen || isPromotingPawn || isAwaitingAnvilDrop || isAwaitingAnvilScrollTarget || isAwaitingHolyShield || 
@@ -797,7 +809,7 @@ export default function DungeonPage() {
                     for (let i = 0; i < sc; i++) {
                         const pos = sh[i]; nxtB[pos.r][pos.c].piece = { id: `hydra_spawn_snipe_${sniped.id}_${i}_${Date.now()}`, type: 'knight', color: sniped.color, level: 2, hasMoved: true, isShielded: false };
                         nxtB[pos.r][pos.c].item = null;
-                        addEffect('light-beam', coordsToAlgebraic(pos.r, pos.c));
+                        addEffect('light-beam', coordsToAlgebraic(pos.r, pos.col));
                     }
                     audioManager.playResurrect(); addLog("The Hydra regrows its heads!");
                 }
@@ -917,6 +929,8 @@ export default function DungeonPage() {
         const newMoveInfo: LastMoveInfo = { type: movingP.type, level: movingP.level, item: movingP.heldItem || null };
         const nextTracks = { white: currentPlayer === 'white' ? newMoveInfo : lastMoveWhite, black: currentPlayer === 'black' ? newMoveInfo : lastMoveBlack, global: newMoveInfo };
         const move: Move = { from: selectedSquare!, to: alg, type: 'shield-scroll' };
+        
+        deductConsumable('shield_scroll');
         setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(alg);
         if (currentPlayer === 'white') setLastMoveWhite(newMoveInfo); else setLastMoveBlack(newMoveInfo);
         setLastMoveGlobal(newMoveInfo);
@@ -930,6 +944,8 @@ export default function DungeonPage() {
         const newMoveInfo: LastMoveInfo = { type: movingP.type, level: movingP.level, item: movingP.heldItem || null };
         const nextTracks = { white: currentPlayer === 'white' ? newMoveInfo : lastMoveWhite, black: currentPlayer === 'black' ? newMoveInfo : lastMoveBlack, global: newMoveInfo };
         const move: Move = { from: selectedSquare!, to: alg, type: 'swap-scroll' };
+        
+        deductConsumable('swap_scroll');
         setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(alg);
         if (currentPlayer === 'white') setLastMoveWhite(newMoveInfo); else setLastMoveBlack(newMoveInfo);
         setLastMoveGlobal(newMoveInfo);
@@ -943,6 +959,8 @@ export default function DungeonPage() {
         const newMoveInfo: LastMoveInfo = { type: movingP.type, level: movingP.level, item: movingP.heldItem || null };
         const nextTracks = { white: currentPlayer === 'white' ? newMoveInfo : lastMoveWhite, black: currentPlayer === 'black' ? newMoveInfo : lastMoveBlack, global: newMoveInfo };
         const move: Move = { from: selectedSquare!, to: alg, type: 'kings-decree' };
+        
+        deductConsumable('kings_decree');
         setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(alg);
         if (currentPlayer === 'white') setLastMoveWhite(newMoveInfo); else setLastMoveBlack(newMoveInfo);
         setLastMoveGlobal(newMoveInfo);
@@ -957,7 +975,7 @@ export default function DungeonPage() {
             setTeleportAllyPieceId(piece.id);
             setIsSelectingTeleportAlly(false);
             setIsSelectingTeleportShroom(true);
-            addLog("Select a shroom to teleport to!");
+            addLog("Select an ally to teleport!");
         }
         return;
     }
@@ -1100,6 +1118,8 @@ export default function DungeonPage() {
 
         if ((row === fR || col === fC) && alg !== selectedSquare) {
             const type = isAwaitingRayTarget === 'glacial' ? 'glacial-ray' : 'burning-ray';
+            
+            deductConsumable(isAwaitingRayTarget === 'glacial' ? 'glacial_ray' : 'burning_ray');
             clickGuard.current = true; setIsMoveProcessing(true); setAnimatedSquareTo(alg);
             if (currentPlayer === 'white') setLastMoveWhite(newMoveInfo); else setLastMoveBlack(newMoveInfo);
             setLastMoveGlobal(newMoveInfo);
@@ -1126,10 +1146,10 @@ export default function DungeonPage() {
             }
 
             let moveType: Move['type'] = 'move';
-            if (isAwaitingWindScrollTarget) moveType = 'wind-scroll';
-            else if (isAwaitingAnvilScrollTarget) moveType = 'summon-anvil';
-            else if (isAwaitingEarthquakeScrollTarget) moveType = 'earthquake-scroll';
-            else if (isAwaitingOilSlickTarget) moveType = 'oil-slick';
+            if (isAwaitingWindScrollTarget) { moveType = 'wind-scroll'; deductConsumable('wind_scroll'); }
+            else if (isAwaitingAnvilScrollTarget) { moveType = 'summon-anvil'; deductConsumable('summon_anvil'); }
+            else if (isAwaitingEarthquakeScrollTarget) { moveType = 'earthquake-scroll'; deductConsumable('earthquake_scroll'); }
+            else if (isAwaitingOilSlickTarget) { moveType = 'oil-slick'; deductConsumable('oil_slick'); }
             else if (isAwaitingAnvilDrop) {
                 clickGuard.current = false; setIsMoveProcessing(false); setAnimatedSquareTo(null);
                 const nextB = specialActionContext!.boardForNextStep.map((r:any) => r.map((s:any) => ({ ...s }))); 
@@ -1272,6 +1292,7 @@ export default function DungeonPage() {
                    const newMoveInfo: LastMoveInfo = { type: moving.type, level: moving.level, item: moving.heldItem || null };
                    const nextTracks = { white: currentPlayer === 'white' ? newMoveInfo : lastMoveWhite, black: currentPlayer === 'black' ? newMoveInfo : lastMoveBlack, global: newMoveInfo };
 
+                   deductConsumable(item);
                    setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(selectedSquare);
                    if (currentPlayer === 'white') setLastMoveWhite(newMoveInfo); else setLastMoveBlack(newMoveInfo);
                    setLastMoveGlobal(newMoveInfo);
@@ -1286,6 +1307,7 @@ export default function DungeonPage() {
                    const newMoveInfo: LastMoveInfo = { type: moving.type, level: moving.level, item: moving.heldItem || null };
                    const nextTracks = { white: currentPlayer === 'white' ? newMoveInfo : lastMoveWhite, black: currentPlayer === 'black' ? newMoveInfo : lastMoveBlack, global: newMoveInfo };
 
+                   deductConsumable(item);
                    setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(selectedSquare);
                    if (currentPlayer === 'white') setLastMoveWhite(newMoveInfo); else setLastMoveBlack(newMoveInfo);
                    setLastMoveGlobal(newMoveInfo);
@@ -1454,7 +1476,7 @@ export default function DungeonPage() {
         setSelectedSquare(null); setPossibleMoves([]); 
         setClickedEnemySquare(null); setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
     }
-  }, [board, currentPlayer, selectedSquare, enPassantTargetSquare, lastMoveWhite, lastMoveBlack, lastMoveGlobal, capturedPieces, killStreaks, isInventoryOpen, selectedInventoryItemType, handlePieceHover, triggerSpecialsChain, boardForPostSacrifice, specialActionContext, isAwaitingPawnSacrifice, isAwaitingCommanderPromotion, isAwaitingAnvilDrop, isAwaitingAnvilScrollTarget, isAwaitingWindScrollTarget, isAwaitingEarthquakeScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget, playerToDropAnvil, isAwaitingHolyShield, isAwaitingArcherSnipe, dancerToDance, isAwaitingDanceTarget, processPawnSacrificeCheck, didCaptureLastTurn, addEffect, promotionQueue, promotionTargetLevel, isAwaitingGrappleThrow, grappledPieceSubject, grappledItemSubject, isSelectingMycoSpell, isAwaitingOilSlickTarget, isAwaitingRayTarget, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, playerWhoGotFirstblood, teleportAllyPieceId, addLog, clickedEnemySquare, isSpec, processMoveEnd, attunementSlots, usedSlots, saveDungeonState, level, inventory]);
+  }, [board, currentPlayer, selectedSquare, enPassantTargetSquare, lastMoveWhite, lastMoveBlack, lastMoveGlobal, capturedPieces, killStreaks, isInventoryOpen, selectedInventoryItemType, handlePieceHover, triggerSpecialsChain, boardForPostSacrifice, specialActionContext, isAwaitingPawnSacrifice, isAwaitingCommanderPromotion, isAwaitingAnvilDrop, isAwaitingAnvilScrollTarget, isAwaitingWindScrollTarget, isAwaitingEarthquakeScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget, playerToDropAnvil, isAwaitingHolyShield, isAwaitingArcherSnipe, dancerToDance, isAwaitingDanceTarget, processPawnSacrificeCheck, didCaptureLastTurn, addEffect, promotionQueue, promotionTargetLevel, isAwaitingGrappleThrow, grappledPieceSubject, grappledItemSubject, isSelectingMycoSpell, isAwaitingOilSlickTarget, isAwaitingRayTarget, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, playerWhoGotFirstblood, teleportAllyPieceId, addLog, clickedEnemySquare, isSpec, processMoveEnd, attunementSlots, usedSlots, saveDungeonState, level, inventory, deductConsumable]);
 
   const startRun = useCallback((reset: boolean = false) => {
     if (isUserLoading || !userData || !user) return;
@@ -1666,11 +1688,14 @@ export default function DungeonPage() {
                         const nr = r + dr; const nc = c + dc;
                         if (isValidSquare(nr, nc)) {
                             const victimSq = nB[nr][nc];
-                            if (victimSq.piece && victimSq.piece.color === 'white' && victimSq.piece.type !== 'king' && victimSq.piece.heldItem === 'blast_shield') {
-                                // Shielded
-                            } else if (victimSq.piece && victimSq.piece.color === 'white' && victimSq.piece.type !== 'king') {
-                                nG.white.push({ ...victimSq.piece });
-                                nB[nr][nc].piece = null;
+                            if (victimSq.piece && victimSq.piece.color === 'white') {
+                                triggerDefiantSparks(nB, nr, nc, 'white');
+                                if (victimSq.piece.type !== 'king' && victimSq.piece.heldItem === 'blast_shield') {
+                                    // Shielded
+                                } else if (victimSq.piece.type !== 'king') {
+                                    nG.white.push({ ...victimSq.piece });
+                                    nB[nr][nc].piece = null;
+                                }
                             }
                             if (victimSq.item?.type === 'anvil') nB[nr][nc].item = null;
                         }

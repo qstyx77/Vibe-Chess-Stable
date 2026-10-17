@@ -2,6 +2,48 @@ import type { BoardState, Piece, PlayerColor, AlgebraicSquare, ConversionEvent, 
 import { isValidSquare, coordsToAlgebraic, getEffectiveLevel, algebraicToCoords, getActiveSets } from './utils';
 import { FRONTLINE_TYPES } from './constants';
 
+export function handleRemovalReactions(board: BoardState, r: number, c: number, victim: Piece, attackerColor: PlayerColor, levelChanges: LevelChangeEvent[]): Piece[] {
+  const signalHornEventList: Piece[] = [];
+  const myColor = victim.color;
+
+  // Signal Horn Reaction
+  if (victim.heldItem === 'signal_horn') {
+    const myType = victim.type;
+    const sameTypeAllies: SquareState[] = [];
+    board.forEach(row => row.forEach(sq => {
+      if (sq.piece && sq.piece.color === myColor && sq.piece.type === myType && sq.piece.id !== victim.id) {
+        sameTypeAllies.push(sq);
+      }
+    }));
+    if (sameTypeAllies.length > 0) {
+      const hornTarget = sameTypeAllies[Math.floor(Math.random() * sameTypeAllies.length)];
+      const tp = hornTarget.piece!;
+      const oldHL = tp.level;
+      tp.level = Math.min(tp.type === 'queen' ? 7 : 99, (tp.level || 1) + 1);
+      if (tp.level > oldHL) {
+        levelChanges.push({ square: hornTarget.algebraic, delta: 1 });
+        tp.isPoisoned = false; tp.isExhausted = false; tp.cooldownTurnsRemaining = 0;
+      }
+    }
+  }
+
+  // Soul Link Reaction
+  if (victim.heldItem === 'soul_link') {
+    board.forEach(row => row.forEach(sq => {
+      if (sq.piece && sq.piece.color === myColor && sq.piece.heldItem === 'soul_link' && sq.piece.id !== victim.id) {
+        triggerDefiantSparks(board, sq.rowIndex, sq.colIndex, myColor);
+        signalHornEventList.push({ ...sq.piece, id: `${sq.piece.id}_linked_${Date.now()}` });
+        sq.piece = null;
+      }
+    }));
+  }
+
+  // Defiant Spark Reaction
+  triggerDefiantSparks(board, r, c, myColor);
+
+  return signalHornEventList;
+}
+
 export function triggerDefiantSparks(board: BoardState, targetR: number, targetC: number, victimColor: PlayerColor) {
   for (let dr = -1; dr <= 1; dr++) {
     for (let dc = -1; dc <= 1; dc++) {
@@ -44,7 +86,7 @@ export function triggerPushBack(board: BoardState, r: number, c: number, color: 
       const isCardinal = (dr === 0 || dc === 0);
 
       if (isCardinal && hasBatteringRam && victimSq.item?.type === 'anvil') {
-          const pushResult = performExtendedDisplacement(board, nr, nc, dr, dc, 3, true);
+          const pushResult = performExtendedDisplacement(board, nr, nc, dr, dc, 3, true, color);
           obliterated.push(...pushResult.obliterated);
           levelChanges.push(...pushResult.levelChanges);
           continue;
@@ -53,30 +95,24 @@ export function triggerPushBack(board: BoardState, r: number, c: number, color: 
       const isAnvil = victimSq.item?.type === 'anvil';
       const isEnemy = victimSq.piece && victimSq.piece.color !== color;
       
-      const shouldPush = (isAnvil && (canPushGeneral || hasGripGloves)) || (isEnemy && canPushGeneral);
-      
-      if (shouldPush) {
-        const victim = victimSq.piece;
-        if(victim?.heldItem === 'passive_armor' || victim?.heldItem === 'lead_boots') continue;
+      if (isAnvil && (canPushGeneral || hasGripGloves)) {
+          const pushResult = performExtendedDisplacement(board, nr, nc, dr, dc, 1, false, color);
+          obliterated.push(...pushResult.obliterated);
+          levelChanges.push(...pushResult.levelChanges);
+      } else if (isEnemy && canPushGeneral) {
+        const victim = victimSq.piece!;
+        if(victim.heldItem === 'passive_armor' || victim.heldItem === 'lead_boots') continue;
         
-        const victimSets = victim ? getActiveSets(board, victim.color) : [];
-        if (victim && victimSets.includes('heavy_guard') && FRONTLINE_TYPES.includes(victim.type)) continue;
+        const victimSets = getActiveSets(board, victim.color);
+        if (victimSets.includes('heavy_guard') && FRONTLINE_TYPES.includes(victim.type)) continue;
 
-        if (victim?.heldItem === 'kinetic_coil') {
-            const oldL = victim.level;
-            victim.level = Math.min(victim.type === 'queen' ? 7 : 99, (victim.level || 1) + 1);
-            if (victim.level > oldL) {
-                levelChanges.push({ square: coordsToAlgebraic(nr, nc), delta: 1 });
-                victim.isPoisoned = false; victim.isExhausted = false; victim.cooldownTurnsRemaining = 0;
-            }
-        }
-        if (victim?.heldItem === 'spiked_buckler' && actor.heldItem !== 'filter_mask') actor.isPoisoned = true;
-        if (victim?.heldItem === 'frayed_rope') {
+        if (victim.heldItem === 'spiked_buckler' && actor.heldItem !== 'filter_mask') actor.isPoisoned = true;
+        if (victim.heldItem === 'frayed_rope') {
             actor.isExhausted = true;
             actor.cooldownTurnsRemaining = 2;
         }
 
-        const pushResult = performExtendedDisplacement(board, nr, nc, dr, dc, 1, false);
+        const pushResult = performExtendedDisplacement(board, nr, nc, dr, dc, 1, false, color);
         if (pushResult.crushed) mainCrushed = pushResult.crushed;
         obliterated.push(...pushResult.obliterated);
         levelChanges.push(...pushResult.levelChanges);
@@ -86,7 +122,7 @@ export function triggerPushBack(board: BoardState, r: number, c: number, color: 
   return { crushed: mainCrushed, obliterated, levelChanges };
 }
 
-export function performExtendedDisplacement(board: BoardState, startR: number, startC: number, dr: number, dc: number, distance: number, obliterateInPath: boolean): { crushed: Piece | null, obliterated: Piece[], levelChanges: LevelChangeEvent[] } {
+export function performExtendedDisplacement(board: BoardState, startR: number, startC: number, dr: number, dc: number, distance: number, obliterateInPath: boolean, actorColor: PlayerColor): { crushed: Piece | null, obliterated: Piece[], levelChanges: LevelChangeEvent[] } {
     let currentR = startR;
     let currentC = startC;
     const displacedItem = board[startR][startC].item;
@@ -113,8 +149,9 @@ export function performExtendedDisplacement(board: BoardState, startR: number, s
 
         if (targetSq.piece) {
             if (obliterateInPath || displacedItem?.type === 'anvil') {
-                triggerDefiantSparks(board, nextR, nextC, targetSq.piece.color);
-                obliterated.push({ ...targetSq.piece });
+                const victim = targetSq.piece;
+                const extraOblits = handleRemovalReactions(board, nextR, nextC, victim, actorColor, levelChanges);
+                obliterated.push({ ...victim }, ...extraOblits);
                 targetSq.piece = null;
             } else {
                 break;
@@ -139,7 +176,7 @@ export function performExtendedDisplacement(board: BoardState, startR: number, s
     }
 
     if (board[currentR][currentC].oilSlickTurnsRemaining > 0) {
-        const slideResult = applyOilSlide(board, currentR, currentC, dr, dc);
+        const slideResult = applyOilSlide(board, currentR, currentC, dr, dc, actorColor);
         obliterated.push(...slideResult.obliterated);
         levelChanges.push(...slideResult.levelChanges);
     }
@@ -435,7 +472,7 @@ export function processOilSlickTimers(board: BoardState, player: PlayerColor): B
     return newBoard;
 }
 
-export function applyOilSlide(board: BoardState, row: number, col: number, dr: number, dc: number): { r: number, c: number, obliterated: Piece[], levelChanges: LevelChangeEvent[] } {
+export function applyOilSlide(board: BoardState, row: number, col: number, dr: number, dc: number, actorColor: PlayerColor): { r: number, c: number, obliterated: Piece[], levelChanges: LevelChangeEvent[] } {
     let currentR = row;
     let currentC = col;
     const obliterated: Piece[] = [];
@@ -474,8 +511,9 @@ export function applyOilSlide(board: BoardState, row: number, col: number, dr: n
                 currentR = nr;
                 currentC = nc;
             } else if (targetSq.piece && targetSq.piece.type !== 'king' && !targetSq.piece.isShielded) {
-                triggerDefiantSparks(board, nr, nc, targetSq.piece.color);
-                obliterated.push({ ...targetSq.piece });
+                const victim = targetSq.piece;
+                const extraOblits = handleRemovalReactions(board, nr, nc, victim, actorColor, levelChanges);
+                obliterated.push({ ...victim }, ...extraOblits);
                 board[nr][nc].piece = null;
                 board[nr][nc].item = { ...movingObjItem };
                 board[currentR][currentC].item = null;

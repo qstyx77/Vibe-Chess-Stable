@@ -98,9 +98,6 @@ const broadcastPresence = () => {
     });
 };
 
-/**
- * Calculates standard Elo rating change based on win/loss outcome.
- */
 function calculateEloChange(winnerElo: number, loserElo: number) {
     const k = 32;
     const expectedScoreWinner = 1 / (1 + Math.pow(10, (loserElo - winnerElo) / 400));
@@ -331,6 +328,30 @@ const broadcastTournamentMessage = (tournamentId: string, text: string) => {
             }));
         }
     });
+};
+
+const moveTypeToItem: Record<string, InventoryItemType> = {
+    'wind-scroll': 'wind_scroll',
+    'life-leach': 'life_leach',
+    'summon-anvil': 'summon_anvil',
+    'shield-scroll': 'shield_scroll',
+    'rally-scroll': 'rally_scroll',
+    'antidote': 'antidote',
+    'swap-scroll': 'swap_scroll',
+    'ice-scroll': 'ice_scroll',
+    'resurrection-scroll': 'resurrection_scroll',
+    'faith-scroll': 'faith_scroll',
+    'kings-decree': 'kings_decree',
+    'ice-blast': 'ice_blast',
+    'soul-harvest': 'soul_harvest',
+    'earthquake-scroll': 'earthquake_scroll',
+    'demonic-possession': 'demonic_possession',
+    'heavy-rain': 'heavy_rain',
+    'oil-slick': 'oil_slick',
+    'phase-out': 'phase_out',
+    'glacial-ray': 'glacial_ray',
+    'burning-ray': 'burning_ray',
+    'lose-thy-faith': 'lose_faith_scroll'
 };
 
 let arenaQueue: { ws: WebSocket; userId: string; userData: any }[] = [];
@@ -622,6 +643,23 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                     const movingPiece = gs.board[fromSq.row][fromSq.col].piece;
                     if (!isRewardMove) {
                         if (!movingPiece || movingPiece.color !== playerColor) break;
+                        
+                        // SERVER-SIDE ITEM VERIFICATION
+                        const requiredItem = moveTypeToItem[movePayload.type || ''];
+                        if (requiredItem) {
+                            const actualItem = movingPiece.heldItem;
+                            if (actualItem !== requiredItem) {
+                                console.warn(`[Security] Client attempted ${movePayload.type} without ${requiredItem}. Piece had ${actualItem}.`);
+                                break;
+                            }
+                            if (movePayload.type === 'self-destruct') {
+                                const effL = getEffectiveLevel(gs.board, fromSq.row, fromSq.col);
+                                if (effL < 2 && actualItem === 'detonation_scroll') break;
+                                if (effL < 5 && actualItem !== 'detonation_scroll') break;
+                            }
+                            if (movePayload.type === 'kings-decree' && movingPiece.type !== 'king') break;
+                        }
+
                         const legalMoves = getPossibleMoves(gs.board, movePayload.from, gs.enPassantTargetSquare, room.historyTracks.white, room.historyTracks.black, room.historyTracks.global);
                         if (!legalMoves.includes(movePayload.to)) break;
                     }
@@ -805,7 +843,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                             smokeBomb: !!result.smokeBombEvent,
                             smokePos: result.smokeBombEvent?.square,
                             glassShard: result.glassShardTriggered,
-                            signalHorn: !!result.signalHornEvent,
+                            signal_horn: !!result.signalHornEvent,
                             signalHornTargetType: result.signalHornEvent?.piece.type,
                             soulLink: result.obliteratedPieces?.some(p => p.id.includes('_linked_')),
                             soulLinkCount: result.obliteratedPieces?.filter(p => p.id.includes('_linked_')).length
@@ -833,4 +871,3 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
 
 const PORT = 8080;
 server.listen(PORT, '0.0.0.0', () => { console.log(`Server listening on port ${PORT}`); });
-

@@ -491,6 +491,54 @@ export default function EvolvingChessPage() {
     router.push('/dungeon');
   }, [user, inventory, firestore, router, toast]);
 
+  const handleGameEndCleanup = useCallback(async (winner: PlayerColor | 'draw') => {
+      if (!user || !firestore) return;
+      const userRef = doc(firestore, 'users', user.uid);
+      const isCompetitive = onlineStatus === 'connected' && (roomId?.startsWith('arena_') || !!eloInfo); 
+      
+      if (!isCompetitive && initialSnapshot) {
+          // SAFE RETURN: Restore inventory and equipment
+          updateDocumentNonBlocking(userRef, { 
+              inventory: initialSnapshot.inventory,
+              equipment: initialSnapshot.whiteEquipment,
+              blackEquipment: initialSnapshot.blackEquipment
+          });
+          setInventory(initialSnapshot.inventory);
+          addLog("Training complete. Used items returned to ranks.");
+      } else if (isCompetitive) {
+          // Competitive deduction is handled incrementally by sync logic
+          // but we can enforce final piece control here (conversion results)
+          const currentInv = [...inventory];
+          board.flat().forEach(sq => {
+              if (sq.piece && sq.piece.heldItem && sq.piece.color === localPlayerColor) {
+                  const wasOpponentOriginal = (localPlayerColor === 'white' && sq.piece.id.startsWith('b')) || (localPlayerColor === 'black' && sq.piece.id.startsWith('w'));
+                  if (wasOpponentOriginal) {
+                      // Piece was converted to us - we keep the item in our loot bag
+                      const itemIdx = currentInv.findIndex(i => i.type === sq.piece!.heldItem);
+                      if (itemIdx > -1) currentInv[itemIdx].count++;
+                      else currentInv.push({ type: sq.piece.heldItem, count: 1 });
+                      addLog(`CONVERTED LOOT: Captured ${ITEM_METADATA[sq.piece.heldItem].name}!`);
+                  }
+              }
+          });
+
+          // Sync final equipment state for competitive reciprocal stakes
+          const finalEq: Record<string, string> = {};
+          board.flat().forEach(sq => {
+              if (sq.piece?.heldItem && sq.piece.color === localPlayerColor) {
+                  finalEq[sq.piece.id] = sq.piece.heldItem;
+              }
+          });
+          const updateObj: any = { inventory: currentInv };
+          if (localPlayerColor === 'white') updateObj.equipment = finalEq;
+          else if (localPlayerColor === 'black') updateObj.blackEquipment = finalEq;
+
+          updateDocumentNonBlocking(userRef, updateObj);
+          setInventory(currentInv);
+      }
+      setInitialSnapshot(null);
+  }, [user, firestore, onlineStatus, initialSnapshot, board, localPlayerColor, inventory, addLog, eloInfo, roomId]);
+
   const processMoveEnd = useCallback((boardForNextStep: BoardState, currentGraveyard: { white: Piece[], black: Piece[] }, currentKs: { white: number, black: number }, playerWhoseTurnCompleted: PlayerColor, isExtraTurn: boolean, newEnPassantTarget: AlgebraicSquare | null, wasCaptureThisTurn: boolean = false, movedPieceType?: PieceType | null, trackWhite?: LastMoveInfo | null, trackBlack?: LastMoveInfo | null, trackGlobal?: LastMoveInfo | null) => {
     let currentBoardState = boardForNextStep; const newGameMoveCounter = gameMoveCounter + 1;
     setGameMoveCounter(newGameMoveCounter); setCapturedPieces(currentGraveyard); setKillStreaks(currentKs);
@@ -532,11 +580,13 @@ export default function EvolvingChessPage() {
     poisonChanges?.forEach(lc => addEffectCallback('level-change', lc.square, nextPlayer, lc.delta));
     
     const postPoisonPieces = boardAfterPoison.flat().filter(sq => sq.piece).map(sq => sq.piece!);
-    const anyShattered = midFrozenIds.some(id => {
+    anyShatteredLoop: for (const id of midFrozenIds) {
         const p = postPoisonPieces.find(piece => piece.id === id);
-        return p && (p.frozenTurnsRemaining || 0) === 0;
-    });
-    if (anyShattered) audioManager.playShatter();
+        if (p && (p.frozenTurnsRemaining || 0) === 0) {
+            audioManager.playShatter();
+            break anyShatteredLoop;
+        }
+    }
 
     const isSelfInCheck = isKingInCheck(boardAfterPoison, playerWhoseTurnCompleted, newEnPassantTarget, effWhite, effBlack, effGlobal);
     if (isSelfInCheck) {
@@ -605,43 +655,7 @@ export default function EvolvingChessPage() {
       const isNextAI = nextPlayer === 'white' ? isWhiteAI : isBlackAI;
       if (!isNextAI) setBoardOrientation(nextPlayer);
     }
-  }, [board, gameMoveCounter, shroomSpawnCounter, nextShroomSpawnTurn, onlineStatus, localPlayerColor, addLog, getPlayerDisplayName, lastMoveWhite, lastMoveBlack, lastMoveGlobal, addEffectCallback, viewMode, isWhiteAI, isBlackAI, positionHistory, playOutcomeSound, initialSnapshot, inventory, userData]);
-
-  const handleGameEndCleanup = useCallback(async (winner: PlayerColor | 'draw') => {
-      if (!user || !firestore) return;
-      const userRef = doc(firestore, 'users', user.uid);
-      const isCompetitive = onlineStatus === 'connected' && (!!tournamentId || !!eloInfo); 
-      
-      if (!isCompetitive && initialSnapshot) {
-          // SAFE RETURN: Restore inventory and equipment
-          updateDocumentNonBlocking(userRef, { 
-              inventory: initialSnapshot.inventory,
-              equipment: initialSnapshot.whiteEquipment,
-              blackEquipment: initialSnapshot.blackEquipment
-          });
-          setInventory(initialSnapshot.inventory);
-          addLog("Training complete. Used items returned to ranks.");
-      } else if (isCompetitive) {
-          // Competitive deduction is handled incrementally by sync logic
-          // but we can enforce final piece control here (conversion results)
-          const currentInv = [...inventory];
-          board.flat().forEach(sq => {
-              if (sq.piece && sq.piece.heldItem && sq.piece.color === localPlayerColor) {
-                  const wasOpponentOriginal = (localPlayerColor === 'white' && sq.piece.id.startsWith('b')) || (localPlayerColor === 'black' && sq.piece.id.startsWith('w'));
-                  if (wasOpponentOriginal) {
-                      // Piece was converted to us - we keep the item in our loot bag
-                      const itemIdx = currentInv.findIndex(i => i.type === sq.piece!.heldItem);
-                      if (itemIdx > -1) currentInv[itemIdx].count++;
-                      else currentInv.push({ type: sq.piece.heldItem, count: 1 });
-                      addLog(`CONVERTED LOOT: Captured ${ITEM_METADATA[sq.piece.heldItem].name}!`);
-                  }
-              }
-          });
-          updateDocumentNonBlocking(userRef, { inventory: currentInv });
-          setInventory(currentInv);
-      }
-      setInitialSnapshot(null);
-  }, [user, firestore, onlineStatus, initialSnapshot, board, localPlayerColor, inventory, addLog]);
+  }, [board, gameMoveCounter, shroomSpawnCounter, nextShroomSpawnTurn, onlineStatus, localPlayerColor, addLog, getPlayerDisplayName, lastMoveWhite, lastMoveBlack, lastMoveGlobal, addEffectCallback, viewMode, isWhiteAI, isBlackAI, positionHistory, playOutcomeSound, handleGameEndCleanup, initialSnapshot, inventory, userData]);
 
   const triggerSpecialsChain = useCallback((boardToChain: BoardState, currentGraveyard: { white: Piece[], black: Piece[] }, currentKs: { white: number, black: number }, oldStreak: number, newStreak: number, isExtraTurn: boolean, nextEp: AlgebraicSquare | null, actingPlayer: PlayerColor = 'white', completedMilestones: string[] = [], capturingPieceId: string | null = null, wasCaptureThisTurn: boolean = false, movedPieceType?: PieceType | null, trackWhite?: LastMoveInfo | null, trackBlack?: LastMoveInfo | null, trackGlobal?: LastMoveInfo | null) => {
     const isAI = (actingPlayer === 'white' && isWhiteAI) || (actingPlayer === 'black' && isBlackAI);
@@ -1253,7 +1267,7 @@ export default function EvolvingChessPage() {
         }
         return;
     }
-    if (isSelectingTeleportAlly) { if (piece && piece.color === currentPlayer && piece.type !== 'king' && piece.type !== 'queen' && piece.id !== (selectedSquare ? boardState[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece?.id : null)) { setTeleportAllyPieceId(piece.id); setIsSelectingTeleportAlly(false); setIsSelectingTeleportShroom(true); addLog("Select a shroom to teleport to!"); } return; }
+    if (isSelectingTeleportAlly) { if (piece && piece.color === currentPlayer && piece.type !== 'king' && piece.type !== 'queen' && piece.id !== (selectedSquare ? board[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece?.id : null)) { setTeleportAllyPieceId(piece.id); setIsSelectingTeleportAlly(false); setIsSelectingTeleportShroom(true); addLog("Select a shroom to teleport to!"); } return; }
     if (isSelectingTeleportShroom && sq?.item?.type === 'shroom') {
         const mage = board[algebraicToCoords(selectedSquare!).row][algebraicToCoords(selectedSquare!).col].piece!;
         const newMoveInfo: LastMoveInfo = { type: mage.type, level: mage.level, item: mage.heldItem || null };
@@ -1542,8 +1556,8 @@ export default function EvolvingChessPage() {
                     setGrappledPieceSubject(tP ? { piece: { ...tP }, from: algebraic } : null); setGrappledItemSubject(tA ? { type: 'anvil', from: algebraic } : null); setIsAwaitingGrappleThrow(true);
                     const range = getEffectiveLevel(board, fR, fC); const throwT: AlgebraicSquare[] = [];
                     for(let tr=0; tr<8; tr++) for(let tc=0; tc<8; tc++) {
-                        const dist = Math.max(Math.abs(tr-fR), Math.abs(tc-fC));
-                        if (dist > 0 && dist <= range && (tr === fR || tc === fC || Math.abs(tr-fR) === Math.abs(tc-fC))) { if (!board[tr][tc].piece && !board[tr][tc].item) throwT.push(coordsToAlgebraic(tr, tc)); }
+                        const dist = Math.max(Math.abs(tr-r), Math.abs(tc-c));
+                        if (dist > 0 && dist <= range && (tr === r || tc === c || Math.abs(tr-r) === Math.abs(tc-c))) { if (!board[tr][tc].piece && !board[tr][tc].item) throwT.push(coordsToAlgebraic(tr, tc)); }
                     }
                     if (tP && tP.color !== currentPlayer) throwT.push(algebraic);
                     setPossibleMoves(throwT); addLog("Grappler: Select landing, or click enemy again to capture."); return;
@@ -1745,7 +1759,7 @@ export default function EvolvingChessPage() {
     };
     ws.onclose = () => { setOnlineStatus('disconnected'); };
     wsRef.current = ws;
-  }, [addLog, getPlayerDisplayName, addEffectCallback, playOutcomeSound, lastMoveWhite, lastMoveBlack, lastMoveGlobal, user, inventory, saveLoadoutToFirestore, localPlayerColor, firestore, handleGameEndCleanup, eloInfo]);
+  }, [addLog, getPlayerDisplayName, addEffectCallback, playOutcomeSound, lastMoveWhite, lastMoveBlack, lastMoveGlobal, user, inventory, saveLoadoutToFirestore, localPlayerColor, firestore, handleGameEndCleanup, eloInfo, roomId]);
 
   const handleOnlinePlay = useCallback((action: 'create' | 'join') => {
     if (!user) return;
