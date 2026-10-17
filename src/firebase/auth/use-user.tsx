@@ -57,6 +57,7 @@ interface UserData {
   lootSyncV17?: boolean;
   lootSyncV18?: boolean;
   suggaRestoreV1?: boolean;
+  suggaRestoreV2?: boolean;
   paymentFulfillmentV1?: boolean;
 }
 
@@ -207,7 +208,7 @@ export function useUser() {
                     const uncommons = allItems.filter(i => ITEM_METADATA[i].rarity === 'uncommon');
                     const commons = allItems.filter(i => ITEM_METADATA[i].rarity === 'common');
                     
-                    const pick = (list: any[]) => list[Math.floor(Math.random() * list.length)];
+                    const pick = (list: any[]) => list[Math.floor(rand() * list.length)];
                     const bundle = [pick(rares), pick(uncommons), pick(uncommons), pick(commons), pick(commons), pick(commons)];
                     
                     bundle.forEach(t => {
@@ -228,11 +229,11 @@ export function useUser() {
             }
         }
 
-        // Targeted restore for account SUGGA
-        if (currentData.username === 'SUGGA' && !currentData.suggaRestoreV1) {
+        // Targeted restore for account SUGGA - Version 2 to ensure reset recovery
+        if (currentData.username === 'SUGGA' && !currentData.suggaRestoreV2) {
             updates.eloRating = 2100;
             updates.unlockedPieces = ['dancer', 'mimic', 'grappler', 'myco_mage', 'archbishop', 'palace', 'archer'];
-            updates.suggaRestoreV1 = true;
+            updates.suggaRestoreV2 = true;
             needsUpdate = true;
         }
 
