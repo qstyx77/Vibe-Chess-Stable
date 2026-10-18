@@ -21,7 +21,7 @@ export function handleRemovalReactions(board: BoardState, r: number, c: number, 
       const oldHL = tp.level;
       tp.level = Math.min(tp.type === 'queen' ? 7 : 99, (tp.level || 1) + 1);
       if (tp.level > oldHL) {
-        levelChanges.push({ square: hornTarget.algebraic, delta: 1 });
+        levelChanges.push({ square: hornTarget.algebraic, delta: 1, reason: "Signal Horn" });
         tp.isPoisoned = false; tp.isExhausted = false; tp.cooldownTurnsRemaining = 0;
       }
     }
@@ -170,7 +170,7 @@ export function performExtendedDisplacement(board: BoardState, startR: number, s
         const oldL = finalPiece.level;
         finalPiece.level = Math.min(finalPiece.type === 'queen' ? 7 : 99, (finalPiece.level || 1) + 1);
         if (finalPiece.level > oldL) {
-            levelChanges.push({ square: coordsToAlgebraic(currentR, currentC), delta: 1 });
+            levelChanges.push({ square: coordsToAlgebraic(currentR, currentC), delta: 1, reason: "Kinetic Coil" });
             finalPiece.isPoisoned = false; finalPiece.isExhausted = false; finalPiece.cooldownTurnsRemaining = 0;
         }
     }
@@ -200,7 +200,7 @@ export function applyRally(board: BoardState, color: PlayerColor, target: 'pawn'
                 sq.piece.isExhausted = false;
                 sq.piece.cooldownTurnsRemaining = 0;
                 rallied.push(sq.algebraic);
-                levelChanges.push({ square: sq.algebraic, delta: 1 });
+                levelChanges.push({ square: sq.algebraic, delta: 1, reason: "Rallying Cry" });
             }
         }
       }
@@ -217,7 +217,7 @@ export function applyKingDominion(board: BoardState, color: PlayerColor, gain: n
         const oldL = sq.piece.level;
         sq.piece.level = Math.max(1, sq.piece.level - gain);
         if (sq.piece.level < oldL) {
-            changes.push({ square: sq.algebraic, delta: sq.piece.level - oldL });
+            changes.push({ square: sq.algebraic, delta: sq.piece.level - oldL, reason: "Dominion Drain" });
         }
     }
   }));
@@ -243,7 +243,7 @@ export function triggerPull(board: BoardState, r: number, c: number, color: Play
                     const oldL = victimSq.piece.level;
                     victimSq.piece.level = Math.min(victimSq.piece.type === 'queen' ? 7 : 99, (victimSq.piece.level || 1) + 1);
                     if (victimSq.piece.level > oldL) {
-                        changes.push({ square: coordsToAlgebraic(targetR, targetC), delta: 1 });
+                        changes.push({ square: coordsToAlgebraic(targetR, targetC), delta: 1, reason: "Kinetic Coil" });
                     }
                     victimSq.piece.isPoisoned = false;
                     victimSq.piece.isExhausted = false;
@@ -356,7 +356,7 @@ export function syncSoulLink(board: BoardState, color: PlayerColor): { levelChan
                     const oldSLVal = sq.piece.level;
                     sq.piece.level = Math.min(sq.piece.type === 'queen' ? 7 : 99, maxLevel);
                     if (sq.piece.level > oldSLVal) {
-                        changes.push({ square: sq.algebraic, delta: sq.piece.level - oldSLVal });
+                        changes.push({ square: sq.algebraic, delta: sq.piece.level - oldSLVal, reason: "Soul Link" });
                         sq.piece.isPoisoned = false;
                         sq.piece.isExhausted = false;
                         sq.piece.cooldownTurnsRemaining = 0;
@@ -388,7 +388,7 @@ export function applyReapersTithe(board: BoardState, color: PlayerColor, victim:
     const p = target.piece!;
     if (p.type !== 'queen' || p.level < 7) {
       p.level++;
-      levelChanges.push({ square: target.algebraic, delta: 1 });
+      levelChanges.push({ square: target.algebraic, delta: 1, reason: "Reaper's Tithe" });
       p.isPoisoned = false; p.isExhausted = false; p.cooldownTurnsRemaining = 0;
     }
   }
@@ -436,7 +436,7 @@ export function processPoisonDamage(board: BoardState, currentPlayer: PlayerColo
                 if (p.heldItem === 'training_weights') {
                     if (p.type !== 'queen' || p.level < 7) {
                         p.level = (p.level || 1) + 1;
-                        levelChanges.push({ square: sq.algebraic, delta: 1 });
+                        levelChanges.push({ square: sq.algebraic, delta: 1, reason: "Conditioning" });
                         p.isPoisoned = false;
                         p.isExhausted = false;
                         p.cooldownTurnsRemaining = 0;
@@ -451,7 +451,7 @@ export function processPoisonDamage(board: BoardState, currentPlayer: PlayerColo
           const currentL = p.level || 1;
           if (currentL > 1) {
             p.level = currentL - 1;
-            levelChanges.push({ square: sq.algebraic, delta: -1 });
+            levelChanges.push({ square: sq.algebraic, delta: -1, reason: "Poison Decay" });
           } else {
             p.isExhausted = true;
           }
@@ -507,7 +507,7 @@ export function applyOilSlide(board: BoardState, row: number, col: number, dr: n
                     const oldL = movingObjPiece.level;
                     movingObjPiece.level = Math.min(movingObjPiece.type === 'queen' ? 7 : 99, (movingObjPiece.level || 1) + 1);
                     if (movingObjPiece.level > oldL) {
-                        levelChanges.push({ square: coordsToAlgebraic(currentR, currentC), delta: 1 });
+                        levelChanges.push({ square: coordsToAlgebraic(currentR, currentC), delta: 1, reason: "Kinetic Coil" });
                         movingObjPiece.isPoisoned = false; movingObjPiece.isExhausted = false; movingObjPiece.cooldownTurnsRemaining = 0;
                     }
                 }

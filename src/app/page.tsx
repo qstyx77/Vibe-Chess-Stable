@@ -577,7 +577,10 @@ export default function EvolvingChessPage() {
 
     const nextPlayer = isExtraTurn ? playerWhoseTurnCompleted : (playerWhoseTurnCompleted === 'white' ? 'black' : 'white');
     const { newBoard: boardAfterPoison, levelChanges: poisonChanges } = processPoisonDamage(currentBoardState, nextPlayer);
-    poisonChanges?.forEach(lc => addEffectCallback('level-change', lc.square, nextPlayer, lc.delta));
+    poisonChanges?.forEach(lc => {
+        addEffectCallback('level-change', lc.square, nextPlayer, lc.delta);
+        if (lc.reason) addLog(`${getPlayerDisplayName(nextPlayer)}: ${lc.reason} (${lc.delta > 0 ? '+' : ''}${lc.delta})`);
+    });
     
     const postPoisonPieces = boardAfterPoison.flat().filter(sq => sq.piece).map(sq => sq.piece!);
     anyShatteredLoop: for (const id of midFrozenIds) {
@@ -727,7 +730,7 @@ export default function EvolvingChessPage() {
                             nextBoard[best.r][best.c].piece = { ...dancerPiece, hasMoved: true, level: (dancerPiece.level || 1) + 1 };
                             if (nextBoard[best.r][best.c].piece!.level > 7 && nextBoard[best.r][best.c].piece!.type === 'queen') nextBoard[best.r][best.c].piece!.level = 7;
                             if (nextBoard[best.r][best.c].piece!.level > oldDancerL) {
-                                addEffectCallback('level-change', coordsToAlgebraic(best.r, best.c), actingPlayer, 1);
+                                addEffectCallback('level-change', coordsToAlgebraic(best.r, best.c), actingPlayer, 1, undefined);
                             }
                         } else { nextBoard[best.r][best.c].piece = { ...dancerPiece, hasMoved: true }; }
                         nextBoard[best.r][best.c].item = null;
@@ -786,7 +789,7 @@ export default function EvolvingChessPage() {
                         const oldTargetL = ally.level;
                         ally.level = Math.min(ally.type === 'queen' ? 7 : 99, (ally.level || 1) + 1);
                         if (ally.level > oldTargetL) {
-                            addEffectCallback('level-change', targets[0].algebraic, actingPlayer, 1);
+                            addEffectCallback('level-change', targets[0].algebraic, actingPlayer, 1, undefined);
                         }
                     }
                     addLog(`${getPlayerDisplayName(actingPlayer)} Archbishop applied a Holy Shield!`); 
@@ -820,7 +823,7 @@ export default function EvolvingChessPage() {
             }
             triggerSpecialsChain(nextBoard, nextGraveyard, currentKs, oldStreak, newStreak, isExtraTurn, nextEp, actingPlayer, [...completedMilestones, 'anvil'], capturingPieceId, wasCaptureThisTurn, movedPieceType, effWhite, effBlack, effGlobal); return;
         } else if (!localPlayerColor || actingPlayer === localPlayerColor) {
-            setSpecialActionContext({ boardForNextStep: boardToChain, playerWhoseTurnCompleted: actingPlayer, isExtraTurn: isExtraTurn, newEnPassantTarget: nextEp, oldStreak: oldStreak, newStreak: newStreak, completedMilestones: [...completedMilestones, 'anvil'], currentGraveyard: nextGraveyard, currentKs: currentKs, capturingPieceId, trackWhite: effWhite, trackBlack: effBlack, trackGlobal: effGlobal });
+            setSpecialActionContext({ boardForNextStep: boardToChain, playerWhoseTurnCompleted: actingPlayer, isExtraTurn: isExtraTurn, newEnPassantTarget: nextEp, oldStreak: oldStreak, newStreak: newStreak, completedMilestones: [...completedMilestones, 'anvil'], currentGraveyard: nextGraveyard, currentKs: currentKs, capturingPieceId: capturingPieceId, trackWhite: effWhite, trackBlack: effBlack, trackGlobal: effGlobal });
             setPlayerToDropAnvil(actingPlayer); setIsAwaitingAnvilDrop(true); addLog("Anvil Drop ready!"); return;
         }
     }
@@ -842,7 +845,7 @@ export default function EvolvingChessPage() {
                     black: Array.isArray(nextGraveyard.black) ? [...nextGraveyard.black] : []
                 };
                 if (actingPlayer === 'white') updatedG.white = updatedG.white.filter(p => p.id !== choice.id); else updatedG.black = updatedG.black.filter(p => p.id !== choice.id);
-                addEffectCallback('light-beam', sq.algebraic); audioManager.playResurrect(); addLog(`Resurrection! ${choice.type} has returned.`);
+                addEffectCallback('light-beam', sq.algebraic); audioManager.playResurrect(); addLog(`${getPlayerDisplayName(actingPlayer)} resurrected a ${choice.type}!`);
                 triggerSpecialsChain(nextBoard, updatedG, currentKs, oldStreak, newStreak, isExtraTurn, nextEp, actingPlayer, [...completedMilestones, 'resurrection'], capturingPieceId, wasCaptureThisTurn, movedPieceType, effWhite, effBlack, effGlobal); return;
             }
         }
@@ -967,7 +970,7 @@ export default function EvolvingChessPage() {
       pushHistory();
       const applyResult = applyMove(board, { from: fromAlg, to: toAlg, type: aiMove.type as Move['type'], promoteTo: aiMove.promoteTo, grappledFrom: aiMove.grappledFrom }, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, oppCapLastTurn);
       let nextB = applyResult.newBoard; const updatedG = { white: Array.isArray(capturedPieces?.white) ? [...capturedPieces.white] : [], black: Array.isArray(capturedPieces?.black) ? [...capturedPieces.black] : [] };
-      applyResult.levelChanges?.forEach(lc => addEffectCallback('level-change', lc.square, currentPlayer, lc.delta));
+      applyResult.levelChanges?.forEach(lc => addEffectCallback('level-change', lc.square, currentPlayer, lc.delta, undefined));
       if (applyResult.itemReturned) { setInventory(prev => { const next = [...prev]; const existing = next.find(i => i.type === applyResult.itemReturned); if (existing) existing.count++; else next.push({ type: applyResult.itemReturned!, count: 1 }); return next; }); addLog(`AI returned equipment: ${ITEM_METADATA[applyResult.itemReturned].name}`); }
       if (applyResult.reflectionOccurred) { 
           const victim = applyResult.capturedPiece!; const targetPile = victim.color; 
@@ -996,7 +999,7 @@ export default function EvolvingChessPage() {
       }
       
       if (applyResult.selfDestructCaptures) { applyResult.selfDestructCaptures.forEach(vic => { const pile = vic.color; updatedG[pile] = [...updatedG[pile], { ...vic }]; }); }
-      if (applyResult.ralliedSquares) applyResult.ralliedSquares.forEach(sq => addEffectCallback('level-change', sq, currentPlayer, 1));
+      if (applyResult.ralliedSquares) applyResult.ralliedSquares.forEach(sq => addEffectCallback('level-change', sq, currentPlayer, 1, undefined));
       if (applyResult.anvilDroppedSquares) applyResult.anvilDroppedSquares.forEach(sq => {
           setTimeout(() => { addEffectCallback('poof', sq); audioManager.playAnvil(); }, 300);
       });
@@ -1415,7 +1418,7 @@ export default function EvolvingChessPage() {
         if (rosaryArchbishop) {
             const oldAL = ally.level;
             ally.level = Math.min(ally.type === 'queen' ? 7 : 99, (ally.level || 1) + 1);
-            if (ally.level > oldAL) addEffectCallback('level-change', algebraic, currentPlayer, 1);
+            if (ally.level > oldAL) addEffectCallback('level-change', algebraic, currentPlayer, 1, undefined);
         }
         setBoard(nextB); setIsAwaitingHolyShield(false); triggerSpecialsChain(nextB, specialActionContext!.currentGraveyard, specialActionContext!.currentKs, specialActionContext!.oldStreak, specialActionContext!.newStreak, specialActionContext!.isExtraTurn, specialActionContext!.newEnPassantTarget, currentPlayer, specialActionContext!.completedMilestones, specialActionContext!.capturingPieceId, false, specialActionContext!.trackGlobal?.type || null, specialActionContext!.trackWhite, specialActionContext!.trackBlack, specialActionContext!.trackGlobal); }
       return;
@@ -1544,6 +1547,7 @@ export default function EvolvingChessPage() {
                    pushHistory(); setIsMoveProcessing(true); setAnimatedSquareTo(selectedSquare);
                    if (currentPlayer === 'white') setLastMoveWhite(newMoveInfo); else setLastMoveBlack(newMoveInfo);
                    setLastMoveGlobal(newMoveInfo);
+                   addEffectCallback('magic-burst', selectedSquare, undefined, undefined, item);
                    const res = applyMove(board, move, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, false);
                    setBoard(res.newBoard);
                    const updatedG = { white: Array.isArray(capturedPieces?.white) ? [...capturedPieces.white] : [], black: Array.isArray(capturedPieces?.black) ? [...capturedPieces.black] : [] };
@@ -1621,10 +1625,14 @@ export default function EvolvingChessPage() {
               setBoard(nextB); setCapturedPieces(updatedG);
               const streakGain = (applyRes.capturedPiece ? 1 : 0) + (applyRes.selfDestructCaptures?.length || 0) + (applyRes.obliteratedPieces?.length || 0) + (applyRes.smokeBombEvent ? 1 : 0);
               
-              applyRes.levelChanges?.forEach(lc => addEffectCallback('level-change', lc.square, currentPlayer, lc.delta));
+              applyRes.levelChanges?.forEach(lc => {
+                  addEffectCallback('level-change', lc.square, currentPlayer, lc.delta, undefined);
+                  if (lc.reason) addLog(`${getPlayerDisplayName(currentPlayer)}: ${lc.reason} (${lc.delta > 0 ? '+' : ''}${lc.delta})`);
+              });
+
               if (applyRes.shroomConsumed) addLog(`${getPlayerDisplayName(currentPlayer)} consumed a Shroom!`);
-              if (applyRes.ralliedSquares) applyRes.ralliedSquares.forEach(sq => addEffectCallback('level-change', sq, currentPlayer, 1));
-              if (applyRes.hydraSplitOccurred) { audioManager.playResurrect(); addLog("The Hydra regrows its heads!"); if (applyRes.hydraSpawnSquares) applyRes.hydraSpawnSquares.forEach(sq => addEffectCallback('level-change', sq, currentPlayer, 1)); }
+              if (applyRes.ralliedSquares) applyRes.ralliedSquares.forEach(sq => addEffectCallback('level-change', sq, currentPlayer, 1, undefined));
+              if (applyRes.hydraSplitOccurred) { audioManager.playResurrect(); addLog("The Hydra regrows its heads!"); if (applyRes.hydraSpawnSquares) applyRes.hydraSpawnSquares.forEach(sq => addEffectCallback('level-change', sq, currentPlayer, 1, undefined)); }
               if (applyRes.phoenixResurrection) { addEffectCallback('light-beam', applyRes.phoenixResurrection.square); audioManager.playResurrect(); }
               if (applyRes.resurrectionScrollEvent) { addEffectCallback('light-beam', applyRes.resurrectionScrollEvent.square); audioManager.playResurrect(); }
               if (applyRes.signalHornEvent) { addLog(`Signal Horn! ${applyRes.signalHornEvent.piece.type} gains a level.`); }
@@ -1720,25 +1728,31 @@ export default function EvolvingChessPage() {
             if (remoteEvents && remoteMove) {
                 const actingColor = nextGs.currentPlayer === 'white' ? 'black' : 'white';
                 if (remoteEvents.captured) { audioManager.playCapture(); addEffectCallback('poof', remoteMove.to); addLog(`${getPlayerDisplayName(actingColor)} captured a ${remoteEvents.capturedType}!`); }
+                if (remoteEvents.obliterated) { audioManager.playObliterate(); addEffectCallback('poof', remoteMove.to); addLog(`${getPlayerDisplayName(actingColor)}'s unit was OBLITERATED!`); }
                 if (remoteEvents.shroom) { audioManager.playShroom(); addLog(`${getPlayerDisplayName(actingColor)} consumed a Shroom!`); }
                 if (remoteEvents.hero) { audioManager.playLevelUp(); addLog(`${getPlayerDisplayName(actingColor)} Hero Ascended!`); }
                 if (remoteEvents.rally) { audioManager.playRally(); addEffectCallback('shockwave', remoteEvents.rallyPos, actingColor); }
                 if (remoteEvents.conversions?.length > 0) { audioManager.playConversion(); remoteEvents.conversions.forEach((pos: AlgebraicSquare) => { addEffectCallback('conversion', pos); }); }
-                if (remoteEvents.reflection) { audioManager.playCapture(); addEffectCallback('poof', remoteMove.to); addLog("Attack reflected!"); }
-                if (remoteEvents.ralliedSquares?.length > 0) { remoteEvents.ralliedSquares.forEach((pos: AlgebraicSquare) => { addEffectCallback('level-change', pos, actingColor, 1); }); }
+                if (remoteEvents.reflection) { audioManager.playCapture(); addEffectCallback('poof', remoteMove.to); addLog("Attack reflected by Mirror Shield!"); }
+                if (remoteEvents.ralliedSquares?.length > 0) { remoteEvents.ralliedSquares.forEach((pos: AlgebraicSquare) => { addEffectCallback('level-change', pos, actingColor, 1, undefined); }); }
                 if (remoteEvents.anvilDrop) { setTimeout(() => { audioManager.playAnvil(); addEffectCallback('poof', remoteEvents.dropPos); }, 300); addLog(`${getPlayerDisplayName(actingColor)} dropped an Anvil!`); }
                 if (remoteEvents.shield) { audioManager.playShield(); addLog(`${getPlayerDisplayName(actingColor)} applied a Holy Shield!`); }
                 if (remoteEvents.snipe) { audioManager.playSnipe(); addLog(`${getPlayerDisplayName(actingColor)} Snipe triggered!`); }
                 if (remoteEvents.resurrection && remoteEvents.resPos) { audioManager.playResurrect(); addEffectCallback('light-beam', remoteEvents.resPos); addLog(`${getPlayerDisplayName(actingColor)} triggered Resurrection Call!`); }
                 if (remoteEvents.hydraSplit) { audioManager.playResurrect(); addLog("The Hydra regrows its heads!"); if (remoteEvents.hydraSpawnSquares) remoteEvents.hydraSpawnSquares.forEach((pos: AlgebraicSquare) => addEffectCallback('light-beam', pos)); }
                 if (remoteEvents.resScroll) { audioManager.playResurrect(); addEffectCallback('light-beam', remoteEvents.resScrollPos); }
-                if (remoteEvents.stolen) { addLog(`STOLEN: ${ITEM_METADATA[remoteEvents.stolenItem as InventoryItemType].name}!`); }
+                if (remoteEvents.stolen) { addLog(`Opponent STOLE: ${ITEM_METADATA[remoteEvents.stolenItem as InventoryItemType].name}!`); }
                 if (remoteEvents.smokeBomb && remoteEvents.smokePos) { audioManager.playResurrect(); addEffectCallback('poof', remoteEvents.smokePos); addLog(`${getPlayerDisplayName(actingColor)}'s unit escaped via Smoke Bomb!`); }
                 if (remoteEvents.glassShard) { addLog("Glass Shard! Capturer is exhausted."); }
                 if (remoteEvents.signal_horn) { addLog(`Signal Horn! ${remoteEvents.signalHornTargetType} gains a level.`); }
                 if (remoteEvents.soulLink) { addLog(`Soul Link! ${remoteEvents.soulLinkCount} bound units collapsed.`); }
                 if (remoteEvents.shroomSpawned) { audioManager.playShroom(); addLog("A mystical Shroom 🍄 has appeared!"); }
-                remoteEvents.levelChanges?.forEach((lc: any) => addEffectCallback('level-change', lc.square, actingColor, lc.delta));
+                
+                remoteEvents.levelChanges?.forEach((lc: any) => {
+                    addEffectCallback('level-change', lc.square, actingColor, lc.delta, undefined);
+                    if (lc.reason) addLog(`${getPlayerDisplayName(actingColor)}: ${lc.reason} (${lc.delta > 0 ? '+' : ''}${lc.delta})`);
+                });
+
                 const isCheck = isKingInCheck(nextGs.board, nextGs.currentPlayer, nextGs.enPassantTargetSquare, lastMoveWhite, lastMoveBlack, lastMoveGlobal);
                 if (isCheck) { audioManager.playCheck(); addLog("Check!"); setGameInfo(prev => ({ ...prev, isCheck: true, playerWithKingInCheck: nextGs.currentPlayer })); }
                 else { setGameInfo(prev => ({ ...prev, isCheck: false, playerWithKingInCheck: null })); }

@@ -349,6 +349,7 @@ export interface Effect {
 export interface LevelChangeEvent {
   square: AlgebraicSquare;
   delta: number;
+  reason?: string;
 }
 
 export interface ConversionEvent {

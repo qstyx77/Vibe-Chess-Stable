@@ -329,7 +329,7 @@ export function applyMove(
                   if (v && v.color === oppColor && v.type !== 'king') {
                       const oldL = v.level;
                       v.level = Math.max(1, v.level - 2);
-                      if (v.level < oldL) levelChanges.push({ square: coordsToAlgebraic(nr, nc), delta: v.level - oldL });
+                      if (v.level < oldL) levelChanges.push({ square: coordsToAlgebraic(nr, nc), delta: v.level - oldL, reason: "Earthquake" });
                       
                       const pdr = Math.sign(nr - toRow);
                       const pdc = Math.sign(nc - toCol);
@@ -344,6 +344,19 @@ export function applyMove(
       }
       newBoard[fromRow][fromCol].piece!.heldItem = null;
       return { newBoard, capturedPiece: null, selfDestructCaptures: [], destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered: null, originalPieceLevel: movingPiece.level, originalPieceType: movingPiece.type, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null, anvilDroppedSquares, levelChanges, obliteratedPieces };
+  }
+
+  if (move.type === 'demonic-possession') {
+      const p = newBoard[fromRow][fromCol].piece!;
+      const oldL = p.level;
+      p.level = Math.min(p.type === 'queen' ? 7 : 99, p.level + 5);
+      p.obliterationTurnsRemaining = 3;
+      if (p.level > oldL) {
+          levelChanges.push({ square: coordsToAlgebraic(fromRow, fromCol), delta: p.level - oldL, reason: "Demonic Possession" });
+          p.isPoisoned = false; p.isExhausted = false; p.cooldownTurnsRemaining = 0;
+      }
+      p.heldItem = null;
+      return { newBoard, capturedPiece: null, selfDestructCaptures: [], destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered: null, originalPieceLevel: oldL, originalPieceType: p.type, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null, anvilDroppedSquares, levelChanges, obliteratedPieces: [] };
   }
 
   if (move.type === 'lose-thy-faith') {
@@ -377,7 +390,7 @@ export function applyMove(
       movingPiece.level += totalGain;
       if (movingPiece.type === 'queen') movingPiece.level = Math.min(7, movingPiece.level);
       if (movingPiece.level > oldRL) {
-          levelChanges.push({ square: coordsToAlgebraic(fromRow, fromCol), delta: movingPiece.level - oldRL });
+          levelChanges.push({ square: coordsToAlgebraic(fromRow, fromCol), delta: movingPiece.level - oldRL, reason: "Burning Ray" });
           movingPiece.isPoisoned = false; movingPiece.isExhausted = false; movingPiece.cooldownTurnsRemaining = 0;
       }
       movingPiece.heldItem = null;
@@ -432,19 +445,6 @@ export function applyMove(
       }
       newBoard[fromRow][fromCol].piece!.heldItem = null;
       return { newBoard, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered: null, originalPieceLevel: movingPiece.level, originalPieceType: movingPiece.type, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null, anvilDroppedSquares, levelChanges, obliteratedPieces: [] };
-  }
-
-  if (move.type === 'demonic-possession') {
-      const p = newBoard[fromRow][fromCol].piece!;
-      const oldL = p.level;
-      p.level = Math.min(p.type === 'queen' ? 7 : 99, p.level + 5);
-      p.obliterationTurnsRemaining = 3;
-      if (p.level > oldL) {
-          levelChanges.push({ square: coordsToAlgebraic(fromRow, fromCol), delta: p.level - oldL });
-          p.isPoisoned = false; p.isExhausted = false; p.cooldownTurnsRemaining = 0;
-      }
-      p.heldItem = null;
-      return { newBoard, capturedPiece: null, selfDestructCaptures: [], destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered: null, originalPieceLevel: oldL, originalPieceType: p.type, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null, anvilDroppedSquares, levelChanges, obliteratedPieces: [] };
   }
 
   if (move.type === 'myco-propagate') {
@@ -510,7 +510,7 @@ export function applyMove(
           const oldL = p1.level;
           p1.level = Math.min(p1.type === 'queen' ? 7 : 99, (p1.level || 1) + 1);
           if (p1.level > oldL) {
-              levelChanges.push({ square: coordsToAlgebraic(fromRow, fromCol), delta: 1 });
+              levelChanges.push({ square: coordsToAlgebraic(fromRow, fromCol), delta: 1, reason: "Relay Ribbon" });
               p1.isPoisoned = false; p1.isExhausted = false; p1.cooldownTurnsRemaining = 0;
           }
       }
@@ -518,7 +518,7 @@ export function applyMove(
           const oldL = p2.level;
           p2.level = Math.min(p2.type === 'queen' ? 7 : 99, (p2.level || 1) + 1);
           if (p2.level > oldL) {
-              levelChanges.push({ square: coordsToAlgebraic(toRow, toCol), delta: 1 });
+              levelChanges.push({ square: coordsToAlgebraic(toRow, toCol), delta: 1, reason: "Relay Ribbon" });
               p2.isPoisoned = false; p2.isExhausted = false; p2.cooldownTurnsRemaining = 0;
           }
       }
@@ -589,7 +589,7 @@ export function applyMove(
                 const oldL = p2.level;
                 p2.level = Math.min(p2.type === 'queen' ? 7 : 99, (p2.level || 1) + 1); 
                 if (p2.level > oldL) {
-                    levelChanges.push({ square: coordsToAlgebraic(toRow, toCol), delta: 1 });
+                    levelChanges.push({ square: coordsToAlgebraic(toRow, toCol), delta: 1, reason: "War Drum" });
                     p2.isPoisoned = false; p2.isExhausted = false; p2.cooldownTurnsRemaining = 0;
                 }
             }
@@ -600,7 +600,7 @@ export function applyMove(
         const oldL = p1.level;
         p1.level = Math.min(p1.type === 'queen' ? 7 : 99, (p1.level || 1) + 1);
         if (p1.level > oldL) {
-            levelChanges.push({ square: coordsToAlgebraic(fromRow, fromCol), delta: 1 });
+            levelChanges.push({ square: coordsToAlgebraic(fromRow, fromCol), delta: 1, reason: "Relay Ribbon" });
             p1.isPoisoned = false; p1.isExhausted = false; p1.cooldownTurnsRemaining = 0;
         }
     }
@@ -608,7 +608,7 @@ export function applyMove(
         const oldL = p2.level;
         p2.level = Math.min(p2.type === 'queen' ? 7 : 99, (p2.level || 1) + 1);
         if (p2.level > oldL) {
-            levelChanges.push({ square: coordsToAlgebraic(toRow, toCol), delta: 1 });
+            levelChanges.push({ square: coordsToAlgebraic(toRow, toCol), delta: 1, reason: "Relay Ribbon" });
             p2.isPoisoned = false; p2.isExhausted = false; p2.cooldownTurnsRemaining = 0;
         }
     }
@@ -656,7 +656,7 @@ export function applyMove(
           const oldL = p1Obj.level;
           p1Obj.level = Math.min(p1Obj.type === 'queen' ? 7 : 99, (p1Obj.level || 1) + 1);
           if (p1Obj.level > oldL) {
-              levelChanges.push({ square: coordsToAlgebraic(fromRow, fromCol), delta: 1 });
+              levelChanges.push({ square: coordsToAlgebraic(fromRow, fromCol), delta: 1, reason: "Relay Ribbon" });
               p1Obj.isPoisoned = false; p1Obj.isExhausted = false; p1Obj.cooldownTurnsRemaining = 0;
           }
       }
@@ -664,7 +664,7 @@ export function applyMove(
           const oldL = p2Obj.level;
           p2Obj.level = Math.min(p2Obj.type === 'queen' ? 7 : 99, (p2Obj.level || 1) + 1);
           if (p2Obj.level > oldL) {
-              levelChanges.push({ square: coordsToAlgebraic(toRow, toCol), delta: 1 });
+              levelChanges.push({ square: coordsToAlgebraic(toRow, toCol), delta: 1, reason: "Relay Ribbon" });
               p2Obj.isPoisoned = false; p2Obj.isExhausted = false; p2Obj.cooldownTurnsRemaining = 0;
           }
       }
@@ -759,13 +759,13 @@ export function applyMove(
         if (oldLVal < 7) { 
             pieceLanded.level = Math.min(7, oldLVal + 1); 
             didLevelUpFlag = true; levelGainVal = pieceLanded.level - oldLVal; 
-            levelChanges.push({ square: coordsToAlgebraic(toRow, toCol), delta: 1 });
+            levelChanges.push({ square: coordsToAlgebraic(toRow, toCol), delta: 1, reason: "Shroom Consumption" });
         } 
     }
     else { 
         pieceLanded.level = oldLVal + 1; 
         didLevelUpFlag = true; levelGainVal = 1; 
-        levelChanges.push({ square: coordsToAlgebraic(toRow, toCol), delta: 1 });
+        levelChanges.push({ square: coordsToAlgebraic(toRow, toCol), delta: 1, reason: "Shroom Consumption" });
     }
     newBoard.forEach(row => row.forEach(sq => { if (sq.piece && sq.piece.color === pieceLanded.color && sq.piece.type === 'myco_mage') sq.piece.shroomMana = (sq.piece.shroomMana || 0) + 1; }));
   }
@@ -782,7 +782,7 @@ export function applyMove(
     if (rookSqObj.piece) {
         if (rookSqObj.piece.type === 'palace') { 
             pieceLanded.level++; didLevelUpFlag = true; levelGainVal = 1; 
-            levelChanges.push({ square: coordsToAlgebraic(toRow, toCol), delta: 1 });
+            levelChanges.push({ square: coordsToAlgebraic(toRow, toCol), delta: 1, reason: "Palace Castle" });
         }
         newBoard[fromRow][targetRookC].piece = { ...rookSqObj.piece, hasMoved: true, isShielded: false };
         rookSqObj.piece = null;
@@ -852,7 +852,7 @@ export function applyMove(
     if (pieceLanded.type === 'queen') { if (oldLVal < 7) { pieceLanded.level = Math.min(7, oldLVal + baseGain); didLevelUpFlag = true; levelGainVal = pieceLanded.level - oldLVal; } }
     else { pieceLanded.level = oldLVal + baseGain; didLevelUpFlag = true; levelGainVal = baseGain; }
     
-    if (levelGainVal > 0) levelChanges.push({ square: coordsToAlgebraic(toRow, toCol), delta: levelGainVal });
+    if (levelGainVal > 0) levelChanges.push({ square: coordsToAlgebraic(toRow, toCol), delta: levelGainVal, reason: "Combat Experience" });
 
     const isLandedSilenced = isSilenced(newBoard, toRow, toCol, pieceLanded.color);
 
@@ -899,7 +899,7 @@ export function applyMove(
                 if (vict && vict.color === opC) {
                     const oldVL = vict.level;
                     vict.level = Math.max(1, (vict.level || 1) - 1);
-                    if (vict.level < oldVL) levelChanges.push({ square: coordsToAlgebraic(nr, nc), delta: -1 });
+                    if (vict.level < oldVL) levelChanges.push({ square: coordsToAlgebraic(nr, nc), delta: -1, reason: "Energy Drain" });
                 }
             }
         }
@@ -953,7 +953,7 @@ export function applyMove(
         const oldL = p.level;
         p.level = Math.min(p.type === 'queen' ? 7 : 99, p.level + 1);
         if (p.level > oldL) {
-            levelChanges.push({ square: lowestP!.algebraic, delta: 1 });
+            levelChanges.push({ square: lowestP!.algebraic, delta: 1, reason: "Luminous Set" });
             p.isPoisoned = false; p.isExhausted = false; p.cooldownTurnsRemaining = 0;
         }
     }
@@ -966,7 +966,7 @@ export function applyMove(
             const oldSLVal = sq.piece.level;
             sq.piece.level = Math.min(sq.piece.type === 'queen' ? 7 : 99, (sq.piece.level || 1) + levelGainVal);
             if (sq.piece.level > oldSLVal) {
-                levelChanges.push({ square: sq.algebraic, delta: sq.piece.level - oldSLVal });
+                levelChanges.push({ square: sq.algebraic, delta: sq.piece.level - oldSLVal, reason: "Soul Link" });
                 sq.piece.isPoisoned = false; sq.piece.isExhausted = false; sq.piece.cooldownTurnsRemaining = 0;
             }
         }

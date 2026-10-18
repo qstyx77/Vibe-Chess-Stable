@@ -560,7 +560,10 @@ export default function DungeonPage() {
     
     const { newBoard: bP, poisonedCaptures, levelChanges: poisonLC } = processPoisonDamage(nB, nxtP);
     nB = bP;
-    poisonLC?.forEach(lc => addEffect('level-change', lc.square, nxtP, lc.delta));
+    poisonLC?.forEach(lc => {
+        addEffect('level-change', lc.square, nxtP, lc.delta);
+        if (lc.reason) addLog(`${getPlayerDisplayName(nxtP)}: ${lc.reason} (${lc.delta > 0 ? '+' : ''}${lc.delta})`);
+    });
 
     const postPoisonPieces = nB.flat().filter(sq => sq.piece).map(sq => sq.piece!);
     const anyShattered = midFrozenIds.some(id => {
@@ -1396,7 +1399,10 @@ export default function DungeonPage() {
 
           const res = applyMove(board, { from: selectedSquare, to: alg, type: mType }, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, false);
           
-          res.levelChanges?.forEach(lc => addEffect('level-change', lc.square, 'white', lc.delta));
+          res.levelChanges?.forEach(lc => {
+              addEffect('level-change', lc.square, 'white', lc.delta);
+              if (lc.reason) addLog(`${getPlayerDisplayName('white')}: ${lc.reason} (${lc.delta > 0 ? '+' : ''}${lc.delta})`);
+          });
 
           const streakGain = (res.capturedPiece ? 1 : 0) + (res.selfDestructCaptures?.length || 0) + (res.obliteratedPieces?.length || 0) + (res.smokeBombEvent ? 1 : 0);
           
@@ -1581,7 +1587,10 @@ export default function DungeonPage() {
 
         const appRes = applyMove(currentWorkingBoard, { from: fromAlg, to: toAlg, type: move.type as Move['type'], grappledFrom: move.grappledFrom ? (Array.isArray(move.grappledFrom) ? coordsToAlgebraic(move.grappledFrom[0], move.grappledFrom[1]) : move.grappledFrom) : undefined }, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, didCaptureLastTurn.white);
         
-        appRes.levelChanges?.forEach(lc => addEffect('level-change', lc.square, 'black', lc.delta));
+        appRes.levelChanges?.forEach(lc => {
+            addEffect('level-change', lc.square, 'black', lc.delta);
+            if (lc.reason) addLog(`${getPlayerDisplayName('black')}: ${lc.reason} (${lc.delta > 0 ? '+' : ''}${lc.delta})`);
+        });
 
         const streakGain = (appRes.capturedPiece ? 1 : 0) + (appRes.selfDestructCaptures?.length || 0) + (appRes.obliteratedPieces?.length || 0) + (appRes.smokeBombEvent ? 1 : 0);
         
