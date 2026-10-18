@@ -1102,6 +1102,7 @@ export default function EvolvingChessPage() {
             if (currentPlayer === 'white') setLastMoveWhite(newMoveInfo); else setLastMoveBlack(newMoveInfo);
             setLastMoveGlobal(newMoveInfo);
             setIsMoveProcessing(true); setAnimatedSquareTo(algebraic);
+            addEffectCallback('magic-burst', selectedSquare!, undefined, undefined, movingP.heldItem as InventoryItemType);
             const res = applyMove(board, move, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, false);
             setBoard(res.newBoard);
             setTimeout(() => { setIsMoveProcessing(false); setIsAwaitingShieldScrollTarget(false); setSelectedSquare(null); processMoveEnd(res.newBoard, capturedPieces, killStreaks, currentPlayer, false, null, false, movingP.type, nextTracks.white, nextTracks.black, nextTracks.global); }, 800);
@@ -1118,6 +1119,7 @@ export default function EvolvingChessPage() {
             if (currentPlayer === 'white') setLastMoveWhite(newMoveInfo); else setLastMoveBlack(newMoveInfo);
             setLastMoveGlobal(newMoveInfo);
             setIsMoveProcessing(true); setAnimatedSquareTo(algebraic);
+            addEffectCallback('magic-burst', selectedSquare!, undefined, undefined, movingP.heldItem as InventoryItemType);
             const res = applyMove(board, move, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, false);
             setBoard(res.newBoard);
             setTimeout(() => { setIsMoveProcessing(false); setIsAwaitingSwapScrollTarget(false); setSelectedSquare(null); processMoveEnd(res.newBoard, capturedPieces, killStreaks, currentPlayer, false, null, false, movingP.type, nextTracks.white, nextTracks.black, nextTracks.global); }, 800);
@@ -1134,6 +1136,7 @@ export default function EvolvingChessPage() {
             if (currentPlayer === 'white') setLastMoveWhite(newMoveInfo); else setLastMoveBlack(newMoveInfo);
             setLastMoveGlobal(newMoveInfo);
             setIsMoveProcessing(true); setAnimatedSquareTo(algebraic);
+            addEffectCallback('magic-burst', selectedSquare!, undefined, undefined, movingP.heldItem as InventoryItemType);
             const res = applyMove(board, move, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, false);
             setBoard(res.newBoard);
             setTimeout(() => { setIsMoveProcessing(false); setIsAwaitingDecreeTarget(false); setSelectedSquare(null); processMoveEnd(res.newBoard, capturedPieces, killStreaks, currentPlayer, false, null, false, 'king', nextTracks.white, nextTracks.black, nextTracks.global); }, 800);
@@ -1260,6 +1263,7 @@ export default function EvolvingChessPage() {
                 pushHistory(); clickGuardRef.current = true; setIsMoveProcessing(true); setAnimatedSquareTo(algebraic);
                 if (currentPlayer === 'white') setLastMoveWhite(newMoveInfo); else setLastMoveBlack(newMoveInfo);
                 setLastMoveGlobal(newMoveInfo);
+                addEffectCallback('magic-burst', selectedSquare!, undefined, undefined, movingP.heldItem as InventoryItemType);
                 const result = applyMove(board, { from: selectedSquare!, to: algebraic, type }, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, false);
                 setBoard(result.newBoard); setSelectedSquare(null); setPossibleMoves([]);
                 setTimeout(() => { setIsMoveProcessing(false); clickGuardRef.current = false; setIsAwaitingRayTarget(null); processMoveEnd(result.newBoard, capturedPieces, killStreaks, currentPlayer, false, null, false, movingP.type, nextTracks.white, nextTracks.black, nextTracks.global); }, 800);
@@ -1364,6 +1368,7 @@ export default function EvolvingChessPage() {
               if (currentPlayer === 'white') setLastMoveWhite(newMoveInfo); else setLastMoveBlack(newMoveInfo);
               setLastMoveGlobal(newMoveInfo);
               movedType = movingP.type;
+              addEffectCallback('magic-burst', selectedSquare!, undefined, undefined, movingP.heldItem as InventoryItemType);
           }
 
           if (isAwaitingOilSlickTarget) { 
@@ -1489,6 +1494,7 @@ export default function EvolvingChessPage() {
                        pushHistory(); setIsMoveProcessing(true); setAnimatedSquareTo(selectedSquare);
                        if (currentPlayer === 'white') setLastMoveWhite(newMoveInfo); else setLastMoveBlack(newMoveInfo);
                        setLastMoveGlobal(newMoveInfo);
+                       addEffectCallback('magic-burst', selectedSquare, undefined, undefined, item);
                        const res = applyMove(board, move, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, false);
                        setBoard(res.newBoard);
                        setTimeout(() => { setIsMoveProcessing(false); setSelectedSquare(null); processMoveEnd(res.newBoard, capturedPieces, killStreaks, currentPlayer, false, null, false, moving.type, nextTracks.white, nextTracks.black, nextTracks.global); }, 800);
@@ -1506,6 +1512,7 @@ export default function EvolvingChessPage() {
                        pushHistory(); setIsMoveProcessing(true); setAnimatedSquareTo(selectedSquare);
                        if (currentPlayer === 'white') setLastMoveWhite(newMoveInfo); else setLastMoveBlack(newMoveInfo);
                        setLastMoveGlobal(newMoveInfo);
+                       addEffectCallback('magic-burst', selectedSquare, undefined, undefined, item);
                        const res = applyMove(board, move, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, false);
                        setBoard(res.newBoard); 
                        const updatedG = { white: Array.isArray(capturedPieces?.white) ? [...capturedPieces.white] : [], black: Array.isArray(capturedPieces?.black) ? [...capturedPieces.black] : [] };
@@ -1723,7 +1730,7 @@ export default function EvolvingChessPage() {
                 if (remoteEvents.stolen) { addLog(`STOLEN: ${ITEM_METADATA[remoteEvents.stolenItem as InventoryItemType].name}!`); }
                 if (remoteEvents.smokeBomb && remoteEvents.smokePos) { audioManager.playResurrect(); addEffectCallback('poof', remoteEvents.smokePos); addLog(`${getPlayerDisplayName(actingColor)}'s unit escaped via Smoke Bomb!`); }
                 if (remoteEvents.glassShard) { addLog("Glass Shard! Capturer is exhausted."); }
-                if (remoteEvents.signalHorn) { addLog(`Signal Horn! ${remoteEvents.signalHornTargetType} gains a level.`); }
+                if (remoteEvents.signal_horn) { addLog(`Signal Horn! ${remoteEvents.signalHornTargetType} gains a level.`); }
                 if (remoteEvents.soulLink) { addLog(`Soul Link! ${remoteEvents.soulLinkCount} bound units collapsed.`); }
                 remoteEvents.levelChanges?.forEach((lc: any) => addEffectCallback('level-change', lc.square, actingColor, lc.delta));
                 const isCheck = isKingInCheck(nextGs.board, nextGs.currentPlayer, nextGs.enPassantTargetSquare, lastMoveWhite, lastMoveBlack, lastMoveGlobal);

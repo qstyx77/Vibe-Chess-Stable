@@ -304,6 +304,7 @@ export default function DungeonPage() {
   const [isAwaitingSwapScrollTarget, setIsAwaitingSwapScrollTarget] = useState(false);
   const [isAwaitingSwapTarget, setIsAwaitingSwapTarget] = useState(false);
   const [isAwaitingSwapClergyTarget, setIsAwaitingSwapClergyTarget] = useState(false);
+  const [isAwaitingSwapCavalryTarget, setIsAwaitingSwapCavalryTarget] = useState(false);
   const [isAwaitingDecreeTarget, setIsAwaitingDecreeTarget] = useState(false);
   const [isAwaitingEarthquakeScrollTarget, setIsAwaitingEarthquakeScrollTarget] = useState(false);
 
@@ -320,6 +321,33 @@ export default function DungeonPage() {
     if (player === 'white') return userData?.username || 'Hero';
     return 'Dungeon';
   }, [userData]);
+
+  const handlePieceHover = useCallback((p: Piece | null) => {
+    setPieceForInfoDisplay(p);
+    if (p && p.color !== currentPlayer && !isSpec) {
+      const coords = board.flat().find(sq => sq.piece?.id === p.id);
+      if (coords) {
+        const moves = getPossibleMoves(board, coords.algebraic, enPassantTargetSquare, lastMoveWhite, lastMoveBlack, lastMoveGlobal);
+        setEnemySelectedSquare(coords.algebraic);
+        setEnemyPossibleMoves(moves);
+      }
+    } else {
+      if (clickedEnemySquare) {
+        const coords = board.flat().find(sq => sq.algebraic === clickedEnemySquare);
+        if (coords && coords.piece) {
+            const moves = getPossibleMoves(board, clickedEnemySquare, enPassantTargetSquare, lastMoveWhite, lastMoveBlack, lastMoveGlobal);
+            setEnemySelectedSquare(clickedEnemySquare);
+            setEnemyPossibleMoves(moves);
+        } else {
+            setEnemySelectedSquare(null);
+            setEnemyPossibleMoves([]);
+        }
+      } else {
+        setEnemySelectedSquare(null);
+        setEnemyPossibleMoves([]);
+      }
+    }
+  }, [board, currentPlayer, enPassantTargetSquare, lastMoveWhite, lastMoveBlack, lastMoveGlobal, isSpec, clickedEnemySquare]);
 
   const attunementSlots = useMemo(() => {
     const elo = userData?.eloRating || 1200; return 3 + Math.floor((Math.max(0, elo - 1200)) / 400);
@@ -359,33 +387,6 @@ export default function DungeonPage() {
     isAwaitingEarthquakeScrollTarget || isAwaitingOilSlickTarget || !!isAwaitingRayTarget || isSelectingTeleportAlly || 
     isSelectingTeleportShroom || isSelectingSporeBombShroom || isLootWindowOpen, 
   [isInventoryOpen, isPromotingPawn, isAwaitingAnvilDrop, isAwaitingAnvilScrollTarget, isAwaitingHolyShield, isAwaitingArcherSnipe, isAwaitingPawnSacrifice, isAwaitingCommanderPromotion, isSelectingMycoSpell, isAwaitingGrappleThrow, isAwaitingDanceTarget, isAwaitingEarthquakeScrollTarget, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, isAwaitingOilSlickTarget, isAwaitingRayTarget, isLootWindowOpen, isAwaitingWindScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingSwapTarget, isAwaitingDecreeTarget]);
-
-  const handlePieceHover = useCallback((p: Piece | null) => {
-    setPieceForInfoDisplay(p);
-    if (p && p.color !== currentPlayer && !isSpec) {
-      const coords = board.flat().find(sq => sq.piece?.id === p.id);
-      if (coords) {
-        const moves = getPossibleMoves(board, coords.algebraic, enPassantTargetSquare, lastMoveWhite, lastMoveBlack, lastMoveGlobal);
-        setEnemySelectedSquare(coords.algebraic);
-        setEnemyPossibleMoves(moves);
-      }
-    } else {
-      if (clickedEnemySquare) {
-        const coords = board.flat().find(sq => sq.algebraic === clickedEnemySquare);
-        if (coords && coords.piece) {
-            const moves = getPossibleMoves(board, clickedEnemySquare, enPassantTargetSquare, lastMoveWhite, lastMoveBlack, lastMoveGlobal);
-            setEnemySelectedSquare(clickedEnemySquare);
-            setEnemyPossibleMoves(moves);
-        } else {
-            setEnemySelectedSquare(null);
-            setEnemyPossibleMoves([]);
-        }
-      } else {
-        setEnemySelectedSquare(null);
-        setEnemyPossibleMoves([]);
-      }
-    }
-  }, [board, currentPlayer, enPassantTargetSquare, lastMoveWhite, lastMoveBlack, lastMoveGlobal, isSpec, clickedEnemySquare]);
 
   const hasStartedFloor = useMemo(() => board.flat().some(sq => sq.piece?.color === 'white' && sq.piece.hasMoved), [board]);
 
@@ -679,10 +680,10 @@ export default function DungeonPage() {
     if (!firstBloodAchieved && newS > 0 && !compM.includes('firstBlood')) {
         setFirstBloodAchieved(true); setPlayerWhoGotFirstblood(actP);
         if (isAI) {
-            const nextB = bCh.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null})));
-            const flSq = nextB.flat().find(sq => sq.piece && sq.piece.color === actP && sq.piece.level === 1 && FRONTLINE_TYPES.includes(sq.piece.type) && sq.piece.type !== 'commander' && sq.piece.type !== 'infiltrator');
-            if (flSq) { const {row: pr, col: pc} = algebraicToCoords(flSq.algebraic); nextB[pr][pc].piece!.type = 'commander'; addLog(`${getPlayerDisplayName(actP)} promoted a Commander!`); }
-            triggerSpecialsChain(nextB, nG, cKs, oldS, newS, isEx, nEp, actP, [...compM, 'firstBlood'], capId, wasCap, movedT, effWhite, effBlack, effGlobal); return;
+            const nextBoard = bCh.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null})));
+            const flSq = nextBoard.flat().find(sq => sq.piece && sq.piece.color === actP && sq.piece.level === 1 && FRONTLINE_TYPES.includes(sq.piece.type) && sq.piece.type !== 'commander' && sq.piece.type !== 'infiltrator');
+            if (flSq) { const {row: pr, col: pc} = algebraicToCoords(flSq.algebraic); nextBoard[pr][pc].piece!.type = 'commander'; addLog(`${getPlayerDisplayName(actP)} promoted a Commander!`); }
+            triggerSpecialsChain(nextBoard, nG, cKs, oldS, newS, isEx, nEp, actP, [...compM, 'firstBlood'], capId, wasCap, movedT, effWhite, effBlack, effGlobal); return;
         } else {
             const hasFL1 = bCh.flat().some(sq => sq.piece && sq.piece.color === actP && FRONTLINE_TYPES.includes(sq.piece.type) && sq.piece.type !== 'commander' && sq.piece.type !== 'infiltrator' && sq.piece.level === 1);
             if (hasFL1) {
@@ -931,6 +932,7 @@ export default function DungeonPage() {
         const move: Move = { from: selectedSquare!, to: alg, type: 'shield-scroll' };
         
         deductConsumable('shield_scroll');
+        addEffect('magic-burst', selectedSquare!, undefined, undefined, 'shield_scroll');
         setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(alg);
         if (currentPlayer === 'white') setLastMoveWhite(newMoveInfo); else setLastMoveBlack(newMoveInfo);
         setLastMoveGlobal(newMoveInfo);
@@ -946,6 +948,7 @@ export default function DungeonPage() {
         const move: Move = { from: selectedSquare!, to: alg, type: 'swap-scroll' };
         
         deductConsumable('swap_scroll');
+        addEffect('magic-burst', selectedSquare!, undefined, undefined, 'swap_scroll');
         setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(alg);
         if (currentPlayer === 'white') setLastMoveWhite(newMoveInfo); else setLastMoveBlack(newMoveInfo);
         setLastMoveGlobal(newMoveInfo);
@@ -961,6 +964,7 @@ export default function DungeonPage() {
         const move: Move = { from: selectedSquare!, to: alg, type: 'kings-decree' };
         
         deductConsumable('kings_decree');
+        addEffect('magic-burst', selectedSquare!, undefined, undefined, 'kings_decree');
         setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(alg);
         if (currentPlayer === 'white') setLastMoveWhite(newMoveInfo); else setLastMoveBlack(newMoveInfo);
         setLastMoveGlobal(newMoveInfo);
@@ -1120,6 +1124,7 @@ export default function DungeonPage() {
             const type = isAwaitingRayTarget === 'glacial' ? 'glacial-ray' : 'burning-ray';
             
             deductConsumable(isAwaitingRayTarget === 'glacial' ? 'glacial_ray' : 'burning_ray');
+            addEffect('magic-burst', selectedSquare!, undefined, undefined, isAwaitingRayTarget === 'glacial' ? 'glacial_ray' : 'burning_ray');
             clickGuard.current = true; setIsMoveProcessing(true); setAnimatedSquareTo(alg);
             if (currentPlayer === 'white') setLastMoveWhite(newMoveInfo); else setLastMoveBlack(newMoveInfo);
             setLastMoveGlobal(newMoveInfo);
@@ -1143,6 +1148,7 @@ export default function DungeonPage() {
                 if (currentPlayer === 'white') setLastMoveWhite(newMoveInfo); else setLastMoveBlack(newMoveInfo);
                 setLastMoveGlobal(newMoveInfo);
                 movedType = movingP.type;
+                addEffect('magic-burst', selectedSquare!, undefined, undefined, movingP.heldItem as InventoryItemType);
             }
 
             let moveType: Move['type'] = 'move';
@@ -1293,6 +1299,7 @@ export default function DungeonPage() {
                    const nextTracks = { white: currentPlayer === 'white' ? newMoveInfo : lastMoveWhite, black: currentPlayer === 'black' ? newMoveInfo : lastMoveBlack, global: newMoveInfo };
 
                    deductConsumable(item);
+                   addEffect('magic-burst', selectedSquare, undefined, undefined, item);
                    setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(selectedSquare);
                    if (currentPlayer === 'white') setLastMoveWhite(newMoveInfo); else setLastMoveBlack(newMoveInfo);
                    setLastMoveGlobal(newMoveInfo);
@@ -1308,6 +1315,7 @@ export default function DungeonPage() {
                    const nextTracks = { white: currentPlayer === 'white' ? newMoveInfo : lastMoveWhite, black: currentPlayer === 'black' ? newMoveInfo : lastMoveBlack, global: newMoveInfo };
 
                    deductConsumable(item);
+                   addEffect('magic-burst', selectedSquare, undefined, undefined, item);
                    setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(selectedSquare);
                    if (currentPlayer === 'white') setLastMoveWhite(newMoveInfo); else setLastMoveBlack(newMoveInfo);
                    setLastMoveGlobal(newMoveInfo);
