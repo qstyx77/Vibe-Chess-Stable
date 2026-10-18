@@ -317,6 +317,24 @@ export default function DungeonPage() {
   const aiInstance = useRef<VibeChessAI | null>(null);
   const clickGuard = useRef(false);
 
+  const isSpec = useMemo(() => 
+    isInventoryOpen || isPromotingPawn || isAwaitingAnvilDrop || isAwaitingAnvilScrollTarget || isAwaitingHolyShield || 
+    isAwaitingArcherSnipe || isAwaitingPawnSacrifice || isAwaitingCommanderPromotion || 
+    isSelectingMycoSpell || isAwaitingGrappleThrow || isAwaitingDanceTarget || 
+    isAwaitingWindScrollTarget || isAwaitingShieldScrollTarget || 
+    isAwaitingSwapScrollTarget || isAwaitingSwapTarget || isAwaitingDecreeTarget || 
+    isAwaitingEarthquakeScrollTarget || isAwaitingOilSlickTarget || !!isAwaitingRayTarget || isSelectingTeleportAlly || 
+    isSelectingTeleportShroom || isSelectingSporeBombShroom || isLootWindowOpen, 
+  [isInventoryOpen, isPromotingPawn, isAwaitingAnvilDrop, isAwaitingAnvilScrollTarget, isAwaitingHolyShield, isAwaitingArcherSnipe, isAwaitingPawnSacrifice, isAwaitingCommanderPromotion, isSelectingMycoSpell, isAwaitingGrappleThrow, isAwaitingDanceTarget, isAwaitingEarthquakeScrollTarget, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, isAwaitingOilSlickTarget, isAwaitingRayTarget, isLootWindowOpen, isAwaitingWindScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingSwapTarget, isAwaitingDecreeTarget]);
+
+  const attunementSlots = useMemo(() => {
+    const elo = userData?.eloRating || 1200; return 3 + Math.floor((Math.max(0, elo - 1200)) / 400);
+  }, [userData]);
+
+  const usedSlots = useMemo(() => board.flat().filter(sq => sq.piece?.heldItem).length, [board]);
+
+  const hasStartedFloor = useMemo(() => board.flat().some(sq => sq.piece?.color === 'white' && sq.piece.hasMoved), [board]);
+
   const getPlayerDisplayName = useCallback((player: PlayerColor) => {
     if (player === 'white') return userData?.username || 'Hero';
     return 'Dungeon';
@@ -349,12 +367,6 @@ export default function DungeonPage() {
     }
   }, [board, currentPlayer, enPassantTargetSquare, lastMoveWhite, lastMoveBlack, lastMoveGlobal, isSpec, clickedEnemySquare]);
 
-  const attunementSlots = useMemo(() => {
-    const elo = userData?.eloRating || 1200; return 3 + Math.floor((Math.max(0, elo - 1200)) / 400);
-  }, [userData]);
-
-  const usedSlots = useMemo(() => board.flat().filter(sq => sq.piece?.heldItem).length, [board]);
-
   const addEffect = useCallback((type: Effect['type'], square: AlgebraicSquare, color?: PlayerColor, value?: number, itemType?: InventoryItemType) => {
     const id = `eff-${Date.now()}-${Math.random()}`; setEffects(prev => [...prev, { id, type, square, color, value, itemType }]);
     setTimeout(() => { setEffects(curr => curr.filter(e => e.id !== id)); }, 1500);
@@ -377,18 +389,6 @@ export default function DungeonPage() {
     setInventory(newInv);
     updateDocumentNonBlocking(userRef, { inventory: newInv });
   }, [user, firestore, inventory]);
-
-  const isSpec = useMemo(() => 
-    isInventoryOpen || isPromotingPawn || isAwaitingAnvilDrop || isAwaitingAnvilScrollTarget || isAwaitingHolyShield || 
-    isAwaitingArcherSnipe || isAwaitingPawnSacrifice || isAwaitingCommanderPromotion || 
-    isSelectingMycoSpell || isAwaitingGrappleThrow || isAwaitingDanceTarget || 
-    isAwaitingWindScrollTarget || isAwaitingShieldScrollTarget || 
-    isAwaitingSwapScrollTarget || isAwaitingSwapTarget || isAwaitingDecreeTarget || 
-    isAwaitingEarthquakeScrollTarget || isAwaitingOilSlickTarget || !!isAwaitingRayTarget || isSelectingTeleportAlly || 
-    isSelectingTeleportShroom || isSelectingSporeBombShroom || isLootWindowOpen, 
-  [isInventoryOpen, isPromotingPawn, isAwaitingAnvilDrop, isAwaitingAnvilScrollTarget, isAwaitingHolyShield, isAwaitingArcherSnipe, isAwaitingPawnSacrifice, isAwaitingCommanderPromotion, isSelectingMycoSpell, isAwaitingGrappleThrow, isAwaitingDanceTarget, isAwaitingEarthquakeScrollTarget, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, isAwaitingOilSlickTarget, isAwaitingRayTarget, isLootWindowOpen, isAwaitingWindScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingSwapTarget, isAwaitingDecreeTarget]);
-
-  const hasStartedFloor = useMemo(() => board.flat().some(sq => sq.piece?.color === 'white' && sq.piece.hasMoved), [board]);
 
   const proceedToNextFloor = useCallback((nextL: number, survivors: Piece[], graveyard: any, newInv?: InventoryItem[]) => {
     if (nextL > 50) { setGameInfo(prev => ({ ...prev, message: "DUNGEON CONQUERED!", gameOver: true, winner: 'white' })); gameOverRef.current = true; audioManager.playVictory(); return; }
@@ -1077,7 +1077,7 @@ export default function DungeonPage() {
   
             if (!piece.heldItem && usedSlots >= attunementSlots) { addLog("Attunement Limit Reached!"); return; }
   
-            const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? { ...s.item } : null, phasedPiece: s.phasedPiece ? { ...s.phasedPiece } : null })));
+            const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null, phasedPiece: s.phasedPiece ? { ...s.phasedPiece } : null })));
             const targetP = nextBoard[row][col].piece!;
             const oldItem = targetP.heldItem;
             
@@ -1105,7 +1105,7 @@ export default function DungeonPage() {
             addLog(`Equipped ${ITEM_METADATA[selectedInventoryItemType].name}`);
           }
         } else if (piece && piece.heldItem && piece.color === 'white') {
-            const removed = piece.heldItem; const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? { ...s.item } : null, phasedPiece: s.phasedPiece ? { ...s.phasedPiece } : null })));
+            const removed = piece.heldItem; const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null, phasedPiece: s.phasedPiece ? { ...s.phasedPiece } : null })));
             nextBoard[row][col].piece!.heldItem = null; setBoard(nextBoard);
             const nextInv = [...inventory]; const item = nextInv.find(i => i.type === removed); if (item) item.count++; else nextInv.push({ type: removed, count: 1 });
             setInventory(nextInv);
