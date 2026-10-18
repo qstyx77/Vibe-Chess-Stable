@@ -563,7 +563,7 @@ export default function EvolvingChessPage() {
 
     currentBoardState = processOilSlickTimers(currentBoardState, playerWhoseTurnCompleted);
 
-    if (onlineStatus === 'disconnected' || localPlayerColor === playerWhoseTurnCompleted) {
+    if (onlineStatus === 'disconnected') {
       let currentShroomCounter = shroomSpawnCounter + 1; 
       const activeSets = getActiveSets(currentBoardState, playerWhoseTurnCompleted);
       const isAlchemist = activeSets.includes('alchemist');
@@ -1712,6 +1712,11 @@ export default function EvolvingChessPage() {
               setLastMoveGlobal(moveInfo);
             }
             setBoard(nextGs.board); setCurrentPlayer(nextGs.currentPlayer); setEnPassantTargetSquare(nextGs.enPassantTargetSquare); setKillStreaks(nextGs.killStreaks); setCapturedPieces(nextGs.capturedPieces);
+            
+            // Sync shroom state from server
+            setShroomSpawnCounter(nextGs.shroomSpawnCounter);
+            setNextShroomSpawnTurn(nextGs.nextShroomSpawnTurn);
+
             if (remoteEvents && remoteMove) {
                 const actingColor = nextGs.currentPlayer === 'white' ? 'black' : 'white';
                 if (remoteEvents.captured) { audioManager.playCapture(); addEffectCallback('poof', remoteMove.to); addLog(`${getPlayerDisplayName(actingColor)} captured a ${remoteEvents.capturedType}!`); }
@@ -1732,6 +1737,7 @@ export default function EvolvingChessPage() {
                 if (remoteEvents.glassShard) { addLog("Glass Shard! Capturer is exhausted."); }
                 if (remoteEvents.signal_horn) { addLog(`Signal Horn! ${remoteEvents.signalHornTargetType} gains a level.`); }
                 if (remoteEvents.soulLink) { addLog(`Soul Link! ${remoteEvents.soulLinkCount} bound units collapsed.`); }
+                if (remoteEvents.shroomSpawned) { audioManager.playShroom(); addLog("A mystical Shroom 🍄 has appeared!"); }
                 remoteEvents.levelChanges?.forEach((lc: any) => addEffectCallback('level-change', lc.square, actingColor, lc.delta));
                 const isCheck = isKingInCheck(nextGs.board, nextGs.currentPlayer, nextGs.enPassantTargetSquare, lastMoveWhite, lastMoveBlack, lastMoveGlobal);
                 if (isCheck) { audioManager.playCheck(); addLog("Check!"); setGameInfo(prev => ({ ...prev, isCheck: true, playerWithKingInCheck: nextGs.currentPlayer })); }

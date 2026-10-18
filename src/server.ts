@@ -27,7 +27,8 @@ import {
     processPoisonDamage,
     FRONTLINE_TYPES,
     findKing,
-    isSquareAttacked
+    isSquareAttacked,
+    getActiveSets
 } from './lib/chess-utils';
 import type { PlayerColor, Piece, AlgebraicSquare, PieceType, InventoryItemType, ChatMessage, Move } from './types';
 
@@ -714,6 +715,29 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                         else room.historyTracks.black = trackInfo;
                         room.historyTracks.global = trackInfo;
                     }
+
+                    // --- SHROOM SPAWNING (Source of Truth for Multiplayer) ---
+                    let shroomSpawnedEvent = false;
+                    let shroomSpawnPos = null;
+
+                    if (!isRewardMove) {
+                        gs.shroomSpawnCounter++;
+                        const activeSets = getActiveSets(gs.board, playerColor);
+                        if (activeSets.includes('alchemist')) {
+                            gs.shroomSpawnCounter++;
+                        }
+
+                        if (gs.shroomSpawnCounter >= gs.nextShroomSpawnTurn) {
+                            const { newBoard: boardAfterShroom, spawnedAt } = spawnShroom(gs.board);
+                            if (spawnedAt) {
+                                gs.board = boardAfterShroom;
+                                gs.shroomSpawnCounter = 0;
+                                gs.nextShroomSpawnTurn = Math.floor(Math.random() * 6) + 5;
+                                shroomSpawnedEvent = true;
+                                shroomSpawnPos = spawnedAt;
+                            }
+                        }
+                    }
                     
                     if (result.infiltrationWin) {
                         if (room.tournamentId) handleTournamentGameOver(room.tournamentId, ws.roomId!, playerColor, 'infiltration');
@@ -846,7 +870,9 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                             signal_horn: !!result.signalHornEvent,
                             signalHornTargetType: result.signalHornEvent?.piece.type,
                             soulLink: result.obliteratedPieces?.some(p => p.id.includes('_linked_')),
-                            soulLinkCount: result.obliteratedPieces?.filter(p => p.id.includes('_linked_')).length
+                            soulLinkCount: result.obliteratedPieces?.filter(p => p.id.includes('_linked_')).length,
+                            shroomSpawned: shroomSpawnedEvent,
+                            shroomPos: shroomSpawnPos
                         };
 
                         broadcastToRoom(ws.roomId!, { 
