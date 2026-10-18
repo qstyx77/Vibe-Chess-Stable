@@ -1,7 +1,7 @@
 import type { BoardState, Piece, PieceType, PlayerColor, AlgebraicSquare, InventoryItemType, ItemType, SquareState, RookResurrectionResult, LastMoveInfo, ApplyMoveResult, Move, LevelChangeEvent, ConversionEvent } from '@/types';
 import { VAL_MAP, FRONTLINE_TYPES } from './constants';
 import { algebraicToCoords, coordsToAlgebraic, isValidSquare, getEffectiveLevel, isSilenced, getPromotionLevel, findKing, isItemValidForPiece, getActiveSets } from './utils';
-import { triggerPushBack, triggerConversion, applyRally, applyKingDominion, syncSoulLink, triggerPoisonSplash, triggerToxicCloud, triggerMushroomMagnet, triggerPull, triggerExhaustion, applyOilSlide, performExtendedDisplacement, applyReapersTithe, triggerDefiantSparks, handleRemovalReactions } from './effects';
+import { triggerPushBack, triggerConversion, applyRally, applyKingDominion, syncSoulLink, triggerPoisonSplash, triggerToxicCloud, triggerMushroomMagnet, triggerPull, triggerExhaustion, applyOilSlide, performExtendedDisplacement, applyReapersTithe, triggerDefiantSparks, handleRemovalReactions, syncLevelsAndSets } from './effects';
 
 export function createEmptyBoard(): BoardState {
   const board: BoardState = [];
@@ -936,43 +936,8 @@ export function applyMove(
     }
   }
 
-  if (didLevelUpFlag && teamActiveSets.includes('luminous')) {
-    let lowestP: SquareState | null = null;
-    let minL = 100;
-    newBoard.forEach(row => row.forEach(sq => {
-        if (sq.piece && sq.piece.color === pieceLanded.color && sq.piece.type !== 'king') {
-            const l = sq.piece.level || 1;
-            if (l < minL) {
-                minL = l;
-                lowestP = sq;
-            }
-        }
-    }));
-    if (lowestP && lowestP.piece) {
-        const p = lowestP.piece;
-        const oldL = p.level;
-        p.level = Math.min(p.type === 'queen' ? 7 : 99, p.level + 1);
-        if (p.level > oldL) {
-            levelChanges.push({ square: lowestP!.algebraic, delta: 1, reason: "Luminous Set" });
-            p.isPoisoned = false; p.isExhausted = false; p.cooldownTurnsRemaining = 0;
-        }
-    }
-  }
-
-  if (didLevelUpFlag && effectiveHeldItem === 'soul_link') {
-    newBoard.forEach(row => row.forEach(sq => {
-      if (sq.piece && sq.piece.color === pieceLanded.color && sq.piece.heldItem === 'soul_link' && sq.piece.id !== pieceLanded.id) {
-        if (sq.piece.type !== 'queen' || sq.piece.level < 7) {
-            const oldSLVal = sq.piece.level;
-            sq.piece.level = Math.min(sq.piece.type === 'queen' ? 7 : 99, (sq.piece.level || 1) + levelGainVal);
-            if (sq.piece.level > oldSLVal) {
-                levelChanges.push({ square: sq.algebraic, delta: sq.piece.level - oldSLVal, reason: "Soul Link" });
-                sq.piece.isPoisoned = false; sq.piece.isExhausted = false; sq.piece.cooldownTurnsRemaining = 0;
-            }
-        }
-      }
-    }));
-  }
+  // Authoritatively sync Soul Link and Set bonuses after all possible level-up triggers in applyMove
+  syncLevelsAndSets(newBoard, pieceLanded.color, levelChanges);
 
   if (didLevelUpFlag) { 
       pieceLanded.isPoisoned = false; 

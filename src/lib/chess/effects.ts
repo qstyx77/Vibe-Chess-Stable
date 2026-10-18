@@ -61,6 +61,65 @@ export function triggerDefiantSparks(board: BoardState, targetR: number, targetC
   }
 }
 
+/**
+ * Synchronizes Soul Link and Luminous Set bonuses.
+ * This should be called after any event that modifies unit levels.
+ */
+export function syncLevelsAndSets(board: BoardState, color: PlayerColor, levelChanges: LevelChangeEvent[]) {
+    // 1. Soul Link Sync
+    let maxSLLevel = 0;
+    let hasSoulLink = false;
+    board.forEach(row => row.forEach(sq => {
+        if (sq.piece && sq.piece.color === color && sq.piece.heldItem === 'soul_link') {
+            hasSoulLink = true;
+            maxSLLevel = Math.max(maxSLLevel, sq.piece.level || 1);
+        }
+    }));
+
+    if (hasSoulLink) {
+        board.forEach(row => row.forEach(sq => {
+            if (sq.piece && sq.piece.color === color && sq.piece.heldItem === 'soul_link') {
+                const targetL = Math.min(sq.piece.type === 'queen' ? 7 : 99, maxSLLevel);
+                if (sq.piece.level < targetL) {
+                    const delta = targetL - sq.piece.level;
+                    sq.piece.level = targetL;
+                    levelChanges.push({ square: sq.algebraic, delta, reason: "Soul Link Sync" });
+                    sq.piece.isPoisoned = false; sq.piece.isExhausted = false; sq.piece.cooldownTurnsRemaining = 0;
+                }
+            }
+        }));
+    }
+
+    // 2. Luminous Set Bonus (Shared Divinity)
+    const sets = getActiveSets(board, color);
+    if (sets.includes('luminous')) {
+        let minL = 100;
+        const candidates: SquareState[] = [];
+        board.forEach(row => row.forEach(sq => {
+            if (sq.piece && sq.piece.color === color && sq.piece.type !== 'king') {
+                const l = sq.piece.level || 1;
+                if (l < minL) {
+                    minL = l;
+                    candidates.length = 0;
+                    candidates.push(sq);
+                } else if (l === minL) {
+                    candidates.push(sq);
+                }
+            }
+        }));
+
+        if (candidates.length > 0) {
+            const target = candidates[Math.floor(Math.random() * candidates.length)];
+            const p = target.piece!;
+            if (p.type !== 'queen' || p.level < 7) {
+                p.level++;
+                levelChanges.push({ square: target.algebraic, delta: 1, reason: "Luminous Set" });
+                p.isPoisoned = false; p.isExhausted = false; p.cooldownTurnsRemaining = 0;
+            }
+        }
+    }
+}
+
 export function triggerPushBack(board: BoardState, r: number, c: number, color: PlayerColor, actor: Piece): { crushed: Piece | null, obliterated: Piece[], levelChanges: LevelChangeEvent[] } {
   let mainCrushed: Piece | null = null;
   const obliterated: Piece[] = [];
@@ -435,6 +494,7 @@ export function processPoisonDamage(board: BoardState, currentPlayer: PlayerColo
             if (p.itemTurnCount % 5 === 0) {
                 if (p.heldItem === 'training_weights') {
                     if (p.type !== 'queen' || p.level < 7) {
+                        const oldL = p.level;
                         p.level = (p.level || 1) + 1;
                         levelChanges.push({ square: sq.algebraic, delta: 1, reason: "Conditioning" });
                         p.isPoisoned = false;
@@ -467,6 +527,10 @@ export function processPoisonDamage(board: BoardState, currentPlayer: PlayerColo
       }
     }
   }
+
+  // Authoritatively sync levels and sets after passive turn processing
+  syncLevelsAndSets(newBoard, currentPlayer, levelChanges);
+
   return { newBoard, poisonedCaptures, levelChanges };
 }
 
