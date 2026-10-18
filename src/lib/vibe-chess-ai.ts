@@ -214,6 +214,60 @@ export class VibeChessAI {
                 }
             }
             movingPiece.heldItem = null;
+        } else if (move.type === 'wind-scroll') {
+            for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+                const nr = tR + dr, nc = tC + dc;
+                if (isValidSquareUtil(nr, nc)) {
+                    const victim = next.board[nr][nc].piece;
+                    if (victim && victim.color === opponent) {
+                        const pdr = Math.sign(nr - tR); const pdc = Math.sign(nc - tC);
+                        if (isValidSquareUtil(nr+pdr, nc+pdc) && !next.board[nr+pdr][nc+pdc].piece && !next.board[nr+pdr][nc+pdc].item) {
+                            next.board[nr+pdr][nc+pdc].piece = victim;
+                            next.board[nr][nc].piece = null;
+                        }
+                    }
+                }
+            }
+            movingPiece.heldItem = null;
+        } else if (move.type === 'summon-anvil') {
+            next.board[tR][tC].item = { type: 'anvil' };
+            movingPiece.heldItem = null;
+        } else if (move.type === 'shield-scroll') {
+            if (targetPiece) targetPiece.isShielded = true;
+            movingPiece.heldItem = null;
+        } else if (move.type === 'resurrection-scroll') {
+            const myGrave = player === 'white' ? next.capturedPieces.white : next.capturedPieces.black;
+            if (myGrave.length > 0) {
+                const best = [...myGrave].sort((a,b) => (VAL_MAP[b.type]||0) - (VAL_MAP[a.type]||0))[0];
+                next.board[tR][tC].piece = { ...best, level: 1, hasMoved: true, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0 };
+                if (player === 'white') next.capturedPieces.white = next.capturedPieces.white.filter(p => p.id !== best.id);
+                else next.capturedPieces.black = next.capturedPieces.black.filter(p => p.id !== best.id);
+            }
+            movingPiece.heldItem = null;
+        } else if (move.type === 'faith-scroll') {
+            for(let dr=-1; dr<=1; dr++) for(let dc=-1; dc<=1; dc++) {
+                const nr=tR+dr, nc=tC+dc;
+                if(isValidSquareUtil(nr,nc)) {
+                    const v = next.board[nr][nc].piece;
+                    if(v && v.color === opponent && v.type !== 'king') {
+                        v.color = player; v.id = `conv_${v.id}_${Date.now()}`;
+                    }
+                }
+            }
+            movingPiece.heldItem = null;
+        } else if (move.type === 'kings-decree') {
+            if (targetPiece) targetPiece.type = 'commander';
+            movingPiece.heldItem = null;
+        } else if (move.type === 'heavy-rain') {
+            let placed = 0;
+            for(let i=0; i<20 && placed<3; i++) {
+                const rr = Math.floor(Math.random()*8), rc = Math.floor(Math.random()*8);
+                if(!next.board[rr][rc].piece && !next.board[rr][rc].item) {
+                    next.board[rr][rc].item = { type:'anvil' };
+                    placed++;
+                }
+            }
+            movingPiece.heldItem = null;
         } else if (move.type === 'grapple-throw') {
             if (targetPiece?.type === 'king') return next; 
             if (move.grappledFrom) {
@@ -338,7 +392,7 @@ export class VibeChessAI {
 
         if (removalOccurred) {
             next.killStreaks[player] += (captureCount + obliterationCount); 
-        } else if (!['swap', 'dance-swap', 'grapple-hook-swap', 'myco-propagate', 'life-leach', 'antidote', 'ram-push', 'glacial-ray', 'burning-ray', 'earthquake-scroll', 'oil-slick', 'phase-out'].includes(move.type || '')) {
+        } else if (!['swap', 'dance-swap', 'grapple-hook-swap', 'myco-propagate', 'life-leach', 'antidote', 'ram-push', 'glacial-ray', 'burning-ray', 'earthquake-scroll', 'oil-slick', 'phase-out', 'wind-scroll', 'summon-anvil', 'shield-scroll', 'resurrection-scroll', 'faith-scroll', 'kings-decree', 'heavy-rain'].includes(move.type || '')) {
             next.killStreaks[player] = 0;
         }
         
@@ -386,20 +440,20 @@ export class VibeChessAI {
                     if (piece.type === 'infiltrator') {
                         const targetRank = piece.color === 'white' ? 0 : 7;
                         const distance = Math.abs(r - targetRank);
-                        score += (7 - distance) * 60; 
+                        score += (7 - distance) * 100; 
                     }
                     if (this.centerSquares.has(`${r}${c}`)) score += 30;
                     if (['hero', 'archbishop', 'palace', 'archer'].includes(piece.type)) score += 50;
                     if (['commander', 'myco_mage', 'dancer', 'mimic', 'grappler'].includes(piece.type)) score += 30;
                     
-                    if (piece.heldItem && ['life_leach', 'resurrection_scroll', 'faith_scroll', 'shield_scroll', 'burning_ray', 'glacial_ray', 'earthquake_scroll', 'oil_slick', 'phase_out'].includes(piece.heldItem)) {
-                        score += 200;
+                    if (piece.heldItem && ['life_leach', 'resurrection_scroll', 'faith_scroll', 'shield_scroll', 'burning_ray', 'glacial_ray', 'earthquake_scroll', 'oil_slick', 'phase_out', 'wind_scroll', 'summon_anvil', 'kings_decree'].includes(piece.heldItem)) {
+                        score += 300;
                     }
                 } else {
                     if (piece.type === 'infiltrator') {
                         const targetRank = piece.color === 'white' ? 0 : 7;
                         const distance = Math.abs(r - targetRank);
-                        score -= (7 - distance) * 60;
+                        score -= (7 - distance) * 100;
                     }
                     if (this.centerSquares.has(`${r}${c}`)) score -= 30;
                 }
@@ -450,7 +504,7 @@ export class VibeChessAI {
         const moves: AIMove[] = [];
         const effLevel = getEffectiveLevel(gs.board as any, r, c);
         const silenced = isSilencedInternal(gs.board, r, c, p.color);
-        const oppColor = p.color === 'white' ? 'black' : 'white';
+        const opponentColor = p.color === 'white' ? 'black' : 'white';
 
         let patternType = (p.type === 'mimic' && gs.lastMoveGlobal?.type && gs.lastMoveGlobal.type !== 'mimic') ? gs.lastMoveGlobal.type : p.type;
         let effItem = p.heldItem;
@@ -501,13 +555,32 @@ export class VibeChessAI {
             if (item === 'antidote') moves.push({from:[r,c], to:[r,c], type:'antidote'});
             if (item === 'detonation_scroll' && effLevel >= 2) moves.push({from:[r,c], to:[r,c], type:'self-destruct'});
             if (item === 'phase_out' && effLevel >= 2) moves.push({from:[r,c], to:[r,c], type:'phase-out'});
-            if (item === 'oil_slick' || (item === 'earthquake_scroll' && effLevel >= 3)) {
-                const moveType = item === 'oil_slick' ? 'oil-slick' : 'earthquake-scroll';
-                for(let dr=-2; dr<=2; dr++) for(let dc=-2; dc<=2; dc++) {
+            if (item === 'heavy_rain' && effLevel >= 3) moves.push({from:[r,c], to:[r,c], type:'heavy-rain'});
+            
+            if (item === 'wind_scroll' || item === 'summon_anvil' || item === 'earthquake_scroll' || item === 'oil_slick' || item === 'resurrection_scroll' || item === 'faith_scroll' || item === 'shield_scroll' || item === 'kings_decree') {
+                const moveType = (item === 'wind_scroll' ? 'wind-scroll' : 
+                                 item === 'summon_anvil' ? 'summon-anvil' : 
+                                 item === 'earthquake_scroll' ? 'earthquake-scroll' : 
+                                 item === 'oil_slick' ? 'oil-slick' : 
+                                 item === 'resurrection_scroll' ? 'resurrection-scroll' :
+                                 item === 'faith_scroll' ? 'faith-scroll' :
+                                 item === 'shield_scroll' ? 'shield-scroll' : 'kings-decree');
+                                 
+                for(let dr=-3; dr<=3; dr++) for(let dc=-3; dc<=3; dc++) {
                     const tr=r+dr, tc=c+dc;
-                    if(isValidSquareUtil(tr,tc)) moves.push({from:[r,c], to:[tr,tc], type: moveType});
+                    if(isValidSquareUtil(tr,tc)) {
+                        const targetSq = gs.board[tr][tc];
+                        if (item === 'shield_scroll' || item === 'kings_decree') {
+                            if (targetSq.piece && targetSq.piece.color === p.color) moves.push({from:[r,c], to:[tr,tc], type: moveType});
+                        } else if (item === 'resurrection_scroll') {
+                            if (!targetSq.piece && !targetSq.item) moves.push({from:[r,c], to:[tr,tc], type: moveType});
+                        } else {
+                            moves.push({from:[r,c], to:[tr,tc], type: moveType});
+                        }
+                    }
                 }
             }
+
             if (item === 'burning_ray' || item === 'glacial_ray') {
                 const rayType = item === 'burning_ray' ? 'burning-ray' : 'glacial-ray';
                 [[0,1],[0,-1],[1,0],[-1,0]].forEach(([dr,dc]) => {
@@ -682,7 +755,7 @@ export class VibeChessAI {
                             if (targetSq.piece?.type === 'king' && !simplified) return; 
                             if (targetSq.item?.type === 'anvil') return;
                             const target = targetSq.piece;
-                            if (!target || (target.color !== p.color && (simplified || target.type !== 'king') && !isPieceInvulnerableToAttackUtil(target, p, getEffectiveLevel(gs.board as any, nr, nc), effLevel, gs.board as any, simplified))) {
+                            if (!target || (target.color !== opponentColor && (simplified || target.type !== 'king') && !isPieceInvulnerableToAttackUtil(target, p, getEffectiveLevel(gs.board as any, nr, nc), effLevel, gs.board as any, simplified))) {
                                 const sR = Math.sign(dr); const sC = Math.sign(dc);
                                 let clear = true;
                                 for(let i=1; i<3; i++) {
