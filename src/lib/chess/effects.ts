@@ -353,10 +353,10 @@ export function syncSoulLink(board: BoardState, color: PlayerColor): { levelChan
         board.forEach(row => row.forEach(sq => {
             if (sq.piece && sq.piece.color === color && sq.piece.heldItem === 'soul_link') {
                 if (sq.piece.type !== 'queen' || sq.piece.level < 7) {
-                    const oldL = sq.piece.level;
+                    const oldSLVal = sq.piece.level;
                     sq.piece.level = Math.min(sq.piece.type === 'queen' ? 7 : 99, maxLevel);
-                    if (sq.piece.level > oldL) {
-                        changes.push({ square: sq.algebraic, delta: sq.piece.level - oldL });
+                    if (sq.piece.level > oldSLVal) {
+                        changes.push({ square: sq.algebraic, delta: sq.piece.level - oldSLVal });
                         sq.piece.isPoisoned = false;
                         sq.piece.isExhausted = false;
                         sq.piece.cooldownTurnsRemaining = 0;
@@ -420,6 +420,16 @@ export function processPoisonDamage(board: BoardState, currentPlayer: PlayerColo
 
       const p = sq.piece;
       if (p && p.color === currentPlayer) {
+        // Demonic Possession Countdown
+        if (p.obliterationTurnsRemaining && p.obliterationTurnsRemaining > 0) {
+          p.obliterationTurnsRemaining--;
+          if (p.obliterationTurnsRemaining === 0) {
+            poisonedCaptures.push({ ...p });
+            sq.piece = null;
+            continue; // Piece is obliterated, skip other logic
+          }
+        }
+
         if (p.heldItem === 'training_weights' || p.heldItem === 'sclerotia') {
             p.itemTurnCount = (p.itemTurnCount || 0) + 1;
             if (p.itemTurnCount % 5 === 0) {

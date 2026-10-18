@@ -434,6 +434,19 @@ export function applyMove(
       return { newBoard, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered: null, originalPieceLevel: movingPiece.level, originalPieceType: movingPiece.type, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null, anvilDroppedSquares, levelChanges, obliteratedPieces: [] };
   }
 
+  if (move.type === 'demonic-possession') {
+      const p = newBoard[fromRow][fromCol].piece!;
+      const oldL = p.level;
+      p.level = Math.min(p.type === 'queen' ? 7 : 99, p.level + 5);
+      p.obliterationTurnsRemaining = 3;
+      if (p.level > oldL) {
+          levelChanges.push({ square: coordsToAlgebraic(fromRow, fromCol), delta: p.level - oldL });
+          p.isPoisoned = false; p.isExhausted = false; p.cooldownTurnsRemaining = 0;
+      }
+      p.heldItem = null;
+      return { newBoard, capturedPiece: null, selfDestructCaptures: [], destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered: null, originalPieceLevel: oldL, originalPieceType: p.type, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null, anvilDroppedSquares, levelChanges, obliteratedPieces: [] };
+  }
+
   if (move.type === 'myco-propagate') {
       const emptyCells = [];
       for (let r=0; r<8; r++) for (let c=0; c<8; c++) if (!newBoard[r][c].piece && !newBoard[r][c].item) emptyCells.push({r,c});

@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { Piece, BoardState } from '@/types';
@@ -93,6 +92,7 @@ const getPieceAbilities = (piece: Piece, board?: BoardState): string[] => {
   if (heldItem === 'ice_sword') abilities.push("cryo blade: freezes adjacent enemies on capture.");
   if (heldItem === 'ice_blast') abilities.push("spell: freeze all adjacent enemies.");
   if (heldItem === 'soul_harvest') abilities.push("spell: absorb adjacent pieces' power.");
+  if (heldItem === 'aura_silence') abilities.push("silence: enemies nearby cannot use skills.");
   if (heldItem === 'aura_silence') abilities.push("silence: enemies nearby cannot use skills.");
   if (heldItem === 'grappling_hook') abilities.push("grappling hook: swap with distant allies.");
   if (heldItem === 'battering_ram') abilities.push("ram: push adjacent anvils to crush enemies.");
@@ -211,6 +211,7 @@ export function PieceAbilitiesInfo({ piece, board }: PieceAbilitiesInfoProps) {
   const item = piece.heldItem ? ITEM_METADATA[piece.heldItem] : null;
   const isExhausted = (piece.cooldownTurnsRemaining || 0) > 0;
   const isFrozen = (piece.frozenTurnsRemaining || 0) > 0;
+  const isPossessed = (piece.obliterationTurnsRemaining || 0) > 0;
 
   return (
     <div className="text-center text-[0.55rem] font-pixel">
@@ -220,7 +221,8 @@ export function PieceAbilitiesInfo({ piece, board }: PieceAbilitiesInfoProps) {
       <div className="flex flex-col gap-0.5 mb-1">
         {piece.isPoisoned && <p className="text-[#22C55E] text-[0.45rem] animate-pulse uppercase">STATUS: POISONED</p>}
         {isFrozen && <p className="text-sky-400 text-[0.45rem] animate-pulse uppercase">STATUS: FROZEN</p>}
-        {!isFrozen && isExhausted && <p className="text-destructive text-[0.45rem] animate-pulse uppercase">STATUS: EXHAUSTED</p>}
+        {isPossessed && <p className="text-destructive text-[0.45rem] animate-pulse uppercase">STATUS: POSSESSED ({piece.obliterationTurnsRemaining}T)</p>}
+        {!isFrozen && !isPossessed && isExhausted && <p className="text-destructive text-[0.45rem] animate-pulse uppercase">STATUS: EXHAUSTED</p>}
       </div>
       {item && (
         <div className="mb-1 p-0.5 border border-accent/30 bg-accent/5 rounded-none">
@@ -230,7 +232,7 @@ export function PieceAbilitiesInfo({ piece, board }: PieceAbilitiesInfoProps) {
       )}
       <ul className="list-none p-0 m-0 space-y-0.5">
         {abilities.map((ability, index) => (
-          <li key={index} className={cn("leading-tight uppercase text-[0.45rem]", (piece.isPoisoned || isExhausted || isFrozen) && "opacity-70", ability.startsWith('SET:') && "text-yellow-400 font-bold")}>
+          <li key={index} className={cn("leading-tight uppercase text-[0.45rem]", (piece.isPoisoned || isExhausted || isFrozen || isPossessed) && "opacity-70", ability.startsWith('SET:') && "text-yellow-400 font-bold")}>
             {ability}
           </li>
         ))}
