@@ -305,6 +305,7 @@ export default function DungeonPage() {
   const [isAwaitingSwapTarget, setIsAwaitingSwapTarget] = useState(false);
   const [isAwaitingSwapClergyTarget, setIsAwaitingSwapClergyTarget] = useState(false);
   const [isAwaitingSwapCavalryTarget, setIsAwaitingSwapCavalryTarget] = useState(false);
+  const [isAwaitingSwapTargetActual, setIsAwaitingSwapTargetActual] = useState(false);
   const [isAwaitingDecreeTarget, setIsAwaitingDecreeTarget] = useState(false);
   const [isAwaitingEarthquakeScrollTarget, setIsAwaitingEarthquakeScrollTarget] = useState(false);
 
@@ -617,7 +618,7 @@ export default function DungeonPage() {
     setGameInfo({ message: inC ? "Check!" : " ", isCheck: inC, playerWithKingInCheck: inC ? nxtP : null, isCheckmate: false, isStalemate: false, gameOver: false });
     if (inC) { addLog("Check!"); audioManager.playCheck(); }
     saveDungeonState(level, nB, nxtP, curKs, nG, shroomSpawnCounter, nextShroomSpawnTurn, nEp, necroResurrectionCounter, inventory);
-  }, [board, level, inventory, advanceLevel, lastMoveWhite, lastMoveBlack, lastMoveGlobal, addLog, positionHistory, shroomSpawnCounter, nextShroomSpawnTurn, necroResurrectionCounter, saveDungeonState, addEffect, findKing, user, firestore, userData]);
+  }, [board, level, inventory, advanceLevel, lastMoveWhite, lastMoveBlack, lastMoveGlobal, addLog, getPlayerDisplayName, addEffect, processMoveEnd, findKing, user, firestore, userData]);
 
   const triggerSpecialsChain = useCallback((bCh: BoardState, cG: { white: Piece[], black: Piece[] }, cKs: { white: number, black: number }, oldS: number, newS: number, isEx: boolean, nEp: AlgebraicSquare | null, actP: PlayerColor = 'white', compM: string[] = [], capId: string | null = null, wasCap: boolean = false, movedT?: PieceType | null, trackWhite?: LastMoveInfo | null, trackBlack?: LastMoveInfo | null, trackGlobal?: LastMoveInfo | null) => {
     const isAI = actP === 'black'; const sil = bCh.flat().find(sq => sq.piece?.color === actP && isSilenced(bCh, sq.rowIndex, sq.colIndex, actP));
@@ -855,7 +856,7 @@ export default function DungeonPage() {
       }
     }
     triggerSpecialsChain(bAf, g, cKs, oS, nS, isEx, ep, p, [], cId, wC, mT, effWhite, effBlack, effGlobal); return false;
-  }, [triggerSpecialsChain, addLog, lastMoveWhite, lastMoveBlack, lastMoveGlobal]);
+  }, [triggerSpecialsChain, addLog, lastMoveWhite, lastMoveBlack, lastMoveGlobal, isWhiteAI, isBlackAI]);
 
   const handlePromotionSelect = useCallback((t: PieceType) => {
     setIsPromotingPawn(false); setPromotionSquare(null);
@@ -982,7 +983,7 @@ export default function DungeonPage() {
             setTeleportAllyPieceId(piece.id);
             setIsSelectingTeleportAlly(false);
             setIsSelectingTeleportShroom(true);
-            addLog("Select an ally to teleport!");
+            addLog("Select a shroom to teleport to!");
         }
         return;
     }
@@ -1501,7 +1502,18 @@ export default function DungeonPage() {
     if (!reset && saved && saved.board && saved.board.length > 0) {
       setLevel(saved.level); const loadedB: BoardState = []; const savedB1D = saved.board as SquareState[];
       for (let i = 0; i < 8; i++) loadedB.push(savedB1D.slice(i * 8, i * 8 + 8)); 
-      setBoard(loadedB); setCurrentPlayer(saved.currentPlayer); setKillStreaks(saved.killStreaks); setCapturedPieces({ white: Array.isArray(saved.capturedPieces?.white) ? saved.capturedPieces.white : [], black: Array.isArray(saved.capturedPieces?.black) ? saved.capturedPieces.black : [] }); setEnPassantTargetSquare(saved.enPassantTargetSquare);
+      setBoard(loadedB); setCurrentPlayer(saved.currentPlayer); setKillStreaks(saved.killStreaks); 
+      
+      const restoredWhite = (Array.isArray(saved.capturedPieces?.white) ? saved.capturedPieces.white : [])
+        .map((p: Piece) => ({ ...p, isPoisoned: false, isExhausted: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 }));
+      const restoredBlack = (Array.isArray(saved.capturedPieces?.black) ? saved.capturedPieces.black : [])
+        .map((p: Piece) => ({ ...p, isPoisoned: false, isExhausted: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 }));
+      setCapturedPieces({ white: restoredWhite, black: restoredBlack });
+      
+      setEnPassantTargetSquare(saved.enPassantTargetSquare);
+      setShroomSpawnCounter(saved.shroomSpawnCounter || 0);
+      setNextShroomSpawnTurn(saved.nextShroomSpawnTurn || 5);
+      setNecroResurrectionCounter(saved.necroResurrectionCounter || 0);
     } else {
       let army: Piece[] = []; const elo = userData.eloRating || 1200; let initial = initializeBoard(elo, 1200, userData.unlockedPieces || []);
       initial.flat().forEach(sq => { if (sq.piece && sq.piece.color === 'white') army.push(sq.piece); });
@@ -1916,3 +1928,4 @@ export default function DungeonPage() {
     </div>
   );
 }
+
