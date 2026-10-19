@@ -1213,9 +1213,9 @@ export default function EvolvingChessPage() {
     if (isInventoryOpen) {
       if (selectedInventoryItemType && !selectedInventoryItemType.startsWith('portal_scroll_')) {
         const itemMeta = ITEM_METADATA[selectedInventoryItemType];
-        if (itemMeta.rarity === 'rare' && board.flat().some(sq => sq.piece?.heldItem === selectedInventoryItemType)) {
+        if (itemMeta.rarity === 'rare' && board.flat().some(sq => sq.piece?.color === piece?.color && sq.piece?.heldItem === selectedInventoryItemType)) {
             if (piece?.heldItem !== selectedInventoryItemType) {
-                addLog(`LIMIT REACHED: Only one ${itemMeta.name} allowed!`); return;
+                addLog(`LIMIT REACHED: One ${itemMeta.name} per side allowed!`); return;
             }
         }
         if (piece && (onlineStatus === 'disconnected' || piece.color === (localPlayerColor || 'white'))) {
