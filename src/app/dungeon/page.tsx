@@ -341,33 +341,6 @@ export default function DungeonPage() {
     return 'Dungeon';
   }, [userData]);
 
-  const handlePieceHover = useCallback((p: Piece | null) => {
-    setPieceForInfoDisplay(p);
-    if (p && p.color !== currentPlayer && !isSpec) {
-      const coords = board.flat().find(sq => sq.piece?.id === p.id);
-      if (coords) {
-        const moves = getPossibleMoves(board, coords.algebraic, enPassantTargetSquare, lastMoveWhite, lastMoveBlack, lastMoveGlobal);
-        setEnemySelectedSquare(coords.algebraic);
-        setEnemyPossibleMoves(moves);
-      }
-    } else {
-      if (clickedEnemySquare) {
-        const coords = board.flat().find(sq => sq.algebraic === clickedEnemySquare);
-        if (coords && coords.piece) {
-            const moves = getPossibleMoves(board, clickedEnemySquare, enPassantTargetSquare, lastMoveWhite, lastMoveBlack, lastMoveGlobal);
-            setEnemySelectedSquare(clickedEnemySquare);
-            setEnemyPossibleMoves(moves);
-        } else {
-            setEnemySelectedSquare(null);
-            setEnemyPossibleMoves([]);
-        }
-      } else {
-        setEnemySelectedSquare(null);
-        setEnemyPossibleMoves([]);
-      }
-    }
-  }, [board, currentPlayer, enPassantTargetSquare, lastMoveWhite, lastMoveBlack, lastMoveGlobal, isSpec, clickedEnemySquare]);
-
   const addEffect = useCallback((type: Effect['type'], square: AlgebraicSquare, color?: PlayerColor, value?: number, itemType?: InventoryItemType) => {
     const id = `eff-${Date.now()}-${Math.random()}`; setEffects(prev => [...prev, { id, type, square, color, value, itemType }]);
     setTimeout(() => { setEffects(curr => curr.filter(e => e.id !== id)); }, 1500);
@@ -390,91 +363,6 @@ export default function DungeonPage() {
     setInventory(newInv);
     updateDocumentNonBlocking(userRef, { inventory: newInv });
   }, [user, firestore, inventory]);
-
-  const proceedToNextFloor = useCallback((nextL: number, survivors: Piece[], graveyard: any, newInv?: InventoryItem[]) => {
-    if (nextL > 50) { setGameInfo(prev => ({ ...prev, message: "DUNGEON CONQUERED!", gameOver: true, winner: 'white' })); gameOverRef.current = true; audioManager.playVictory(); return; }
-    const finalInv = newInv || inventory;
-    setLevel(nextL); setBoard(generateDungeonFloor(nextL, survivors)); setPlayerArmy(survivors); setCapturedPieces({ white: Array.isArray(graveyard.white) ? graveyard.white : [], black: [] }); setKillStreaks({ white: 0, black: 0 }); setPositionHistory([]); setEnPassantTargetSquare(null); setLastMoveWhite(null); setLastMoveBlack(null); setLastMoveGlobal(null); setLastMoveFrom(null); setLastMoveTo(null); setNecroResurrectionCounter(0); setAiNoMoveCounter(0);
-    setClickedEnemySquare(null); setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
-    saveDungeonState(nextL, generateDungeonFloor(nextL, survivors), 'white', { white: 0, black: 0 }, { white: graveyard.white, black: [] }, 0, 5, null, 0, finalInv);
-    audioManager.playStart(); addLog(`Descending to Floor ${nextL}...`);
-  }, [inventory, saveDungeonState, addLog]);
-
-  const handleClaimLoot = useCallback(() => {
-    if (!pendingProgression) return;
-    const updatedInv = [...inventory];
-    lootFound.forEach(type => {
-        const existing = updatedInv.find(i => i.type === type);
-        if (existing) existing.count++;
-        else updatedInv.push({ type, count: 1 });
-    });
-    setInventory(updatedInv);
-    setIsLootWindowOpen(false);
-    const survivors = pendingProgression.survivors;
-    const graveyard = pendingProgression.graveyard;
-    setPendingProgression(null);
-    setLootFound([]);
-    proceedToNextFloor(level + 1, survivors, graveyard, updatedInv);
-  }, [pendingProgression, lootFound, inventory, level, proceedToNextFloor]);
-
-  const advanceLevel = useCallback((survivors: Piece[], graveyard: any) => {
-    if (level % 10 === 0) {
-        const cloverBonus = survivors.filter(p => p.heldItem === 'clover').length * 0.01;
-        const bonus = (Math.floor(level / 10) - 1) * 0.01 + cloverBonus;
-        const drops: InventoryItemType[] = [];
-        const allItems = Object.keys(ITEM_METADATA) as InventoryItemType[];
-        allItems.forEach(type => {
-            const meta = ITEM_METADATA[type];
-            if (!meta) return;
-            if (type.startsWith('portal_scroll_')) {
-                const scrollFloor = parseInt(type.split('_')[2]);
-                if (scrollFloor !== level) return;
-            }
-            let chance = 0;
-            if (meta.rarity === 'common') chance = 0.12 + bonus;
-            else if (meta.rarity === 'uncommon') chance = 0.06 + bonus;
-            else if (meta.rarity === 'rare') chance = 0.03 + bonus;
-            if (Math.random() < chance) drops.push(type);
-        });
-        setLootFound(drops);
-        setPendingProgression({ survivors, graveyard });
-        setIsLootWindowOpen(true);
-    } else {
-        proceedToNextFloor(level + 1, survivors, graveyard);
-    }
-  }, [level, proceedToNextFloor]);
-
-  const handleUsePortalScroll = useCallback((type: InventoryItemType) => {
-    if (!type.startsWith('portal_scroll_')) return;
-    const targetFloor = parseInt(type.split('_')[2]);
-    if (isNaN(targetFloor)) return;
-    const newInv = inventory.map(item => {
-        if (item.type === type) return { ...item, count: item.count - 1 };
-        return item;
-    }).filter(item => item.count > 0);
-    setInventory(newInv);
-    setLevel(targetFloor);
-    const whiteArmy = board.flat().filter(sq => sq.piece && sq.piece.color === 'white').map(sq => sq.piece!);
-    const newB = generateDungeonFloor(targetFloor, whiteArmy);
-    setBoard(newB);
-    setCapturedPieces({ white: [], black: [] });
-    setCurrentPlayer('white');
-    setKillStreaks({ white: 0, black: 0 });
-    setEnPassantTargetSquare(null);
-    setLastMoveWhite(null); setLastMoveBlack(null); setLastMoveGlobal(null);
-    setLastMoveFrom(null);
-    setLastMoveTo(null);
-    setNecroResurrectionCounter(0);
-    setAiNoMoveCounter(0);
-    setClickedEnemySquare(null);
-    setEnemySelectedSquare(null);
-    setEnemyPossibleMoves([]);
-    saveDungeonState(targetFloor, newB, 'white', { white: 0, black: 0 }, { white: [], black: [] }, 0, 5, null, 0, newInv);
-    audioManager.playStart();
-    addLog(`Warped to Floor ${targetFloor}!`);
-    setIsInventoryOpen(false);
-    setSelectedInventoryItemType(null);
-  }, [inventory, board, saveDungeonState, addLog]);
 
   const processMoveEnd = useCallback((boardAfter: BoardState, nG: any, curKs: any, turnP: PlayerColor, extra: boolean, nEp: AlgebraicSquare | null = null, wasCap: boolean = false, movedT?: PieceType | null, trackWhite?: LastMoveInfo | null, trackBlack?: LastMoveInfo | null, trackGlobal?: LastMoveInfo | null) => {
     let nB = boardAfter; setDidCaptureLastTurn(prev => ({ ...prev, [turnP]: wasCap }));
@@ -618,7 +506,7 @@ export default function DungeonPage() {
     setGameInfo({ message: inC ? "Check!" : " ", isCheck: inC, playerWithKingInCheck: inC ? nxtP : null, isCheckmate: false, isStalemate: false, gameOver: false });
     if (inC) { addLog("Check!"); audioManager.playCheck(); }
     saveDungeonState(level, nB, nxtP, curKs, nG, shroomSpawnCounter, nextShroomSpawnTurn, nEp, necroResurrectionCounter, inventory);
-  }, [board, level, inventory, advanceLevel, lastMoveWhite, lastMoveBlack, lastMoveGlobal, addLog, getPlayerDisplayName, addEffect, processMoveEnd, findKing, user, firestore, userData]);
+  }, [board, level, inventory, user, firestore, userData, lastMoveWhite, lastMoveBlack, lastMoveGlobal, addLog, getPlayerDisplayName, addEffect, shroomSpawnCounter, nextShroomSpawnTurn, necroResurrectionCounter, positionHistory]);
 
   const triggerSpecialsChain = useCallback((bCh: BoardState, cG: { white: Piece[], black: Piece[] }, cKs: { white: number, black: number }, oldS: number, newS: number, isEx: boolean, nEp: AlgebraicSquare | null, actP: PlayerColor = 'white', compM: string[] = [], capId: string | null = null, wasCap: boolean = false, movedT?: PieceType | null, trackWhite?: LastMoveInfo | null, trackBlack?: LastMoveInfo | null, trackGlobal?: LastMoveInfo | null) => {
     const isAI = actP === 'black'; const sil = bCh.flat().find(sq => sq.piece?.color === actP && isSilenced(bCh, sq.rowIndex, sq.colIndex, actP));
@@ -828,7 +716,7 @@ export default function DungeonPage() {
         }
     }
     processMoveEnd(bCh, nG, cKs, actP, isEx, nEp, wasCap, movedT, effWhite, effBlack, effGlobal);
-  }, [board, level, inventory, advanceLevel, lastMoveWhite, lastMoveBlack, lastMoveGlobal, addLog, getPlayerDisplayName, addEffect, processMoveEnd]);
+  }, [board, level, inventory, lastMoveWhite, lastMoveBlack, lastMoveGlobal, addLog, getPlayerDisplayName, addEffect, processMoveEnd, firstBloodAchieved]);
 
   const processPawnSacrificeCheck = useCallback((bAf: BoardState, g: { white: Piece[], black: Piece[] }, cKs: { white: number, black: number }, p: PlayerColor, m: Move | null, oL: number | undefined, oT: PieceType | undefined, isEx: boolean, ep: AlgebraicSquare | null, oS: number, nS: number, cId: string | null = null, wC: boolean = false, mT?: PieceType | null, trackWhite?: LastMoveInfo | null, trackBlack?: LastMoveInfo | null, trackGlobal?: LastMoveInfo | null) => {
     if (!m) return false; const { row, col } = algebraicToCoords(m.to); const piece = bAf[row][col].piece;
@@ -856,7 +744,7 @@ export default function DungeonPage() {
       }
     }
     triggerSpecialsChain(bAf, g, cKs, oS, nS, isEx, ep, p, [], cId, wC, mT, effWhite, effBlack, effGlobal); return false;
-  }, [triggerSpecialsChain, addLog, lastMoveWhite, lastMoveBlack, lastMoveGlobal, isWhiteAI, isBlackAI]);
+  }, [triggerSpecialsChain, addLog, lastMoveWhite, lastMoveBlack, lastMoveGlobal]);
 
   const handlePromotionSelect = useCallback((t: PieceType) => {
     setIsPromotingPawn(false); setPromotionSquare(null);
@@ -1743,7 +1631,7 @@ export default function DungeonPage() {
         }
         setIsAiThinking(false);
     }
-  }, [board, currentPlayer, gameInfo.gameOver, isMoveProcessing, isAiThinking, killStreaks, capturedPieces, firstBloodAchieved, playerWhoGotFirstblood, enPassantTargetSquare, lastMoveWhite, lastMoveBlack, lastMoveGlobal, shroomSpawnCounter, nextShroomSpawnTurn, didCaptureLastTurn.white, positionHistory, processPawnSacrificeCheck, addLog, addEffect, advanceLevel, aiNoMoveCounter]);
+  }, [board, currentPlayer, gameInfo.gameOver, isMoveProcessing, isAiThinking, killStreaks, capturedPieces, firstBloodAchieved, playerWhoGotFirstblood, enPassantTargetSquare, lastMoveWhite, lastMoveBlack, lastMoveGlobal, shroomSpawnCounter, nextShroomSpawnTurn, didCaptureLastTurn.white, positionHistory, processPawnSacrificeCheck, addLog, addEffect, advanceLevel, aiNoMoveCounter, getPlayerDisplayName]);
 
   useEffect(() => { if (!isInitialized.current && !isUserLoading) { isInitialized.current = true; startRun(); } }, [isUserLoading, startRun]);
   useEffect(() => { if (userData?.inventory) setInventory(userData.inventory); }, [userData]);
@@ -1773,6 +1661,118 @@ export default function DungeonPage() {
   const handleSend = (e: React.FormEvent) => { e.preventDefault(); if (chatInput.trim()) { sendMessage(chatInput.trim(), 'battle'); setChatInput(''); } };
   const toggleCat = (cat: MessageCategory) => { const next = new Set(visibleCategories); if (next.has(cat)) { next.delete(cat); } else { next.add(cat); clearUnread(cat); } setVisibleCategories(next); };
   const hasUn = hasUnread.battle || hasUnread.social || hasUnread.log || hasUnread.market;
+
+  const handlePieceHover = useCallback((p: Piece | null) => {
+    setPieceForInfoDisplay(p);
+    if (p && p.color !== currentPlayer && !isSpec) {
+      const coords = board.flat().find(sq => sq.piece?.id === p.id);
+      if (coords) {
+        const moves = getPossibleMoves(board, coords.algebraic, enPassantTargetSquare, lastMoveWhite, lastMoveBlack, lastMoveGlobal);
+        setEnemySelectedSquare(coords.algebraic);
+        setEnemyPossibleMoves(moves);
+      }
+    } else {
+      if (clickedEnemySquare) {
+        const coords = board.flat().find(sq => sq.algebraic === clickedEnemySquare);
+        if (coords && coords.piece) {
+            const moves = getPossibleMoves(board, clickedEnemySquare, enPassantTargetSquare, lastMoveWhite, lastMoveBlack, lastMoveGlobal);
+            setEnemySelectedSquare(clickedEnemySquare);
+            setEnemyPossibleMoves(moves);
+        } else {
+            setEnemySelectedSquare(null);
+            setEnemyPossibleMoves([]);
+        }
+      } else {
+        setEnemySelectedSquare(null);
+        setEnemyPossibleMoves([]);
+      }
+    }
+  }, [board, currentPlayer, enPassantTargetSquare, lastMoveWhite, lastMoveBlack, lastMoveGlobal, isSpec, clickedEnemySquare]);
+
+  const proceedToNextFloor = useCallback((nextL: number, survivors: Piece[], graveyard: any, newInv?: InventoryItem[]) => {
+    if (nextL > 50) { setGameInfo(prev => ({ ...prev, message: "DUNGEON CONQUERED!", gameOver: true, winner: 'white' })); gameOverRef.current = true; audioManager.playVictory(); return; }
+    const finalInv = newInv || inventory;
+    setLevel(nextL); setBoard(generateDungeonFloor(nextL, survivors)); setPlayerArmy(survivors); setCapturedPieces({ white: Array.isArray(graveyard.white) ? graveyard.white : [], black: [] }); setKillStreaks({ white: 0, black: 0 }); setPositionHistory([]); setEnPassantTargetSquare(null); setLastMoveWhite(null); setLastMoveBlack(null); setLastMoveGlobal(null); setLastMoveFrom(null); setLastMoveTo(null); setNecroResurrectionCounter(0); setAiNoMoveCounter(0);
+    setClickedEnemySquare(null); setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
+    saveDungeonState(nextL, generateDungeonFloor(nextL, survivors), 'white', { white: 0, black: 0 }, { white: graveyard.white, black: [] }, 0, 5, null, 0, finalInv);
+    audioManager.playStart(); addLog(`Descending to Floor ${nextL}...`);
+  }, [inventory, saveDungeonState, addLog]);
+
+  const handleClaimLoot = useCallback(() => {
+    if (!pendingProgression) return;
+    const updatedInv = [...inventory];
+    lootFound.forEach(type => {
+        const existing = updatedInv.find(i => i.type === type);
+        if (existing) existing.count++;
+        else updatedInv.push({ type, count: 1 });
+    });
+    setInventory(updatedInv);
+    setIsLootWindowOpen(false);
+    const survivors = pendingProgression.survivors;
+    const graveyard = pendingProgression.graveyard;
+    setPendingProgression(null);
+    setLootFound([]);
+    proceedToNextFloor(level + 1, survivors, graveyard, updatedInv);
+  }, [pendingProgression, lootFound, inventory, level, proceedToNextFloor]);
+
+  const advanceLevel = useCallback((survivors: Piece[], graveyard: any) => {
+    if (level % 10 === 0) {
+        const cloverBonus = survivors.filter(p => p.heldItem === 'clover').length * 0.01;
+        const bonus = (Math.floor(level / 10) - 1) * 0.01 + cloverBonus;
+        const drops: InventoryItemType[] = [];
+        const allItems = Object.keys(ITEM_METADATA) as InventoryItemType[];
+        allItems.forEach(type => {
+            const meta = ITEM_METADATA[type];
+            if (!meta) return;
+            if (type.startsWith('portal_scroll_')) {
+                const scrollFloor = parseInt(type.split('_')[2]);
+                if (scrollFloor !== level) return;
+            }
+            let chance = 0;
+            if (meta.rarity === 'common') chance = 0.12 + bonus;
+            else if (meta.rarity === 'uncommon') chance = 0.06 + bonus;
+            else if (meta.rarity === 'rare') chance = 0.03 + bonus;
+            if (Math.random() < chance) drops.push(type);
+        });
+        setLootFound(drops);
+        setPendingProgression({ survivors, graveyard });
+        setIsLootWindowOpen(true);
+    } else {
+        proceedToNextFloor(level + 1, survivors, graveyard);
+    }
+  }, [level, proceedToNextFloor]);
+
+  const handleUsePortalScroll = useCallback((type: InventoryItemType) => {
+    if (!type.startsWith('portal_scroll_')) return;
+    const targetFloor = parseInt(type.split('_')[2]);
+    if (isNaN(targetFloor)) return;
+    const newInv = inventory.map(item => {
+        if (item.type === type) return { ...item, count: item.count - 1 };
+        return item;
+    }).filter(item => item.count > 0);
+    setInventory(newInv);
+    setLevel(targetFloor);
+    const whiteArmy = board.flat().filter(sq => sq.piece && sq.piece.color === 'white').map(sq => sq.piece!);
+    const newB = generateDungeonFloor(targetFloor, whiteArmy);
+    setBoard(newB);
+    setCapturedPieces({ white: [], black: [] });
+    setCurrentPlayer('white');
+    setKillStreaks({ white: 0, black: 0 });
+    setEnPassantTargetSquare(null);
+    setLastMoveWhite(null); setLastMoveBlack(null); setLastMoveGlobal(null);
+    setLastMoveFrom(null);
+    setLastMoveTo(null);
+    setNecroResurrectionCounter(0);
+    setAiNoMoveCounter(0);
+    setClickedEnemySquare(null);
+    setEnemySelectedSquare(null);
+    setEnemyPossibleMoves([]);
+    saveDungeonState(targetFloor, newB, 'white', { white: 0, black: 0 }, { white: [], black: [] }, 0, 5, null, 0, newInv);
+    audioManager.playStart();
+    addLog(`Warped to Floor ${targetFloor}!`);
+    setIsInventoryOpen(false);
+    setSelectedInventoryItemType(null);
+  }, [inventory, board, saveDungeonState, addLog]);
 
   const cPanel = (
     <Card className="w-full shadow-lg h-full flex flex-col relative overflow-hidden bg-black">
@@ -1928,4 +1928,3 @@ export default function DungeonPage() {
     </div>
   );
 }
-
