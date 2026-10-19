@@ -1221,7 +1221,14 @@ export default function EvolvingChessPage() {
         if (piece && (onlineStatus === 'disconnected' || piece.color === (localPlayerColor || 'white'))) {
           if (piece.heldItem === selectedInventoryItemType) { setSelectedInventoryItemType(null); return; }
           if (!isItemValidForPiece(selectedInventoryItemType, piece.type)) return;
-          if (!piece.heldItem && usedSlots >= attunementSlots) { addLog("Attunement Limit Reached!"); return; }
+          
+          // --- PER-COLOR ATTUNEMENT LIMIT (LOBBY ONLY) ---
+          const colorUsedSlots = board.flat().filter(sq => sq.piece?.heldItem && sq.piece.color === piece.color).length;
+          if (!piece.heldItem && colorUsedSlots >= attunementSlots) { 
+              addLog(`${piece.color.toUpperCase()} Attunement Limit Reached!`); 
+              return; 
+          }
+          
           const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? { ...s.item } : null, phasedPiece: s.phasedPiece ? { ...s.phasedPiece } : null })));
           const targetP = nextBoard[row][col].piece!;
           const oldItem = targetP.heldItem;
