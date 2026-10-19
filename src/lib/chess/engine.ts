@@ -318,6 +318,11 @@ export function applyMove(
       levelChanges.push(...pushRes.levelChanges);
   }
 
+  if (move.type === 'trap-net') {
+      triggerExhaustion(newBoard, fromRow, fromCol, movingPiece.color);
+      return { newBoard, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered: null, originalPieceLevel: movingPiece.level, originalPieceType: movingPiece.type, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null, anvilDroppedSquares, levelChanges, obliteratedPieces: [] };
+  }
+
   if (move.type === 'earthquake-scroll') {
       const oppColor = movingPiece.color === 'white' ? 'black' : 'white';
       for (let dr = -1; dr <= 1; dr++) {

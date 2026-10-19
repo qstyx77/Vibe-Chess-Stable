@@ -741,8 +741,8 @@ export default function DungeonPage() {
                     }
                     const sc = Math.min(adj.length, 2); const sh = adj.sort(() => Math.random() - 0.5);
                     for (let i = 0; i < sc; i++) {
-                        const pos = sh[i]; nxtB[pos.r][pos.c].piece = { id: `hydra_spawn_snipe_${sniped.id}_${i}_${Date.now()}`, type: 'knight', color: sniped.color, level: 2, hasMoved: true, isShielded: false };
-                        nxtB[pos.r][pos.c].item = null;
+                        const pos = hAdj[i]; nxtB[pos.r][pos.col].piece = { id: `hydra_spawn_snipe_${sniped.id}_${i}_${Date.now()}`, type: 'knight', color: sniped.color, level: 2, hasMoved: true, isShielded: false };
+                        nxtB[pos.r][pos.col].item = null;
                         addEffect('light-beam', coordsToAlgebraic(pos.r, pos.col));
                     }
                     audioManager.playResurrect(); addLog("The Hydra regrows its heads!");
@@ -1149,7 +1149,7 @@ export default function DungeonPage() {
               if (lastInfo?.type === 'archer') return true;
             }
             const crds = board.flat().find(sq => sq.piece?.id === pt.id); 
-            if ((pt.type === 'knight' || pt.type === 'mimic') && pt.heldItem === 'shortbow' && crds && getEffectiveLevel(board, crds.rowIndex, crds.colIndex) >= 3) return true; 
+            if ((pt.type === 'knight' || pt.type === 'mimic') && pt.heldItem === 'shortbow' && crds && getEffectiveLevel(board, crds.rowIndex, coords.colIndex) >= 3) return true; 
             return false; 
         });
         if (snips.find(a => a.level >= piece.level)) {
@@ -1161,9 +1161,9 @@ export default function DungeonPage() {
                 }
                 const sc = Math.min(adj.length, 2); const sh = adj.sort(() => Math.random() - 0.5);
                 for (let i = 0; i < sc; i++) {
-                    const pos = sh[i]; nxtB[pos.r][pos.c].piece = { id: `hydra_spawn_snipe_${sniped.id}_${i}_${Date.now()}`, type: 'knight', color: sniped.color, level: 2, hasMoved: true, isShielded: false };
-                    nxtB[pos.r][pos.c].item = null;
-                    addEffect('light-beam', coordsToAlgebraic(pos.r, pos.c));
+                    const pos = hAdj[i]; nxtB[pos.r][pos.col].piece = { id: `hydra_spawn_snipe_${sniped.id}_${i}_${Date.now()}`, type: 'knight', color: sniped.color, level: 2, hasMoved: true, isShielded: false };
+                    nxtB[pos.r][pos.col].item = null;
+                    addEffect('light-beam', coordsToAlgebraic(pos.r, pos.col));
                 }
                 audioManager.playResurrect(); addLog("The Hydra regrows its heads!");
             }
@@ -1208,7 +1208,7 @@ export default function DungeonPage() {
        
        if (selectedSquare === alg) {
            if (moving?.type === 'myco_mage') { setIsSelectingMycoSpell(true); return; }
-           if (moving?.heldItem && ITEM_METADATA[moving.heldItem].isConsumable) {
+           if (moving?.heldItem && (ITEM_METADATA[moving.heldItem].isConsumable || moving.heldItem === 'trap_net')) {
                const item = moving.heldItem;
                const effLevel = getEffectiveLevel(board, fR, fC);
                const unitSilenced = isSilenced(board, fR, fC, currentPlayer);
@@ -1226,7 +1226,7 @@ export default function DungeonPage() {
                if (item === 'phase_out' && effLevel < 2) { addLog("L2 required for Phase Out!"); return; }
                if (item === 'lose_faith_scroll' && effLevel < 2) { addLog("L2 required for Lose Thy Faith!"); return; }
 
-               const immediateItems = ['life_leach', 'antidote', 'ice_scroll', 'resurrection_scroll', 'faith_scroll', 'ice_blast', 'soul_harvest', 'demonic_possession', 'heavy_rain', 'lose_faith_scroll', 'phase_out', 'rally_scroll'];
+               const immediateItems = ['life_leach', 'antidote', 'ice_scroll', 'resurrection_scroll', 'faith_scroll', 'ice_blast', 'soul_harvest', 'demonic_possession', 'heavy_rain', 'lose_faith_scroll', 'phase_out', 'rally_scroll', 'trap_net'];
                if (immediateItems.includes(item)) {
                    let type = item.replace(/_/g, '-') as Move['type'];
                    if (item === 'lose_faith_scroll') type = 'lose-thy-faith';
@@ -1236,7 +1236,7 @@ export default function DungeonPage() {
                    const newMoveInfo: LastMoveInfo = { type: moving.type, level: moving.level, item: moving.heldItem || null };
                    const nextTracks = { white: currentPlayer === 'white' ? newMoveInfo : lastMoveWhite, black: currentPlayer === 'black' ? newMoveInfo : lastMoveBlack, global: newMoveInfo };
 
-                   deductConsumable(item);
+                   if (ITEM_METADATA[item].isConsumable) deductConsumable(item);
                    addEffect('magic-burst', selectedSquare, undefined, undefined, item);
                    setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(selectedSquare);
                    if (currentPlayer === 'white') setLastMoveWhite(newMoveInfo); else setLastMoveBlack(newMoveInfo);
@@ -1711,7 +1711,7 @@ export default function DungeonPage() {
            <VibeChessTitle className="h-12 w-auto ascii-shader" suffix="-desk" />
         </div>
         <div className={cn("text-center text-[0.8rem] font-bold min-h-[1.5rem] uppercase w-full", gameInfo.isCheck && !gameInfo.gameOver && "text-destructive animate-pulse")}> {statMsg} </div>
-        <div className="w-full"> <ChessBoard boardState={board} selectedSquare={selectedSquare} possibleMoves={possibleMoves} enemySelectedSquare={enemySelectedSquare} enemyPossibleMoves={enemyPossibleMoves} onSquareClick={handleSquareClick} playerColor="white" currentPlayerColor={currentPlayer} isInteractionDisabled={isMoveProcessing || gameInfo.gameOver || (isAiThinking && currentPlayer === 'white') || (isSpec && currentPlayer === 'white')} playerInCheck={gameInfo.playerWithKingInCheck} viewMode="flipping" animatedSquareTo={animatedSquareTo} lastMoveFrom={lastMoveFrom} lastMoveTo={lastMoveTo} isAwaitingPawnSacrifice={isAwaitingPawnSacrifice} playerToSacrificePawn={playerToSacrificePawn} isEnPassantTarget={enPassantTargetSquare} onPieceHover={handlePieceHover} effects={effects} promotingSquare={promotionSquare} isAwaitingAnvilDrop={isAwaitingAnvilDrop || isAwaitingAnvilScrollTarget} playerToDropAnvil={playerToDropAnvil} isInventoryOpen={isInventoryOpen} selectedInventoryItemType={selectedInventoryItemType} localPlayerColor="white" isAwaitingHolyShield={isAwaitingHolyShield} isAwaitingArcherSnipe={isAwaitingArcherSnipe} isAwaitingGrappleThrow={isAwaitingGrappleThrow} isAwaitingDanceTarget={isAwaitingDanceTarget} dancerToDance={dancerToDance} grappledPieceSubject={grappledPieceSubject} isAwaitingEarthquakeScrollTarget={isAwaitingEarthquakeScrollTarget} isSelectingMycoSpell={isSelectingMycoSpell} isSelectingTeleportAlly={isSelectingTeleportAlly} isSelectingTeleportShroom={isSelectingTeleportShroom} isSelectingSporeBombShroom={isSelectingSporeBombShroom} isAwaitingCommanderPromotion={isAwaitingCommanderPromotion} playerToPromoteCommander={playerWhoGotFirstblood} isAwaitingWindScrollTarget={isAwaitingWindScrollTarget} isAwaitingShieldScrollTarget={isAwaitingShieldScrollTarget} isAwaitingSwapScrollTarget={isAwaitingSwapScrollTarget} isAwaitingDecreeTarget={isAwaitingDecreeTarget} isAwaitingOilSlickTarget={isAwaitingOilSlickTarget} isAwaitingRayTarget={isAwaitingRayTarget} lastMoveWhite={lastMoveWhite} lastMoveBlack={lastMoveBlack} lastMoveGlobal={lastMoveGlobal} /> </div>
+        <div className="w-full"> <ChessBoard boardState={board} selectedSquare={selectedSquare} possibleMoves={possibleMoves} enemySelectedSquare={enemySelectedSquare} enemyPossibleMoves={enemyPossibleMoves} onSquareClick={handleSquareClick} playerColor="white" currentPlayerColor={currentPlayer} isInteractionDisabled={isMoveProcessing || gameInfo.gameOver || (isAiThinking && currentPlayer === 'white') || (isSpec && currentPlayer === 'white')} playerInCheck={gameInfo.playerWithKingInCheck} viewMode="flipping" animatedSquareTo={animatedSquareTo} lastMoveFrom={lastMoveFrom} lastMoveTo={lastMoveTo} isAwaitingPawnSacrifice={isAwaitingPawnSacrifice} playerToSacrificePawn={playerToSacrificePawn} isEnPassantTarget={enPassantTargetSquare} onPieceHover={handlePieceHover} effects={effects} promotingSquare={promotionSquare} isAwaitingAnvilDrop={isAwaitingAnvilDrop || isAwaitingAnvilScrollTarget} playerToDropAnvil={playerToDropAnvil} isInventoryOpen={isInventoryOpen} selectedInventoryItemType={selectedInventoryItemType} localPlayerColor="white" isAwaitingHolyShield={isAwaitingHolyShield} isAwaitingArcherSnipe={isAwaitingArcherSnipe} isAwaitingGrappleThrow={isAwaitingGrappleThrow} isAwaitingDanceTarget={isAwaitingDanceTarget} dancerToDance={dancerToDance} grappledPieceSubject={grappledPieceSubject} isAwaitingEarthquakeScrollTarget={isAwaitingEarthquakeScrollTarget} isSelectingMycoSpell={isSelectingMycoSpell} isSelectingTeleportAlly={isSelectingTeleportAlly} isSelectingTeleportShroom={isSelectingTeleportShroom} isSelectingSporeBombShroom={isSelectingSporeBombShroom} isAwaitingCommanderPromotion={isAwaitingCommanderPromotion} playerToPromoteCommander={playerWhoGotFirstblood} isAwaitingWindScrollTarget={isAwaitingWindScrollTarget} isAwaitingAnvilScrollTarget={isAwaitingAnvilScrollTarget} isAwaitingShieldScrollTarget={isAwaitingShieldScrollTarget} isAwaitingSwapScrollTarget={isAwaitingSwapScrollTarget} isAwaitingDecreeTarget={isAwaitingDecreeTarget} isAwaitingOilSlickTarget={isAwaitingOilSlickTarget} isAwaitingRayTarget={isAwaitingRayTarget} lastMoveWhite={lastMoveWhite} lastMoveBlack={lastMoveBlack} lastMoveGlobal={lastMoveGlobal} /> </div>
       </div>
       <div className="w-1/4 flex-col gap-4"> 
         <AuthWidget /> 

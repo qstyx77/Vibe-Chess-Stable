@@ -578,7 +578,7 @@ export default function EvolvingChessPage() {
     const nextPlayer = isExtraTurn ? playerWhoseTurnCompleted : (playerWhoseTurnCompleted === 'white' ? 'black' : 'white');
     const { newBoard: boardAfterPoison, levelChanges: poisonChanges } = processPoisonDamage(currentBoardState, nextPlayer);
     poisonChanges?.forEach(lc => {
-        addEffectCallback('level-change', lc.square, nextPlayer, lc.delta);
+        addEffectCallback('level-change', lc.square, nextPlayer, lc.delta, undefined);
         if (lc.reason) addLog(`${getPlayerDisplayName(nextPlayer)}: ${lc.reason} (${lc.delta > 0 ? '+' : ''}${lc.delta})`);
     });
     
@@ -1274,7 +1274,7 @@ export default function EvolvingChessPage() {
         }
         return;
     }
-    if (isSelectingTeleportAlly) { if (piece && piece.color === currentPlayer && piece.type !== 'king' && piece.type !== 'queen' && piece.id !== (selectedSquare ? board[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece?.id : null)) { setTeleportAllyPieceId(piece.id); setIsSelectingTeleportAlly(false); setIsSelectingTeleportShroom(true); addLog("Select a shroom to teleport to!"); } return; }
+    if (isSelectingTeleportAlly) { if (piece && piece.color === currentPlayer && piece.type !== 'king' && piece.type !== 'queen' && piece.id !== (selectedSquare ? boardState[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece?.id : null)) { setTeleportAllyPieceId(piece.id); setIsSelectingTeleportAlly(false); setIsSelectingTeleportShroom(true); addLog("Select a shroom to teleport to!"); } return; }
     if (isSelectingTeleportShroom && sq?.item?.type === 'shroom') {
         const mage = board[algebraicToCoords(selectedSquare!).row][algebraicToCoords(selectedSquare!).col].piece!;
         const newMoveInfo: LastMoveInfo = { type: mage.type, level: mage.level, item: mage.heldItem || null };
@@ -1320,7 +1320,7 @@ export default function EvolvingChessPage() {
             global: dancerMoveInfo
         };
 
-        const dir = currentPlayer === 'white' ? -1 : 1;
+        const dir = currentPlayerColor === 'white' ? -1 : 1;
         const isForward = (row === fr + dir) && (col === fc);
         if (isAdjacent && (targetP || (targetItem?.type === 'anvil' && dp?.heldItem === 'dancers_ribbon') || ((!targetItem || targetItem.type === 'shroom') && isForward))) {
             if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: { from: dancerToDance, to: algebraic, type: 'dance-swap' } })); setIsAwaitingDanceTarget(false); setDancerToDance(null); }
@@ -1464,7 +1464,7 @@ export default function EvolvingChessPage() {
         if (selectedSquare === algebraic) {
            if (moving.type === 'myco_mage') { setIsSelectingMycoSpell(true); return; }
            
-           if (moving.heldItem && ITEM_METADATA[moving.heldItem].isConsumable) {
+           if (moving.heldItem && (ITEM_METADATA[moving.heldItem].isConsumable || moving.heldItem === 'trap_net')) {
                const item = moving.heldItem;
                const level = getEffectiveLevel(board, fR, fC);
                if (silencedUnit) { addLog("Unit is silenced!"); return; }
@@ -1482,7 +1482,7 @@ export default function EvolvingChessPage() {
                if (item === 'lose_faith_scroll' && level < 2) { addLog("L2 required for Lose Thy Faith!"); return; }
                if (item === 'kings_decree' && moving.type !== 'king') { addLog("King only!"); return; }
 
-               const immediateItems = ['life_leach', 'antidote', 'ice_scroll', 'resurrection_scroll', 'faith_scroll', 'ice_blast', 'soul_harvest', 'demonic_possession', 'heavy_rain', 'lose_faith_scroll', 'phase_out', 'rally_scroll'];
+               const immediateItems = ['life_leach', 'antidote', 'ice_scroll', 'resurrection_scroll', 'faith_scroll', 'ice_blast', 'soul_harvest', 'demonic_possession', 'heavy_rain', 'lose_faith_scroll', 'phase_out', 'rally_scroll', 'trap_net'];
                if (immediateItems.includes(item)) {
                    let type = item.replace(/_/g, '-') as Move['type'];
                    if (item === 'lose_faith_scroll') type = 'lose-thy-faith';
