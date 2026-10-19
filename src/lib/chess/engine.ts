@@ -278,7 +278,7 @@ export function applyMove(
 
   const isSafeKingMoveType = ['castle', 'swap', 'dance-swap', 'grapple-hook-swap', 'swap-scroll'].includes(move.type || '');
   if (targetPiece?.type === 'king' && !isSafeKingMoveType) {
-    return { newBoard: board, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents: [], rallyCryTriggered: null, originalPieceLevel: movingPiece.level, originalPieceType: movingPiece.type, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSquare: null, extraTurn: false, specialCaptureSquare: null, anvilDroppedSquares, levelChanges, obliteratedPieces: [] };
+    return { newBoard: board, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents: [], rallyCryTriggered: null, originalPieceLevel: movingPiece.level, originalPieceType: movingPiece.type, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null, anvilDroppedSquares, levelChanges, obliteratedPieces: [] };
   }
 
   let effectiveHeldItem = movingPiece.heldItem;
@@ -375,7 +375,7 @@ export function applyMove(
       for (let i = 1; i <= 4; i++) {
           const nr = fromRow + i * dr;
           const nc = fromCol + i * dc;
-          if (!isValidSquare(nr, nc)) break;
+          if (!isValidSquareUtil(nr, nc)) break;
           const tSq = newBoard[nr][nc];
           if (tSq.piece) {
               if (tSq.piece.type === 'king') break;
@@ -403,7 +403,7 @@ export function applyMove(
       for (let i = 1; i <= 4; i++) {
           const nr = fromRow + i * dr;
           const nc = fromCol + i * dc;
-          if (!isValidSquare(nr, nc)) break;
+          if (!isValidSquareUtil(nr, nc)) break;
           const tSq = newBoard[nr][nc];
           if (tSq.piece) {
               if (tSq.piece.heldItem === 'antifreeze') {
@@ -823,6 +823,19 @@ export function applyMove(
     
     let baseGain = effectiveHeldItem === 'berserkers_mask' ? 3 : ({pawn: 1, dancer: 1, mimic: 1, grappler: 1, commander: 1, infiltrator: 1, myco_mage: 1, knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2}[captured.type] || 0);
     
+    // Logas Bonus
+    for(let dr=-1; dr<=1; dr++) for(let dc=-1; dc<=1; dc++) {
+        if(dr===0 && dc===0) continue;
+        const nr = toRow + dr; const nc = toCol + dc;
+        if(isValidSquare(nr, nc)) {
+            const ally = newBoard[nr][nc].piece;
+            if(ally && ally.color === pieceLanded.color && ally.heldItem === 'logas') {
+                baseGain += 1;
+                levelChanges.push({ square: coordsToAlgebraic(toRow, toCol), delta: 1, reason: "Sacred Bonus (Logas)" });
+            }
+        }
+    }
+
     if (effectiveHeldItem === 'great_sword') {
         const drG = toRow - fromRow;
         const dcG = toCol - fromCol;
