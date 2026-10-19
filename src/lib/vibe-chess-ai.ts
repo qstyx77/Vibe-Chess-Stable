@@ -872,21 +872,9 @@ export class VibeChessAI {
     }
 
     isInCheck(gs: AIGameState, color: PlayerColor): boolean {
-        if (color === 'black') {
-            const colossusParts = gs.board.flat().filter(sq => sq.piece?.id?.startsWith('boss-colossus'));
-            if (colossusParts.length > 0) {
-                const otherMinions = gs.board.flat().some(sq => sq.piece && sq.piece.color === 'black' && !sq.piece.id?.startsWith('boss-colossus'));
-                if (otherMinions) return false;
-                for (const pt of colossusParts) {
-                    const coords = this.findPieceCoordsById(gs, pt.piece!.id);
-                    if (coords.row !== -1 && this.isSquareAttacked(gs, coords.row, coords.col, 'white')) return true;
-                }
-                return false;
-            }
-        }
-        const king = this.findKingCoords(gs, color);
-        if (!king) return false; 
-        return this.isSquareAttacked(gs, king.row, king.col, color === 'white' ? 'black' : 'white');
+        const kingCoords = this.findKingCoords(gs, color);
+        if (!kingCoords) return false;
+        return this.isSquareAttacked(gs, kingCoords.row, kingCoords.col, color === 'white' ? 'black' : 'white');
     }
 
     findKingCoords(gs: AIGameState, color: PlayerColor) {
@@ -900,7 +888,7 @@ export class VibeChessAI {
             for (let r = 0; r < 8; r++) {
                 for (let c = 0; c < 8; c++) {
                     const p = gs.board[r][c].piece;
-                    if (p && p.id?.startsWith('boss-')) return { row: r, col: c };
+                    if (p && p.id?.startsWith('boss-colossus')) return { row: r, col: c };
                 }
             }
         }
@@ -913,22 +901,126 @@ export class VibeChessAI {
     }
 
     isSquareAttacked(gs: AIGameState, tr: number, tc: number, attackerColor: PlayerColor): boolean {
-        if (tr === -1) return false;
+        if (!isValidSquareUtil(tr, tc)) return false;
+        
         const targetPiece = gs.board[tr][tc].piece;
-        const targetLevel = getEffectiveLevel(gs.board as any, tr, tc);
-        for (let r = 0; r < 8; r++) {
-            for (let c = 0; c < 8; c++) {
-                const p = gs.board[r][c].piece;
-                if (p && p.color === attackerColor) {
-                    const effLevel = getEffectiveLevel(gs.board as any, r, c);
-                    const moves = this.generatePieceMoves(gs, r, c, p, true); 
-                    if (moves.some(m => m.to[0] === tr && m.to[1] === tc)) {
-                        if (!isPieceInvulnerableToAttackUtil(targetPiece, p, targetLevel, effLevel, gs.board as any, true)) return true;
+        const targetEffectiveLevel = getEffectiveLevel(gs.board as any, tr, tc);
+
+        // Cardinal (Rook, Queen, King, Frontline, Infiltrator, Knight/Hero/Archer L2+)
+        const cardinalDirs: [number, number][] = [[0, 1], [0, -1], [1, 0], [-1, 0]];
+        for (const [dr, dc] of cardinalDirs) {
+            for (let dist = 1; dist < 8; dist++) {
+                const nr = tr + dist * dr;
+                const nc = tc + dist * dc;
+                if (!isValidSquareUtil(nr, nc)) break;
+                
+                const sq = gs.board[nr][nc];
+                if (sq.item?.type === 'anvil') break;
+                if (sq.piece) {
+                    if (sq.piece.color === attackerColor) {
+                        const attacker = sq.piece;
+                        const attackerLevel = getEffectiveLevel(gs.board as any, nr, nc);
+                        let canAttack = false;
+
+                        if (attacker.type === 'queen' || attacker.type === 'rook' || attacker.type === 'palace') {
+                            canAttack = true;
+                        } else if (attacker.type === 'king') {
+                            const maxDist = attackerLevel >= 2 ? 2 : 1;
+                            if (dist <= maxDist) canAttack = true;
+                        } else if (['knight', 'hero', 'archer'].includes(attacker.type)) {
+                            if (attackerLevel >= 2 && dist === 1) canAttack = true;
+                            if (attackerLevel >= 3 && dist === 3) {
+                                let clear = true;
+                                const stepR = Math.sign(tr - nr); const stepC = Math.sign(tc - nc);
+                                for (let i = 1; i < 3; i++) {
+                                    const ir = nr + i*stepR; const ic = nc + i*stepC;
+                                    if (isValidSquareUtil(ir, ic) && (gs.board[ir][ic].piece || gs.board[ir][ic].item?.type === 'anvil')) { clear = false; break; }
+                                }
+                                if (clear) canAttack = true;
+                            }
+                        } else if (FRONTLINE_TYPES.includes(attacker.type)) {
+                            const forwardDir = attacker.color === 'white' ? 1 : -1;
+                            const drFromAttacker = Math.sign(tr - nr);
+                            const dcFromAttacker = Math.sign(tc - nc);
+                            
+                            if (dist === 1) {
+                                if (drFromAttacker === forwardDir && dcFromAttacker === 0) canAttack = true;
+                                else if (drFromAttacker === -forwardDir && dcFromAttacker === 0 && attackerLevel >= 2) canAttack = true;
+                                else if (drFromAttacker === 0 && Math.abs(dcFromAttacker) === 1 && attackerLevel >= 3) canAttack = true;
+                            }
+                        } else if (attacker.type === 'infiltrator') {
+                            const forwardDir = attacker.color === 'white' ? 1 : -1;
+                            const drFromAttacker = Math.sign(tr - nr);
+                            const dcFromAttacker = Math.sign(tc - nc);
+                            if (drFromAttacker === forwardDir && dcFromAttacker === 0) canAttack = true;
+                        }
+
+                        if (canAttack && !isPieceInvulnerableToAttackUtil(targetPiece, attacker, targetEffectiveLevel, attackerLevel, gs.board as any, true)) return true;
+                    }
+                    break;
+                }
+            }
+        }
+
+        // Diagonal (Bishop, Queen, King, Infiltrator, Pawn, Frontline)
+        const diagonalDirs: [number, number][] = [[1, 1], [1, -1], [-1, 1], [-1, -1]];
+        for (const [dr, dc] of diagonalDirs) {
+            for (let dist = 1; dist < 8; dist++) {
+                const nr = tr + dist * dr;
+                const nc = tc + dist * dc;
+                if (!isValidSquareUtil(nr, nc)) break;
+                
+                const sq = gs.board[nr][nc];
+                if (sq.item?.type === 'anvil') break;
+                if (sq.piece) {
+                    if (sq.piece.color === attackerColor) {
+                        const attacker = sq.piece;
+                        const attackerLevel = getEffectiveLevel(gs.board as any, nr, nc);
+                        let canAttack = false;
+
+                        if (attacker.type === 'queen' || attacker.type === 'bishop' || attacker.type === 'archbishop') {
+                            canAttack = true;
+                        } else if (attacker.type === 'king') {
+                            const maxDist = attackerLevel >= 2 ? 2 : 1;
+                            if (dist <= maxDist) canAttack = true;
+                        } else if (attacker.type === 'infiltrator') {
+                            canAttack = true;
+                        } else if (dist === 1) {
+                            const forwardDir = attacker.color === 'white' ? 1 : -1;
+                            const drFromAttacker = Math.sign(tr - nr);
+                            if (drFromAttacker === forwardDir) canAttack = true;
+                        }
+
+                        if (canAttack && !isPieceInvulnerableToAttackUtil(targetPiece, attacker, targetEffectiveLevel, attackerLevel, gs.board as any, true)) return true;
+                    }
+                    break;
+                }
+            }
+        }
+
+        // Knight leaps
+        for (const [dr, dc] of this.knightMoves) {
+            const nr = tr + dr;
+            const nc = tc + dc;
+            if (isValidSquareUtil(nr, nc)) {
+                const attacker = gs.board[nr][nc].piece;
+                if (attacker && attacker.color === attackerColor) {
+                    let canAttack = false;
+                    if (['knight', 'hero', 'archer', 'archbishop'].includes(attacker.type)) {
+                        canAttack = true;
+                    } else if (attacker.type === 'king' && getEffectiveLevel(gs.board as any, nr, nc) >= 5) {
+                        canAttack = true;
+                    }
+
+                    if (canAttack) {
+                        const attackerLevel = getEffectiveLevel(gs.board as any, nr, nc);
+                        if (!isPieceInvulnerableToAttackUtil(targetPiece, attacker, targetEffectiveLevel, attackerLevel, gs.board as any, true)) return true;
                     }
                 }
             }
         }
-        return false; 
+
+        return false;
     }
 }
 
