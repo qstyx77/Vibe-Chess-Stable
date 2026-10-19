@@ -320,6 +320,7 @@ export function applyMove(
 
   if (move.type === 'trap-net') {
       triggerExhaustion(newBoard, fromRow, fromCol, movingPiece.color);
+      newBoard[fromRow][fromCol].piece!.heldItem = null; // Trap Net is consumed on use
       return { newBoard, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered: null, originalPieceLevel: movingPiece.level, originalPieceType: movingPiece.type, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null, anvilDroppedSquares, levelChanges, obliteratedPieces: [] };
   }
 
@@ -804,6 +805,11 @@ export function applyMove(
         pieceLanded.cooldownTurnsRemaining = 2;
         captured.heldItem = null;
         glassShardTriggered = true;
+    }
+
+    if (captured.heldItem === 'trap_net') { 
+        triggerExhaustion(newBoard, toRow, toCol, pieceLanded.color); 
+        captured.heldItem = null; // Trap Net is consumed on capture
     }
 
     if (pieceLanded.heldItem === 'thieves_gloves' && captured.heldItem) {
