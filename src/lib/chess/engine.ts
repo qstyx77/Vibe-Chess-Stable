@@ -375,7 +375,7 @@ export function applyMove(
       for (let i = 1; i <= 4; i++) {
           const nr = fromRow + i * dr;
           const nc = fromCol + i * dc;
-          if (!isValidSquareUtil(nr, nc)) break;
+          if (!isValidSquare(nr, nc)) break;
           const tSq = newBoard[nr][nc];
           if (tSq.piece) {
               if (tSq.piece.type === 'king') break;
@@ -403,7 +403,7 @@ export function applyMove(
       for (let i = 1; i <= 4; i++) {
           const nr = fromRow + i * dr;
           const nc = fromCol + i * dc;
-          if (!isValidSquareUtil(nr, nc)) break;
+          if (!isValidSquare(nr, nc)) break;
           const tSq = newBoard[nr][nc];
           if (tSq.piece) {
               if (tSq.piece.heldItem === 'antifreeze') {
@@ -686,11 +686,11 @@ export function applyMove(
   } else if (targetPiece && targetPiece.color !== movingPiece.color && targetPiece.type !== 'king') { 
       if (targetPiece.heldItem === 'mirror_shield' && !['king', 'queen'].includes(movingPiece.type)) {
           reflectionOccurred = true;
-          captured = { ...movingPiece }; // Attacker is captured
+          captured = { ...movingPiece }; 
           const extraOblitsAttacker = handleRemovalReactions(newBoard, fromRow, fromCol, movingPiece, targetPiece.color, levelChanges);
           obliteratedPieces.push(...extraOblitsAttacker);
           newBoard[fromRow][fromCol].piece = null;
-          newBoard[toRow][toCol].piece = { ...targetPiece, heldItem: null, hasMoved: true }; // Shield breaks
+          newBoard[toRow][toCol].piece = { ...targetPiece, heldItem: null, hasMoved: true }; 
           return { newBoard, capturedPiece: captured, selfDestructCaptures: [], destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered: null, originalPieceLevel: originalLevelValue, originalPieceType: originalTypeIdentifier, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare, reflectionOccurred, anvilDroppedSquares: [], levelChanges: [], obliteratedPieces };
       } else {
           captured = { ...targetPiece }; 
@@ -949,6 +949,31 @@ export function applyMove(
     }
   }
 
+  // --- TORTOISE HAMMER SPLASH CAPTURE ---
+  const isLandedSilencedFinal = isSilenced(newBoard, toRow, toCol, pieceLanded.color);
+  if (pieceLanded.heldItem === 'tortoise_hammer' && !isLandedSilencedFinal) {
+      let hammerGain = 0;
+      [[0, 1], [0, -1], [1, 0], [-1, 0]].forEach(([drH, dcH]) => {
+          const nrH = toRow + drH; const ncH = toCol + dcH;
+          if (isValidSquare(nrH, ncH)) {
+              const vSq = newBoard[nrH][ncH];
+              if (vSq.piece && vSq.piece.color !== pieceLanded.color && vSq.piece.type !== 'king') {
+                  const victim = vSq.piece;
+                  hammerGain += ({ pawn: 1, dancer: 1, mimic: 1, grappler: 1, commander: 1, infiltrator: 1, myco_mage: 1, knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2 }[victim.type] || 0);
+                  const extraOblits = handleRemovalReactions(newBoard, nrH, ncH, victim, pieceLanded.color, levelChanges);
+                  obliteratedPieces.push({ ...victim, id: `${victim.id}_hammer_${Date.now()}` }, ...extraOblits);
+                  newBoard[nrH][ncH].piece = null;
+              }
+          }
+      });
+      if (hammerGain > 0) {
+          const oldL = pieceLanded.level || 1;
+          pieceLanded.level = (pieceLanded.type === 'queen') ? Math.min(7, oldL + hammerGain) : oldL + hammerGain;
+          levelChanges.push({ square: coordsToAlgebraic(toRow, toCol), delta: hammerGain, reason: "Tortoise Hammer Splash" });
+          pieceLanded.isPoisoned = false; pieceLanded.isExhausted = false; pieceLanded.cooldownTurnsRemaining = 0;
+      }
+  }
+
   // Authoritatively sync Soul Link and Set bonuses after all possible level-up triggers in applyMove
   syncLevelsAndSets(newBoard, pieceLanded.color, levelChanges);
 
@@ -972,8 +997,6 @@ export function applyMove(
       pieceLanded.isExhausted = true;
       pieceLanded.cooldownTurnsRemaining = 2;
   }
-
-  const isLandedSilencedFinal = isSilenced(newBoard, toRow, toCol, pieceLanded.color);
 
   if (effectiveHeldItem === 'wind_sword' && !isLandedSilencedFinal && (captured || obliteratedPieces.length > 0)) {
       const { levelChanges: pushDeltas, obliterated } = triggerPushBack(newBoard, toRow, toCol, pieceLanded.color, pieceLanded);
