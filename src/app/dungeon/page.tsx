@@ -305,7 +305,6 @@ export default function DungeonPage() {
   const [isAwaitingSwapTarget, setIsAwaitingSwapTarget] = useState(false);
   const [isAwaitingSwapClergyTarget, setIsAwaitingSwapClergyTarget] = useState(false);
   const [isAwaitingSwapCavalryTarget, setIsAwaitingSwapCavalryTarget] = useState(false);
-  const [isAwaitingSwapTargetActual, setIsAwaitingSwapTargetActual] = useState(false);
   const [isAwaitingDecreeTarget, setIsAwaitingDecreeTarget] = useState(false);
   const [isAwaitingEarthquakeScrollTarget, setIsAwaitingEarthquakeScrollTarget] = useState(false);
 
@@ -317,6 +316,8 @@ export default function DungeonPage() {
   const isInitialized = useRef(false);
   const aiInstance = useRef<VibeChessAI | null>(null);
   const clickGuard = useRef(false);
+
+  // --- MEMOS & BASIC HELPERS (INITIALIZED FIRST) ---
 
   const isSpec = useMemo(() => 
     isInventoryOpen || isPromotingPawn || isAwaitingAnvilDrop || isAwaitingAnvilScrollTarget || isAwaitingHolyShield || 
@@ -363,6 +364,46 @@ export default function DungeonPage() {
     setInventory(newInv);
     updateDocumentNonBlocking(userRef, { inventory: newInv });
   }, [user, firestore, inventory]);
+
+  // --- NAVIGATION HELPERS ---
+
+  const proceedToNextFloor = useCallback((nextL: number, survivors: Piece[], graveyard: any, newInv?: InventoryItem[]) => {
+    if (nextL > 50) { setGameInfo(prev => ({ ...prev, message: "DUNGEON CONQUERED!", gameOver: true, winner: 'white' })); gameOverRef.current = true; audioManager.playVictory(); return; }
+    const finalInv = newInv || inventory;
+    setLevel(nextL); setBoard(generateDungeonFloor(nextL, survivors)); setPlayerArmy(survivors); setCapturedPieces({ white: Array.isArray(graveyard.white) ? graveyard.white : [], black: [] }); setKillStreaks({ white: 0, black: 0 }); setPositionHistory([]); setEnPassantTargetSquare(null); setLastMoveWhite(null); setLastMoveBlack(null); setLastMoveGlobal(null); setLastMoveFrom(null); setLastMoveTo(null); setNecroResurrectionCounter(0); setAiNoMoveCounter(0);
+    setClickedEnemySquare(null); setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
+    saveDungeonState(nextL, generateDungeonFloor(nextL, survivors), 'white', { white: 0, black: 0 }, { white: graveyard.white, black: [] }, 0, 5, null, 0, finalInv);
+    audioManager.playStart(); addLog(`Descending to Floor ${nextL}...`);
+  }, [inventory, saveDungeonState, addLog]);
+
+  const advanceLevel = useCallback((survivors: Piece[], graveyard: any) => {
+    if (level % 10 === 0) {
+        const cloverBonus = survivors.filter(p => p.heldItem === 'clover').length * 0.01;
+        const bonus = (Math.floor(level / 10) - 1) * 0.01 + cloverBonus;
+        const drops: InventoryItemType[] = [];
+        const allItems = Object.keys(ITEM_METADATA) as InventoryItemType[];
+        allItems.forEach(type => {
+            const meta = ITEM_METADATA[type];
+            if (!meta) return;
+            if (type.startsWith('portal_scroll_')) {
+                const scrollFloor = parseInt(type.split('_')[2]);
+                if (scrollFloor !== level) return;
+            }
+            let chance = 0;
+            if (meta.rarity === 'common') chance = 0.12 + bonus;
+            else if (meta.rarity === 'uncommon') chance = 0.06 + bonus;
+            else if (meta.rarity === 'rare') chance = 0.03 + bonus;
+            if (Math.random() < chance) drops.push(type);
+        });
+        setLootFound(drops);
+        setPendingProgression({ survivors, graveyard });
+        setIsLootWindowOpen(true);
+    } else {
+        proceedToNextFloor(level + 1, survivors, graveyard);
+    }
+  }, [level, proceedToNextFloor]);
+
+  // --- COMPLEX GAME LOGIC ---
 
   const processMoveEnd = useCallback((boardAfter: BoardState, nG: any, curKs: any, turnP: PlayerColor, extra: boolean, nEp: AlgebraicSquare | null = null, wasCap: boolean = false, movedT?: PieceType | null, trackWhite?: LastMoveInfo | null, trackBlack?: LastMoveInfo | null, trackGlobal?: LastMoveInfo | null) => {
     let nB = boardAfter; setDidCaptureLastTurn(prev => ({ ...prev, [turnP]: wasCap }));
@@ -506,7 +547,7 @@ export default function DungeonPage() {
     setGameInfo({ message: inC ? "Check!" : " ", isCheck: inC, playerWithKingInCheck: inC ? nxtP : null, isCheckmate: false, isStalemate: false, gameOver: false });
     if (inC) { addLog("Check!"); audioManager.playCheck(); }
     saveDungeonState(level, nB, nxtP, curKs, nG, shroomSpawnCounter, nextShroomSpawnTurn, nEp, necroResurrectionCounter, inventory);
-  }, [board, level, inventory, user, firestore, userData, lastMoveWhite, lastMoveBlack, lastMoveGlobal, addLog, getPlayerDisplayName, addEffect, shroomSpawnCounter, nextShroomSpawnTurn, necroResurrectionCounter, positionHistory]);
+  }, [board, level, inventory, user, firestore, userData, lastMoveWhite, lastMoveBlack, lastMoveGlobal, addLog, getPlayerDisplayName, addEffect, shroomSpawnCounter, nextShroomSpawnTurn, necroResurrectionCounter, positionHistory, advanceLevel, saveDungeonState]);
 
   const triggerSpecialsChain = useCallback((bCh: BoardState, cG: { white: Piece[], black: Piece[] }, cKs: { white: number, black: number }, oldS: number, newS: number, isEx: boolean, nEp: AlgebraicSquare | null, actP: PlayerColor = 'white', compM: string[] = [], capId: string | null = null, wasCap: boolean = false, movedT?: PieceType | null, trackWhite?: LastMoveInfo | null, trackBlack?: LastMoveInfo | null, trackGlobal?: LastMoveInfo | null) => {
     const isAI = actP === 'black'; const sil = bCh.flat().find(sq => sq.piece?.color === actP && isSilenced(bCh, sq.rowIndex, sq.colIndex, actP));
@@ -639,7 +680,7 @@ export default function DungeonPage() {
             }
             triggerSpecialsChain(nxtB, nG, cKs, oldS, newS, isEx, nEp, actP, [...compM, 'anvil'], capId, wasCap, movedT, effWhite, effBlack, effGlobal); return;
         } else {
-            setSpecialActionContext({ boardForNextStep: bCh, playerWhoseTurnCompleted: actP, isExtraTurn: isEx, newEnPassantTarget: nEp, oldStreak: oldS, newStreak: newS, completedMilestones: [...compM, 'anvil'], currentGraveyard: nG, currentKs: cKs, capturingPieceId: capId, trackWhite: effWhite, trackBlack: effBlack, trackGlobal: effGlobal });
+            setSpecialActionContext({ boardForNextStep: bCh, playerWhoseTurnCompleted: actP, isExtraTurn: isEx, newEnPassantTarget: nEp, oldStreak: oldS, newStreak: nS, completedMilestones: [...compM, 'anvil'], currentGraveyard: nG, currentKs: cKs, capturingPieceId: capId, trackWhite: effWhite, trackBlack: effBlack, trackGlobal: effGlobal });
             setPlayerToDropAnvil(actP); setIsAwaitingAnvilDrop(true); addLog("Anvil Drop ready!"); return;
         }
     }
@@ -811,6 +852,33 @@ export default function DungeonPage() {
       }
   }, [board, selectedSquare, enPassantTargetSquare, capturedPieces, lastMoveWhite, lastMoveBlack, lastMoveGlobal, killStreaks, currentPlayer, processMoveEnd, addLog]);
 
+  const handlePieceHover = useCallback((p: Piece | null) => {
+    setPieceForInfoDisplay(p);
+    if (p && p.color !== currentPlayer && !isSpec) {
+      const coords = board.flat().find(sq => sq.piece?.id === p.id);
+      if (coords) {
+        const moves = getPossibleMoves(board, coords.algebraic, enPassantTargetSquare, lastMoveWhite, lastMoveBlack, lastMoveGlobal);
+        setEnemySelectedSquare(coords.algebraic);
+        setEnemyPossibleMoves(moves);
+      }
+    } else {
+      if (clickedEnemySquare) {
+        const coords = board.flat().find(sq => sq.algebraic === clickedEnemySquare);
+        if (coords && coords.piece) {
+            const moves = getPossibleMoves(board, clickedEnemySquare, enPassantTargetSquare, lastMoveWhite, lastMoveBlack, lastMoveGlobal);
+            setEnemySelectedSquare(clickedEnemySquare);
+            setEnemyPossibleMoves(moves);
+        } else {
+            setEnemySelectedSquare(null);
+            setEnemyPossibleMoves([]);
+        }
+      } else {
+        setEnemySelectedSquare(null);
+        setEnemyPossibleMoves([]);
+      }
+    }
+  }, [board, currentPlayer, enPassantTargetSquare, lastMoveWhite, lastMoveBlack, lastMoveGlobal, isSpec, clickedEnemySquare]);
+
   const handleSquareClick = useCallback((alg: AlgebraicSquare) => {
     if (clickGuard.current) return; const { row, col } = algebraicToCoords(alg); const sq = board[row][col]; const piece = sq.piece; handlePieceHover(piece);
     
@@ -907,7 +975,6 @@ export default function DungeonPage() {
         const newMoveInfo: LastMoveInfo = { type: movingP.type, level: movingP.level, item: movingP.heldItem || null };
         const nextTracks = { white: currentPlayer === 'white' ? newMoveInfo : lastMoveWhite, black: currentPlayer === 'black' ? newMoveInfo : lastMoveBlack, global: newMoveInfo };
 
-        // CHOICE LOGIC: Click enemy again to capture instead of throw
         if (alg === (grappledPieceSubject?.from || grappledItemSubject?.from) && grappledPieceSubject?.piece.color !== currentPlayer) {
             const move: Move = { from: selectedSquare!, to: alg, type: 'capture' };
             clickGuard.current = true; setIsMoveProcessing(true); setAnimatedSquareTo(alg);
@@ -924,9 +991,7 @@ export default function DungeonPage() {
                 setInventory(newInv);
                 addLog(`STOLEN: ${ITEM_METADATA[result.stolenItem].name}!`);
             }
-
             if (result.glassShardTriggered) addLog("Glass Shard! Capturer is exhausted.");
-
             if (result.smokeBombEvent) {
                 addLog(`Smoke Bomb! ${result.smokeBombEvent.piece.type} escaped to back rank!`);
                 addEffect('poof', result.smokeBombEvent.square);
@@ -966,16 +1031,12 @@ export default function DungeonPage() {
           if (piece && piece.color === 'white') {
             if (piece.heldItem === selectedInventoryItemType) { setSelectedInventoryItemType(null); return; }
             if (!isItemValidForPiece(selectedInventoryItemType, piece.type)) return;
-  
             if (!piece.heldItem && usedSlots >= attunementSlots) { addLog("Attunement Limit Reached!"); return; }
-  
             const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null, phasedPiece: s.phasedPiece ? { ...s.phasedPiece } : null })));
             const targetP = nextBoard[row][col].piece!;
             const oldItem = targetP.heldItem;
-            
             targetP.heldItem = selectedInventoryItemType;
             setBoard(nextBoard);
-  
             let newInv = [...inventory];
             if (oldItem) {
                 const existingOld = newInv.find(i => i.type === oldItem);
@@ -983,13 +1044,11 @@ export default function DungeonPage() {
                 else newInv.push({ type: oldItem, count: 1 });
                 addLog(`Swapped: ${ITEM_METADATA[oldItem].name} returned to bag.`);
             }
-  
             const itemInBag = newInv.find(i => i.type === selectedInventoryItemType);
             if (itemInBag) { 
                 itemInBag.count--; 
                 if (itemInBag.count <= 0) newInv = newInv.filter(i => i.type !== selectedInventoryItemType); 
             }
-  
             setInventory(newInv); 
             saveDungeonState(level, nextBoard, currentPlayer, killStreaks, capturedPieces, shroomSpawnCounter, nextShroomSpawnTurn, enPassantTargetSquare, necroResurrectionCounter, newInv);
             setSelectedInventoryItemType(null); 
@@ -1014,7 +1073,6 @@ export default function DungeonPage() {
 
         if ((row === fR || col === fC) && alg !== selectedSquare) {
             const type = isAwaitingRayTarget === 'glacial' ? 'glacial-ray' : 'burning-ray';
-            
             deductConsumable(isAwaitingRayTarget === 'glacial' ? 'glacial_ray' : 'burning_ray');
             addEffect('magic-burst', selectedSquare!, undefined, undefined, isAwaitingRayTarget === 'glacial' ? 'glacial_ray' : 'burning_ray');
             clickGuard.current = true; setIsMoveProcessing(true); setAnimatedSquareTo(alg);
@@ -1029,10 +1087,8 @@ export default function DungeonPage() {
     if (isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingEarthquakeScrollTarget || isAwaitingOilSlickTarget || isAwaitingAnvilDrop) {
         if (!sq.piece && !sq.item) {
             clickGuard.current = true; setIsMoveProcessing(true); setAnimatedSquareTo(alg);
-
             let nextTracks = { white: lastMoveWhite, black: lastMoveBlack, global: lastMoveGlobal };
             let movedType: PieceType | null = specialActionContext?.trackGlobal?.type || null;
-
             if (isAwaitingAnvilScrollTarget || isAwaitingWindScrollTarget || isAwaitingEarthquakeScrollTarget || isAwaitingOilSlickTarget) {
                 const movingP = board[algebraicToCoords(selectedSquare!).row][algebraicToCoords(selectedSquare!).col].piece!;
                 const newMoveInfo: LastMoveInfo = { type: movingP.type, level: movingP.level, item: movingP.heldItem || null };
@@ -1042,7 +1098,6 @@ export default function DungeonPage() {
                 movedType = movingP.type;
                 addEffect('magic-burst', selectedSquare!, undefined, undefined, movingP.heldItem as InventoryItemType);
             }
-
             let moveType: Move['type'] = 'move';
             if (isAwaitingWindScrollTarget) { moveType = 'wind-scroll'; deductConsumable('wind_scroll'); }
             else if (isAwaitingAnvilScrollTarget) { moveType = 'summon-anvil'; deductConsumable('summon_anvil'); }
@@ -1052,21 +1107,13 @@ export default function DungeonPage() {
                 clickGuard.current = false; setIsMoveProcessing(false); setAnimatedSquareTo(null);
                 const nextB = specialActionContext!.boardForNextStep.map((r:any) => r.map((s:any) => ({ ...s }))); 
                 nextB[row][col].item = { type: 'anvil' }; setBoard(nextB); setIsAwaitingAnvilDrop(false); 
-                setTimeout(() => {
-                  addEffect('poof', alg);
-                  audioManager.playAnvil();
-                }, 300);
+                setTimeout(() => { addEffect('poof', alg); audioManager.playAnvil(); }, 300);
                 triggerSpecialsChain(nextB, specialActionContext!.currentGraveyard, specialActionContext!.currentKs, specialActionContext!.oldStreak, specialActionContext!.newStreak, specialActionContext!.isExtraTurn, specialActionContext!.newEnPassantTarget, 'white', [...(specialActionContext!.completedMilestones || []), 'anvil'], specialActionContext!.capturingPieceId, false, movedType, nextTracks.white, nextTracks.black, nextTracks.global);
                 return;
             }
             const res = applyMove(board, { from: selectedSquare!, to: alg, type: moveType }, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, false);
             setBoard(res.newBoard); setSelectedSquare(null); setPossibleMoves([]);
-            if (res.anvilDroppedSquares) res.anvilDroppedSquares.forEach(s => {
-                setTimeout(() => {
-                  addEffect('focus', s);
-                  audioManager.playAnvil();
-                }, 300);
-            });
+            if (res.anvilDroppedSquares) res.anvilDroppedSquares.forEach(s => { setTimeout(() => { addEffect('focus', s); audioManager.playAnvil(); }, 300); });
             setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; setIsAwaitingWindScrollTarget(false); setIsAwaitingAnvilScrollTarget(false); setIsAwaitingEarthquakeScrollTarget(false); setIsAwaitingOilSlickTarget(false); processMoveEnd(res.newBoard, capturedPieces, killStreaks, currentPlayer, false, null, false, movedType, nextTracks.white, nextTracks.black, nextTracks.global); }, 800);
         }
         return;
@@ -1161,7 +1208,6 @@ export default function DungeonPage() {
        
        if (selectedSquare === alg) {
            if (moving?.type === 'myco_mage') { setIsSelectingMycoSpell(true); return; }
-           
            if (moving?.heldItem && ITEM_METADATA[moving.heldItem].isConsumable) {
                const item = moving.heldItem;
                const effLevel = getEffectiveLevel(board, fR, fC);
@@ -1250,7 +1296,6 @@ export default function DungeonPage() {
                        const d = Math.max(Math.abs(tr-fR), Math.abs(tc-fC));
                        if (d>0 && d<=range && (tr===fR||tc===fC||Math.abs(tr-fR)===Math.abs(tc-fC)) && !board[tr][tc].piece && !board[tr][tc].item) tT.push(coordsToAlgebraic(tr,tc));
                    }
-                   // CHOICE LOGIC: Add the target itself back for "click again to capture"
                    if (tP && tP.color !== currentPlayer) tT.push(alg);
                    setPossibleMoves(tT); addLog("Grappler: Select landing, or click enemy again to capture."); return;
                }
@@ -1263,45 +1308,26 @@ export default function DungeonPage() {
           if (tP && tP.color === movingP.color) mType = 'swap';
           else if (alg === enPassantTargetSquare && FRONTLINE_TYPES.includes(patternType || '')) mType = 'enpassant';
           else if (movingP.type === 'king' && Math.abs(col - fC) === 2) mType = 'castle';
-          
-          // Battering Ram Check
           if ((patternType === 'rook' || patternType === 'palace') && effItem === 'battering_ram') {
               const dr = Math.sign(row - fR); const dc = Math.sign(col - fC);
               const nr = fR + dr; const nc = fC + dc;
-              if (isValidSquare(nr, nc) && board[nr][nc].item?.type === 'anvil') {
-                  mType = 'ram-push';
-              }
+              if (isValidSquare(nr, nc) && board[nr][nc].item?.type === 'anvil') mType = 'ram-push';
           }
-
           setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(alg); setLastMoveFrom(selectedSquare); setLastMoveTo(alg);
           const oL = movingP.level, oT = movingP.type, oH = movingP.heldItem; 
-          
           const newMoveInfo: LastMoveInfo = { type: oT, level: oL, item: oH || null };
-          const nextTracks = {
-              white: newMoveInfo,
-              black: lastMoveBlack,
-              global: newMoveInfo
-          };
-          
-          setLastMoveWhite(newMoveInfo);
-          setLastMoveGlobal(newMoveInfo);
-
+          const nextTracks = { white: newMoveInfo, black: lastMoveBlack, global: newMoveInfo };
+          setLastMoveWhite(newMoveInfo); setLastMoveGlobal(newMoveInfo);
           const res = applyMove(board, { from: selectedSquare, to: alg, type: mType }, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, false);
-          
           res.levelChanges?.forEach(lc => {
               addEffect('level-change', lc.square, 'white', lc.delta);
               if (lc.reason) addLog(`${getPlayerDisplayName('white')}: ${lc.reason} (${lc.delta > 0 ? '+' : ''}${lc.delta})`);
           });
-
           const streakGain = (res.capturedPiece ? 1 : 0) + (res.selfDestructCaptures?.length || 0) + (res.obliteratedPieces?.length || 0) + (res.smokeBombEvent ? 1 : 0);
-          
           if (res.capturedPiece || res.selfDestructCaptures?.length || res.obliteratedPieces?.length || res.smokeBombEvent) { audioManager.playCapture(); addEffect('poof', alg); if (res.capturedPiece) addLog(`Hero: Captured ${res.capturedPiece.type}!`); }
-          
           if (res.glassShardTriggered) addLog("Glass Shard! Capturer is exhausted.");
-
           if (res.shroomConsumed) { audioManager.playShroom(); addLog("Hero: Consumed a Shroom!"); }
           if (res.ralliedSquares) res.ralliedSquares.forEach(sq => addEffect('level-change', sq, 'white', 1));
-          
           if (res.hydraSplitOccurred) { 
               audioManager.playResurrect(); addLog("The Hydra regrows its heads!"); 
               if (res.hydraSpawnSquares) res.hydraSpawnSquares.forEach(sq => addEffect('light-beam', sq));
@@ -1309,35 +1335,22 @@ export default function DungeonPage() {
           if (res.phoenixResurrection) { addEffect('light-beam', res.phoenixResurrection.square); audioManager.playResurrect(); }
           if (res.resurrectionScrollEvent) { addEffect('light-beam', res.resurrectionScrollEvent.square); audioManager.playResurrect(); }
           if (res.signalHornEvent) { addLog(`Signal Horn! ${res.signalHornEvent.piece.type} gains a level.`); }
-
-          if (res.anvilDroppedSquares) res.anvilDroppedSquares.forEach(sq => {
-              setTimeout(() => {
-                addEffect('focus', sq);
-                audioManager.playAnvil();
-              }, 300);
-          });
-
+          if (res.anvilDroppedSquares) res.anvilDroppedSquares.forEach(sq => { setTimeout(() => { addEffect('focus', sq); audioManager.playAnvil(); }, 300); });
           let nextBoardState = res.newBoard;
           const nxtG = { white: Array.isArray(capturedPieces.white) ? [...capturedPieces.white] : [], black: Array.isArray(capturedPieces.black) ? [...capturedPieces.black] : [] }; 
-          
           if (res.stolenItem) {
               const newInv = [...inventory];
               const existing = newInv.find(i => i.type === res.stolenItem);
-              if (existing) existing.count++;
-              else newInv.push({ type: res.stolenItem, count: 1 });
-              setInventory(newInv);
-              addLog(`STOLEN: ${ITEM_METADATA[res.stolenItem].name}!`);
+              if (existing) existing.count++; else newInv.push({ type: res.stolenItem, count: 1 });
+              setInventory(newInv); addLog(`STOLEN: ${ITEM_METADATA[res.stolenItem].name}!`);
           }
-
           if (res.smokeBombEvent) {
               addLog(`Smoke Bomb! ${res.smokeBombEvent.piece.type} escaped to back rank!`);
               addEffect('poof', res.smokeBombEvent.square);
           } else if (res.capturedPiece) { 
               const pile = res.capturedPiece.color; nxtG[pile] = [...nxtG[pile], res.capturedPiece]; 
           }
-          
           if (res.selfDestructCaptures) res.selfDestructCaptures.forEach(p => { const pile = p.color; nxtG[pile] = [...nxtG[pile], p]; });
-
           let rookResResult: RookResurrectionResult | null = null;
           if ((patternType === 'rook' || patternType === 'palace') && streakGain > 0) {
               const resRes = processRookResurrectionCheck(nextBoardState, 'white', {from: selectedSquare, to: alg, type: mType}, alg, oL, nxtG, Date.now());
@@ -1359,9 +1372,7 @@ export default function DungeonPage() {
             const cKs = { ...killStreaks, white: nS }; setKillStreaks(cKs);
             const q = res.multiPromotions || []; const oppRank = movingP.color === 'white' ? 0 : 7;
             if (FRONTLINE_TYPES.includes(nextBoardState[row][col].piece?.type || '') && row === oppRank) { q.push({ square: alg, targetLevel: getPromotionLevel(res.capturedPiece?.type || null) }); }
-            if (rookResResult?.promotionRequiredForResurrectedPawn) {
-                q.push({ square: rookResResult.resurrectedSquareAlg!, targetLevel: 1 });
-            }
+            if (rookResResult?.promotionRequiredForResurrectedPawn) { q.push({ square: rookResResult.resurrectedSquareAlg!, targetLevel: 1 }); }
             if (q.length > 0) { setPromotionQueue(q); setIsPromotingPawn(true); setPromotionSquare(q[0].square); setPromotionTargetLevel(q[0].targetLevel); setSpecialActionContext({ boardForNextStep: nextBoardState, playerWhoseTurnCompleted: 'white', isExtraTurn: isExtraTurn, newEnPassantTarget: res.enPassantTargetSet, oldStreak: oS, newStreak: nS, currentGraveyard: nxtG, currentKs: cKs, capturingPieceId: nextBoardState[row][col].piece?.id || null, trackWhite: nextTracks.white, trackBlack: nextTracks.black, trackGlobal: nextTracks.global }); } 
             else { processPawnSacrificeCheck(nextBoardState, nxtG, cKs, 'white', {from: selectedSquare, to: alg, type: mType}, oL, oT, isExtraTurn, res.enPassantTargetSet, oS, nS, nextBoardState[row][col].piece?.id || null, streakGain > 0, oT, nextTracks.white, nextTracks.black, nextTracks.global); }
           }, 800);
@@ -1380,6 +1391,8 @@ export default function DungeonPage() {
         setClickedEnemySquare(null); setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
     }
   }, [board, currentPlayer, selectedSquare, enPassantTargetSquare, lastMoveWhite, lastMoveBlack, lastMoveGlobal, capturedPieces, killStreaks, isInventoryOpen, selectedInventoryItemType, handlePieceHover, triggerSpecialsChain, boardForPostSacrifice, specialActionContext, isAwaitingPawnSacrifice, isAwaitingCommanderPromotion, isAwaitingAnvilDrop, isAwaitingAnvilScrollTarget, isAwaitingWindScrollTarget, isAwaitingEarthquakeScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget, playerToDropAnvil, isAwaitingHolyShield, isAwaitingArcherSnipe, dancerToDance, isAwaitingDanceTarget, processPawnSacrificeCheck, didCaptureLastTurn, addEffect, promotionQueue, promotionTargetLevel, isAwaitingGrappleThrow, grappledPieceSubject, grappledItemSubject, isSelectingMycoSpell, isAwaitingOilSlickTarget, isAwaitingRayTarget, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, playerWhoGotFirstblood, teleportAllyPieceId, addLog, clickedEnemySquare, isSpec, processMoveEnd, attunementSlots, usedSlots, saveDungeonState, level, inventory, deductConsumable]);
+
+  // --- INITIALIZERS & LOOPS ---
 
   const startRun = useCallback((reset: boolean = false) => {
     if (isUserLoading || !userData || !user) return;
@@ -1415,58 +1428,31 @@ export default function DungeonPage() {
   const performAiMove = useCallback(async () => {
     if (gameInfo.gameOver || isMoveProcessing || isAiThinking || currentPlayer !== 'black') return;
     setIsAiThinking(true);
-
     await new Promise(resolve => setTimeout(resolve, 50));
-
     let currentWorkingBoard = board;
-
     const voidEntitySq = currentWorkingBoard.flat().find(sq => sq.piece?.id === 'boss-entity');
     if (voidEntitySq) {
         let nB_Pulse = currentWorkingBoard.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null})));
         const { rowIndex: br, colIndex: bc } = voidEntitySq;
         let pulseOccurred = false;
-        
         const whitePieces = [];
         for (let r=0; r<8; r++) for (let c=0; c<8; c++) if (nB_Pulse[r][c].piece?.color === 'white') whitePieces.push({r, c, p: nB_Pulse[r][c].piece!});
-        
         for (const wp of whitePieces) {
-            const dr = wp.r - br;
-            const dc = wp.c - bc;
-            const dist = Math.max(Math.abs(dr), Math.abs(dc));
-            
+            const dr = wp.r - br; const dc = wp.c - bc; const dist = Math.max(Math.abs(dr), Math.abs(dc));
             if (dist === 1) { 
-                // Blast adjacent
-                const tr = wp.r + Math.sign(dr);
-                const tc = wp.c + Math.sign(dc);
+                const tr = wp.r + Math.sign(dr); const tc = wp.c + Math.sign(dc);
                 if (isValidSquare(tr, tc) && !nB_Pulse[tr][tc].piece && (!nB_Pulse[tr][tc].item || nB_Pulse[tr][tc].item?.type === 'shroom')) {
-                    nB_Pulse[tr][tc].piece = { ...wp.p, isPoisoned: true, cooldownTurnsRemaining: 2 };
-                    nB_Pulse[tr][tc].item = null;
-                    nB_Pulse[wp.r][wp.c].piece = null;
-                    addEffect('shockwave', coordsToAlgebraic(tr, tc), 'black');
-                    pulseOccurred = true;
+                    nB_Pulse[tr][tc].piece = { ...wp.p, isPoisoned: true, cooldownTurnsRemaining: 2 }; nB_Pulse[tr][tc].item = null; nB_Pulse[wp.r][wp.c].piece = null; addEffect('shockwave', coordsToAlgebraic(tr, tc), 'black'); pulseOccurred = true;
                 }
             } else if (dist <= 3) { 
-                // Pull distant
-                const tr = wp.r - Math.sign(dr);
-                const tc = wp.c - Math.sign(dc);
+                const tr = wp.r - Math.sign(dr); const tc = wp.c - Math.sign(dc);
                 if (isValidSquare(tr, tc) && !nB_Pulse[tr][tc].piece && (!nB_Pulse[tr][tc].item || nB_Pulse[tr][tc].item?.type === 'shroom')) {
-                    nB_Pulse[tr][tc].piece = { ...wp.p, isPoisoned: true };
-                    nB_Pulse[tr][tc].item = null;
-                    nB_Pulse[wp.r][wp.c].piece = null;
-                    addEffect('magic-burst', coordsToAlgebraic(tr, tc));
-                    pulseOccurred = true;
+                    nB_Pulse[tr][tc].piece = { ...wp.p, isPoisoned: true }; nB_Pulse[tr][tc].item = null; nB_Pulse[wp.r][wp.c].piece = null; addEffect('magic-burst', coordsToAlgebraic(tr, tc)); pulseOccurred = true;
                 }
             }
         }
-        if (pulseOccurred) {
-            currentWorkingBoard = nB_Pulse;
-            setBoard(currentWorkingBoard);
-            addLog("The Void Entity pulses! Reality warps!");
-            audioManager.playAnvil();
-            await new Promise(r => setTimeout(r, 600));
-        }
+        if (pulseOccurred) { currentWorkingBoard = nB_Pulse; setBoard(currentWorkingBoard); addLog("The Void Entity pulses! Reality warps!"); audioManager.playAnvil(); await new Promise(r => setTimeout(r, 600)); }
     }
-
     const gs = adaptBoardForAI(currentWorkingBoard, 'black', killStreaks, capturedPieces, 0, firstBloodAchieved, playerWhoGotFirstblood, enPassantTargetSquare, lastMoveWhite, lastMoveBlack, lastMoveGlobal, shroomSpawnCounter, nextShroomSpawnTurn, didCaptureLastTurn.white, positionHistory, necroResurrectionCounter);
     const res = aiInstance.current?.getBestMove(gs, 'black');
     if (res?.move) {
@@ -1474,33 +1460,19 @@ export default function DungeonPage() {
         const mP = currentWorkingBoard[move.from[0]][move.from[1]].piece; if (!mP) { setIsAiThinking(false); return; }
         setIsMoveProcessing(true); setAnimatedSquareTo(toAlg); setLastMoveFrom(fromAlg); setLastMoveTo(toAlg);
         const oL = mP.level, oT = mP.type, oH = mP.heldItem; 
-        
         const newMoveInfo: LastMoveInfo = { type: oT, level: oL, item: oH || null };
-        const nextTracks = {
-            white: lastMoveWhite,
-            black: newMoveInfo,
-            global: newMoveInfo
-          };
-        
-        setLastMoveBlack(newMoveInfo);
-        setLastMoveGlobal(newMoveInfo);
-
+        const nextTracks = { white: lastMoveWhite, black: newMoveInfo, global: newMoveInfo };
+        setLastMoveBlack(newMoveInfo); setLastMoveGlobal(newMoveInfo);
         const appRes = applyMove(currentWorkingBoard, { from: fromAlg, to: toAlg, type: move.type as Move['type'], grappledFrom: move.grappledFrom ? (Array.isArray(move.grappledFrom) ? coordsToAlgebraic(move.grappledFrom[0], move.grappledFrom[1]) : move.grappledFrom) : undefined }, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, didCaptureLastTurn.white);
-        
         appRes.levelChanges?.forEach(lc => {
             addEffect('level-change', lc.square, 'black', lc.delta);
             if (lc.reason) addLog(`${getPlayerDisplayName('black')}: ${lc.reason} (${lc.delta > 0 ? '+' : ''}${lc.delta})`);
         });
-
         const streakGain = (appRes.capturedPiece ? 1 : 0) + (appRes.selfDestructCaptures?.length || 0) + (appRes.obliteratedPieces?.length || 0) + (appRes.smokeBombEvent ? 1 : 0);
-        
         if (appRes.capturedPiece || appRes.selfDestructCaptures?.length || appRes.obliteratedPieces?.length || appRes.smokeBombEvent) { audioManager.playCapture(); addEffect('poof', toAlg); }
-        
         if (appRes.glassShardTriggered) addLog("Glass Shard! Dungeon is exhausted.");
-
         if (appRes.shroomConsumed) { audioManager.playShroom(); }
         if (appRes.ralliedSquares) appRes.ralliedSquares.forEach(sq => addEffect('level-change', sq, 'black', 1));
-        
         if (appRes.hydraSplitOccurred) { 
             audioManager.playResurrect(); addLog("The Hydra regrows its heads!"); 
             if (appRes.hydraSpawnSquares) appRes.hydraSpawnSquares.forEach(sq => addEffect('light-beam', sq));
@@ -1508,56 +1480,30 @@ export default function DungeonPage() {
         if (appRes.phoenixResurrection) { addEffect('light-beam', appRes.phoenixResurrection.square); audioManager.playResurrect(); }
         if (appRes.resurrectionScrollEvent) { addEffect('light-beam', appRes.resurrectionScrollEvent.square); audioManager.playResurrect(); }
         if (appRes.signalHornEvent) { addLog(`Signal Horn! ${appRes.signalHornEvent.piece.type} gains a level.`); }
-
-        if (appRes.anvilDroppedSquares) appRes.anvilDroppedSquares.forEach(sq => {
-            setTimeout(() => {
-              addEffect('focus', sq);
-              audioManager.playAnvil();
-            }, 300);
-        });
-
+        if (appRes.anvilDroppedSquares) appRes.anvilDroppedSquares.forEach(sq => { setTimeout(() => { addEffect('focus', sq); audioManager.playAnvil(); }, 300); });
         let nextB = appRes.newBoard;
-
         if (mP.id === 'boss-entity' && streakGain > 0) {
-            addLog("Time Lock! The Void freezes reality!");
-            audioManager.playFreeze();
+            addLog("Time Lock! The Void freezes reality!"); audioManager.playFreeze();
             const { row: tr, col: tc } = algebraicToCoords(toAlg);
             for(let dr=-1; dr<=1; dr++) for(let dc=-1; dc<=1; dc++) {
                 if (dr === 0 && dc === 0) continue;
                 if (isValidSquare(tr+dr, tc+dc)) {
                     const v = nextB[tr+dr][tc+dc].piece;
-                    if (v && v.color === 'white') {
-                        v.frozenTurnsRemaining = 2; v.cooldownTurnsRemaining = 2;
-                        addEffect('conversion', coordsToAlgebraic(tr+dr, tc+dc));
-                    }
+                    if (v && v.color === 'white') { v.frozenTurnsRemaining = 2; v.cooldownTurnsRemaining = 2; addEffect('conversion', coordsToAlgebraic(tr+dr, tc+dc)); }
                 }
             }
         }
-
         const nxtG = { white: Array.isArray(capturedPieces.white) ? [...capturedPieces.white] : [], black: Array.isArray(capturedPieces.black) ? [...capturedPieces.black] : [] }; 
-        
-        if (appRes.smokeBombEvent) {
-            addLog(`Smoke Bomb! ${appRes.smokeBombEvent.piece.type} escaped to back rank!`);
-            addEffect('poof', appRes.smokeBombEvent.square);
-        } else if (appRes.capturedPiece) { 
-            const pile = appRes.capturedPiece.color; nxtG[pile] = [...nxtG[pile], appRes.capturedPiece]; 
-        }
-        
+        if (appRes.smokeBombEvent) { addLog(`Smoke Bomb! ${appRes.smokeBombEvent.piece.type} escaped to back rank!`); addEffect('poof', appRes.smokeBombEvent.square); }
+        else if (appRes.capturedPiece) { const pile = appRes.capturedPiece.color; nxtG[pile] = [...nxtG[pile], appRes.capturedPiece]; }
         if (appRes.selfDestructCaptures) appRes.selfDestructCaptures.forEach(p => { const pile = p.color; nxtG[pile] = [...nxtG[pile], p]; });
-
         let rookResResult: RookResurrectionResult | null = null;
         const patternType = (mP.type === 'mimic' && nextTracks.global?.type && nextTracks.global.type !== 'mimic') ? nextTracks.global.type : mP.type;
-        
         if ((patternType === 'rook' || patternType === 'palace') && streakGain > 0) {
             const resRes = processRookResurrectionCheck(nextB, currentPlayer, {from: fromAlg, to: toAlg, type: 'move'}, toAlg, oL, nxtG, Date.now());
             if (resRes.resurrectionPerformed) {
-                nextB = resRes.boardWithResurrection;
-                nxtG.white = resRes.capturedPiecesAfterResurrection.white;
-                nxtG.black = resRes.capturedPiecesAfterResurrection.black;
-                rookResResult = resRes;
-                addEffect('light-beam', resRes.resurrectedSquareAlg!);
-                audioManager.playResurrect();
-                addLog(`Dungeon: Resurrection Call!`);
+                nextB = resRes.boardWithResurrection; nxtG.white = resRes.capturedPiecesAfterResurrection.white; nxtG.black = resRes.capturedPiecesAfterResurrection.black;
+                rookResResult = resRes; addEffect('light-beam', resRes.resurrectedSquareAlg!); audioManager.playResurrect(); addLog(`Dungeon: Resurrection Call!`);
             }
         }
         if (appRes.multiPromotions) { appRes.multiPromotions.forEach(promo => { const {row: pr, col: pc} = algebraicToCoords(promo.square); const p = nextB[pr][pc].piece; if (p) { p.type = 'queen'; p.level = promo.targetLevel; } }); }
@@ -1565,77 +1511,56 @@ export default function DungeonPage() {
             const {row: rr, col: rc} = algebraicToCoords(rookResResult.resurrectedSquareAlg!);
             const rp = nextB[rr][rc].piece; if (rp) { rp.type = 'queen'; }
         }
-
-        const landed = nextB[move.to[0]][move.to[1]].piece;
-        const oppBackRank = currentPlayer === 'black' ? 7 : 0;
+        const landed = nextB[move.to[0]][move.to[1]].piece; const oppBackRank = currentPlayer === 'black' ? 7 : 0;
         let aiPromoted = false;
         if (landed && FRONTLINE_TYPES.includes(landed.type) && move.to[0] === oppBackRank) {
             const targetL = getPromotionLevel(appRes.capturedPiece?.type || appRes.pieceCapturedByAnvil?.type || null);
-            landed.type = 'queen';
-            landed.level = Math.min(7, targetL);
-            aiPromoted = true;
+            landed.type = 'queen'; landed.level = Math.min(7, targetL); aiPromoted = true;
         }
-
-        setBoard(nextB);
-        addLog(`Dungeon: ${mP.type} to ${toAlg}${aiPromoted ? " (PROMOTED)" : ""}`);
+        setBoard(nextB); addLog(`Dungeon: ${mP.type} to ${toAlg}${aiPromoted ? " (PROMOTED)" : ""}`);
         setTimeout(() => { 
           setIsAiThinking(false); setIsMoveProcessing(false); clickGuard.current = false; 
           const oS = killStreaks['black'], nS = (streakGain > 0) ? oS + streakGain : 0;
           let isExtraTurn = appRes.extraTurn || (oS < 6 && nS >= 6);
           if (landed && landed.level >= 5 && aiPromoted) isExtraTurn = true;
-
           const cKs = { ...killStreaks, black: nS }; setKillStreaks(cKs);
           processPawnSacrificeCheck(nextB, nxtG, cKs, 'black', {from: fromAlg, to: toAlg, type: move.type as AIMoveType['type']}, oL, oT, isExtraTurn, appRes.enPassantTargetSet, oS, nS, nextB[move.to[0]][move.to[1]].piece?.id || null, streakGain > 0, oT, nextTracks.white, nextTracks.black, nextTracks.global);
         }, 800);
     } else {
         const nextNo = aiNoMoveCounter + 1; setAiNoMoveCounter(nextNo);
         if (nextNo >= 3) { 
-            addLog("FLOOR COLLAPSE! THE DUNGEON TREMBLES!"); 
-            audioManager.playExplosion(); 
-            
+            addLog("FLOOR COLLAPSE! THE DUNGEON TREMBLES!"); audioManager.playExplosion(); 
             let nB = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null})));
             const nG = { white: Array.isArray(capturedPieces.white) ? [...capturedPieces.white] : [], black: Array.isArray(capturedPieces.black) ? [...capturedPieces.black] : [] };
-            
             const blackSquares = nB.flat().filter(sq => sq.piece?.color === 'black');
             blackSquares.forEach(sq => {
-                const { rowIndex: r, colIndex: c } = sq;
-                addEffect('explosion', sq.algebraic);
-                for (let dr = -1; dr <= 1; dr++) {
-                    for (let dc = -1; dc <= 1; dc++) {
-                        const nr = r + dr; const nc = c + dc;
-                        if (isValidSquare(nr, nc)) {
-                            const victimSq = nB[nr][nc];
-                            if (victimSq.piece && victimSq.piece.color === 'white') {
-                                triggerDefiantSparks(nB, nr, nc, 'white');
-                                if (victimSq.piece.type !== 'king' && victimSq.piece.heldItem === 'blast_shield') {
-                                    // Shielded
-                                } else if (victimSq.piece.type !== 'king') {
-                                    nG.white.push({ ...victimSq.piece });
-                                    nB[nr][nc].piece = null;
-                                }
-                            }
-                            if (victimSq.item?.type === 'anvil') nB[nr][nc].item = null;
+                const { rowIndex: r, colIndex: c } = sq; addEffect('explosion', sq.algebraic);
+                for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+                    const nr = r + dr; const nc = c + dc;
+                    if (isValidSquare(nr, nc)) {
+                        const victimSq = nB[nr][nc];
+                        if (victimSq.piece && victimSq.piece.color === 'white') {
+                            triggerDefiantSparks(nB, nr, nc, 'white');
+                            if (victimSq.piece.type !== 'king' && victimSq.piece.heldItem === 'blast_shield') { /* Shielded */ }
+                            else if (victimSq.piece.type !== 'king') { nG.white.push({ ...victimSq.piece }); nB[nr][nc].piece = null; }
                         }
+                        if (victimSq.item?.type === 'anvil') nB[nr][nc].item = null;
                     }
                 }
                 nB[r][c].piece = null;
             });
-            setBoard(nB);
-            setCapturedPieces(nG);
-            
+            setBoard(nB); setCapturedPieces(nG);
             const survivors = nB.flat().filter(sq => sq.piece && sq.piece.color === 'white').map(sq => sq.piece!);
             setTimeout(() => advanceLevel(survivors, nG), 1200);
-        } else {
-            addLog(`The Dungeon is frozen... (${nextNo}/3)`);
-            setCurrentPlayer('white'); 
-        }
+        } else { addLog(`The Dungeon is frozen... (${nextNo}/3)`); setCurrentPlayer('white'); }
         setIsAiThinking(false);
     }
   }, [board, currentPlayer, gameInfo.gameOver, isMoveProcessing, isAiThinking, killStreaks, capturedPieces, firstBloodAchieved, playerWhoGotFirstblood, enPassantTargetSquare, lastMoveWhite, lastMoveBlack, lastMoveGlobal, shroomSpawnCounter, nextShroomSpawnTurn, didCaptureLastTurn.white, positionHistory, processPawnSacrificeCheck, addLog, addEffect, advanceLevel, aiNoMoveCounter, getPlayerDisplayName]);
 
+  // --- EFFECT HOOKS ---
+
   useEffect(() => { if (!isInitialized.current && !isUserLoading) { isInitialized.current = true; startRun(); } }, [isUserLoading, startRun]);
   useEffect(() => { if (userData?.inventory) setInventory(userData.inventory); }, [userData]);
-
   useEffect(() => { if (currentPlayer === 'black' && !gameInfo.gameOver && !isMoveProcessing && !isAiThinking) { const t = setTimeout(performAiMove, 1000); return () => currentPlayer === 'black' && clearTimeout(t); } }, [currentPlayer, gameInfo.gameOver, isMoveProcessing, isAiThinking, performAiMove]);
 
   const statMsg = useMemo(() => {
@@ -1662,42 +1587,6 @@ export default function DungeonPage() {
   const toggleCat = (cat: MessageCategory) => { const next = new Set(visibleCategories); if (next.has(cat)) { next.delete(cat); } else { next.add(cat); clearUnread(cat); } setVisibleCategories(next); };
   const hasUn = hasUnread.battle || hasUnread.social || hasUnread.log || hasUnread.market;
 
-  const handlePieceHover = useCallback((p: Piece | null) => {
-    setPieceForInfoDisplay(p);
-    if (p && p.color !== currentPlayer && !isSpec) {
-      const coords = board.flat().find(sq => sq.piece?.id === p.id);
-      if (coords) {
-        const moves = getPossibleMoves(board, coords.algebraic, enPassantTargetSquare, lastMoveWhite, lastMoveBlack, lastMoveGlobal);
-        setEnemySelectedSquare(coords.algebraic);
-        setEnemyPossibleMoves(moves);
-      }
-    } else {
-      if (clickedEnemySquare) {
-        const coords = board.flat().find(sq => sq.algebraic === clickedEnemySquare);
-        if (coords && coords.piece) {
-            const moves = getPossibleMoves(board, clickedEnemySquare, enPassantTargetSquare, lastMoveWhite, lastMoveBlack, lastMoveGlobal);
-            setEnemySelectedSquare(clickedEnemySquare);
-            setEnemyPossibleMoves(moves);
-        } else {
-            setEnemySelectedSquare(null);
-            setEnemyPossibleMoves([]);
-        }
-      } else {
-        setEnemySelectedSquare(null);
-        setEnemyPossibleMoves([]);
-      }
-    }
-  }, [board, currentPlayer, enPassantTargetSquare, lastMoveWhite, lastMoveBlack, lastMoveGlobal, isSpec, clickedEnemySquare]);
-
-  const proceedToNextFloor = useCallback((nextL: number, survivors: Piece[], graveyard: any, newInv?: InventoryItem[]) => {
-    if (nextL > 50) { setGameInfo(prev => ({ ...prev, message: "DUNGEON CONQUERED!", gameOver: true, winner: 'white' })); gameOverRef.current = true; audioManager.playVictory(); return; }
-    const finalInv = newInv || inventory;
-    setLevel(nextL); setBoard(generateDungeonFloor(nextL, survivors)); setPlayerArmy(survivors); setCapturedPieces({ white: Array.isArray(graveyard.white) ? graveyard.white : [], black: [] }); setKillStreaks({ white: 0, black: 0 }); setPositionHistory([]); setEnPassantTargetSquare(null); setLastMoveWhite(null); setLastMoveBlack(null); setLastMoveGlobal(null); setLastMoveFrom(null); setLastMoveTo(null); setNecroResurrectionCounter(0); setAiNoMoveCounter(0);
-    setClickedEnemySquare(null); setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
-    saveDungeonState(nextL, generateDungeonFloor(nextL, survivors), 'white', { white: 0, black: 0 }, { white: graveyard.white, black: [] }, 0, 5, null, 0, finalInv);
-    audioManager.playStart(); addLog(`Descending to Floor ${nextL}...`);
-  }, [inventory, saveDungeonState, addLog]);
-
   const handleClaimLoot = useCallback(() => {
     if (!pendingProgression) return;
     const updatedInv = [...inventory];
@@ -1714,33 +1603,6 @@ export default function DungeonPage() {
     setLootFound([]);
     proceedToNextFloor(level + 1, survivors, graveyard, updatedInv);
   }, [pendingProgression, lootFound, inventory, level, proceedToNextFloor]);
-
-  const advanceLevel = useCallback((survivors: Piece[], graveyard: any) => {
-    if (level % 10 === 0) {
-        const cloverBonus = survivors.filter(p => p.heldItem === 'clover').length * 0.01;
-        const bonus = (Math.floor(level / 10) - 1) * 0.01 + cloverBonus;
-        const drops: InventoryItemType[] = [];
-        const allItems = Object.keys(ITEM_METADATA) as InventoryItemType[];
-        allItems.forEach(type => {
-            const meta = ITEM_METADATA[type];
-            if (!meta) return;
-            if (type.startsWith('portal_scroll_')) {
-                const scrollFloor = parseInt(type.split('_')[2]);
-                if (scrollFloor !== level) return;
-            }
-            let chance = 0;
-            if (meta.rarity === 'common') chance = 0.12 + bonus;
-            else if (meta.rarity === 'uncommon') chance = 0.06 + bonus;
-            else if (meta.rarity === 'rare') chance = 0.03 + bonus;
-            if (Math.random() < chance) drops.push(type);
-        });
-        setLootFound(drops);
-        setPendingProgression({ survivors, graveyard });
-        setIsLootWindowOpen(true);
-    } else {
-        proceedToNextFloor(level + 1, survivors, graveyard);
-    }
-  }, [level, proceedToNextFloor]);
 
   const handleUsePortalScroll = useCallback((type: InventoryItemType) => {
     if (!type.startsWith('portal_scroll_')) return;
@@ -1781,7 +1643,6 @@ export default function DungeonPage() {
             <PixelGemstoneMasonry className="w-full h-full" />
          </div>
       </div>
-
       {isMessengerOpen ? (
         <div className="p-2 flex flex-col h-full space-y-2 pt-1 relative z-10">
           <div className="flex items-center justify-between">
@@ -1812,7 +1673,7 @@ export default function DungeonPage() {
             <button onClick={() => setIsMessengerOpen(true)} className={cn( "absolute top-2 left-2 z-30 p-1 hover:bg-muted transition-colors", hasUn && "animate-chat-notify" )} > <MessageSquare className="h-5 w-5" /> </button>
             <div className="flex justify-around items-center text-center">
                 <div> <p className="text-[0.6rem] font-medium text-muted-foreground uppercase leading-none mb-1">Player</p> <p className={cn("text-[0.7rem] font-bold uppercase font-pixel leading-none", currentPlayer === 'white' ? 'text-foreground' : 'text-secondary')}> {getPlayerDisplayName(currentPlayer)} </p> </div>
-                <div className="space-y-0.5"> <p className="text-[0.55rem] font-bold text-destructive leading-none uppercase">W-Streak: {killStreaks.white}</p> <p className="text-[0.55rem] font-bold text-destructive interleaved uppercase">B-Streak: {killStreaks.black}</p> </div>
+                <div className="space-y-0.5"> <p className="text-[0.55rem] font-bold text-destructive leading-none uppercase">W-Streak: {killStreaks.white}</p> <p className="text-[0.55rem] font-bold text-destructive uppercase">B-Streak: {killStreaks.black}</p> </div>
             </div>
             <div className="w-full mb-1"> <h3 className="text-[0.6rem] font-bold text-muted-foreground uppercase mb-0.5 leading-none">Captured Black</h3> <div className="flex flex-wrap gap-0.5 bg-background rounded-none min-h-[1.5rem] p-0.5 border border-border/20"> {capturedPieces.black.length === 0 ? <span className="text-[0.5rem] text-muted-foreground">None</span> : capturedPieces.black.map(p => <div key={p.id} className="w-5 h-5"><ChessPieceDisplay piece={p} isMini /></div>)} </div> </div>
             <div className="w-full mb-1"> <h3 className="text-[0.6rem] font-bold text-muted-foreground uppercase mb-0.5 leading-none">Captured White</h3> <div className="flex flex-wrap gap-0.5 bg-background rounded-none min-h-[1.5rem] p-0.5 border border-border/20"> {capturedPieces.white.length === 0 ? <span className="text-[0.5rem] text-muted-foreground">None</span> : capturedPieces.white.map(p => <div key={p.id} className="w-5 h-5"><ChessPieceDisplay piece={p} isMini /></div>)} </div> </div>
@@ -1827,37 +1688,16 @@ export default function DungeonPage() {
       <div className="px-4 py-1 flex items-center justify-center shrink-0 relative min-h-[3rem]"> 
         <Link href="/" className="flex items-center gap-1 text-[10px] hover:text-primary transition-colors absolute left-4"> <ArrowLeft className="h-4 w-4" /> LOBBY </Link> 
         <div className="flex items-center gap-2"> 
-          {level % 10 === 0 ? (
-            <>
-              <PixelSkull className="h-5 w-5 ascii-shader" />
-              <h1 className="text-sm font-bold tracking-tighter uppercase">FLOOR {level}</h1>
-              <PixelSkull className="h-5 w-5 ascii-shader" />
-            </>
-          ) : (
-            <>
-              <PixelSwords className="h-5 w-5 ascii-shader" />
-              <h1 className="text-sm font-bold tracking-tighter uppercase">FLOOR {level}</h1>
-              <PixelSwords className="h-5 w-5 ascii-shader" />
-            </>
-          )}
+          {level % 10 === 0 ? ( <> <PixelSkull className="h-5 w-5 ascii-shader" /> <h1 className="text-sm font-bold tracking-tighter uppercase">FLOOR {level}</h1> <PixelSkull className="h-5 w-5 ascii-shader" /> </> ) : ( <> <PixelSwords className="h-5 w-5 ascii-shader" /> <h1 className="text-sm font-bold tracking-tighter uppercase">FLOOR {level}</h1> <PixelSwords className="h-5 w-5 ascii-shader" /> </> )}
         </div> 
       </div>
       <div className="text-center py-0 shrink-0 min-h-[0.75rem]"> <p className="text-[10px] font-bold text-primary uppercase animate-pulse"> {statMsg} </p> </div>
       <div className="w-full flex justify-center py-0.5 shrink-0"> <div className="w-full relative"> <ChessBoard boardState={board} selectedSquare={selectedSquare} possibleMoves={possibleMoves} enemySelectedSquare={enemySelectedSquare} enemyPossibleMoves={enemyPossibleMoves} onSquareClick={handleSquareClick} playerColor="white" currentPlayerColor={currentPlayer} isInteractionDisabled={isMoveProcessing || gameInfo.gameOver || (isAiThinking && currentPlayer === 'white') || (isSpec && currentPlayer === 'white')} playerInCheck={gameInfo.playerWithKingInCheck} viewMode="flipping" animatedSquareTo={animatedSquareTo} lastMoveFrom={lastMoveFrom} lastMoveTo={lastMoveTo} isAwaitingPawnSacrifice={isAwaitingPawnSacrifice} playerToSacrificePawn={playerToSacrificePawn} isEnPassantTarget={enPassantTargetSquare} onPieceHover={handlePieceHover} effects={effects} promotingSquare={promotionSquare} isAwaitingAnvilDrop={isAwaitingAnvilDrop || isAwaitingAnvilScrollTarget} playerToDropAnvil={playerToDropAnvil} isInventoryOpen={isInventoryOpen} selectedInventoryItemType={selectedInventoryItemType} localPlayerColor="white" isAwaitingHolyShield={isAwaitingHolyShield} isAwaitingArcherSnipe={isAwaitingArcherSnipe} isAwaitingGrappleThrow={isAwaitingGrappleThrow} isAwaitingDanceTarget={isAwaitingDanceTarget} dancerToDance={dancerToDance} grappledPieceSubject={grappledPieceSubject} isAwaitingEarthquakeScrollTarget={isAwaitingEarthquakeScrollTarget} isSelectingMycoSpell={isSelectingMycoSpell} isSelectingTeleportAlly={isSelectingTeleportAlly} isSelectingTeleportShroom={isSelectingTeleportShroom} isSelectingSporeBombShroom={isSelectingSporeBombShroom} isAwaitingCommanderPromotion={isAwaitingCommanderPromotion} playerToPromoteCommander={playerWhoGotFirstblood} isAwaitingWindScrollTarget={isAwaitingWindScrollTarget} isAwaitingShieldScrollTarget={isAwaitingShieldScrollTarget} isAwaitingSwapScrollTarget={isAwaitingSwapScrollTarget} isAwaitingDecreeTarget={isAwaitingDecreeTarget} isAwaitingOilSlickTarget={isAwaitingOilSlickTarget} isAwaitingRayTarget={isAwaitingRayTarget} lastMoveWhite={lastMoveWhite} lastMoveBlack={lastMoveBlack} lastMoveGlobal={lastMoveGlobal} /> </div> </div>
       <div className="flex-grow min-h-0 flex flex-col p-0.5"> {cPanel} </div>
       <div className="flex justify-center items-end gap-x-8 pb-4 shrink-0">
-        <button onClick={() => setIsInventoryOpen(true)} disabled={hasStartedFloor} className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group disabled:opacity-30">
-           <PixelSack className="h-10 w-10 ascii-shader transition-transform group-hover:scale-110" />
-           <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Loot</span>
-        </button>
-        <button onClick={() => setIsRulesDialogOpen(true)} className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group">
-           <PixelTome className="h-10 w-10 ascii-shader transition-transform group-hover:scale-110" />
-           <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Rules</span>
-        </button>
-        <button onClick={() => setIsResetConfirmOpen(true)} className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group">
-           <PixelReset className="h-10 w-10 ascii-shader transition-transform group-hover:scale-110" />
-           <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Reset</span>
-        </button>
+        <button onClick={() => setIsInventoryOpen(true)} disabled={hasStartedFloor} className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group disabled:opacity-30"> <PixelSack className="h-10 w-10 ascii-shader transition-transform group-hover:scale-110" /> <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Loot</span> </button>
+        <button onClick={() => setIsRulesDialogOpen(true)} className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group"> <PixelTome className="h-10 w-10 ascii-shader transition-transform group-hover:scale-110" /> <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Rules</span> </button>
+        <button onClick={() => setIsResetConfirmOpen(true)} className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group"> <PixelReset className="h-10 w-10 ascii-shader transition-transform group-hover:scale-110" /> <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Reset</span> </button>
       </div>
     </div>
   );
@@ -1867,21 +1707,7 @@ export default function DungeonPage() {
       <div className="w-1/4 flex-shrink-0 flex-col gap-2 h-full"> <Link href="/" className="flex items-center gap-1 text-[12px] hover:text-primary transition-colors uppercase font-pixel px-1 mb-1"> <ArrowLeft className="h-4 w-4" /> Lobby </Link> {cPanel} </div>
       <div className="w-1/2 flex flex-col items-center gap-2">
         <div className="flex flex-col items-center justify-center py-2 shrink-0 h-24 w-full"> 
-           <div className="flex items-center gap-3 mb-2"> 
-              {level % 10 === 0 ? (
-                <>
-                  <PixelSkull className="h-10 w-10 ascii-shader" />
-                  <h1 className="text-2xl font-bold tracking-tighter uppercase font-pixel">FLOOR {level}</h1> 
-                  <PixelSkull className="h-10 w-10 ascii-shader" />
-                </>
-              ) : (
-                <>
-                  <PixelSwords className="h-10 w-10 ascii-shader" />
-                  <h1 className="text-2xl font-bold tracking-tighter uppercase font-pixel">FLOOR {level}</h1> 
-                  <PixelSwords className="h-10 w-10 ascii-shader" />
-                </>
-              )}
-           </div> 
+           <div className="flex items-center gap-3 mb-2"> {level % 10 === 0 ? ( <> <PixelSkull className="h-10 w-10 ascii-shader" /> <h1 className="text-2xl font-bold tracking-tighter uppercase font-pixel">FLOOR {level}</h1> <PixelSkull className="h-10 w-10 ascii-shader" /> </> ) : ( <> <PixelSwords className="h-10 w-10 ascii-shader" /> <h1 className="text-2xl font-bold tracking-tighter uppercase font-pixel">FLOOR {level}</h1> <PixelSwords className="h-10 w-10 ascii-shader" /> </> )} </div> 
            <VibeChessTitle className="h-12 w-auto ascii-shader" suffix="-desk" />
         </div>
         <div className={cn("text-center text-[0.8rem] font-bold min-h-[1.5rem] uppercase w-full", gameInfo.isCheck && !gameInfo.gameOver && "text-destructive animate-pulse")}> {statMsg} </div>
@@ -1892,18 +1718,9 @@ export default function DungeonPage() {
         <Card className="border-2 border-border/50 bg-card"> 
           <CardContent className="p-4 flex flex-col gap-3"> 
              <div className="flex flex-wrap justify-center items-end gap-x-5 gap-y-1 pb-1">
-                <button onClick={() => setIsInventoryOpen(true)} disabled={hasStartedFloor} className="flex flex-col items-center gap-0.5 h-auto p-0 bg-transparent border-none outline-none group disabled:opacity-30">
-                   <PixelSack className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
-                   <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Loot</span>
-                </button>
-                <button onClick={() => setIsRulesDialogOpen(true)} className="flex flex-col items-center gap-0.5 h-auto p-0 bg-transparent border-none outline-none group">
-                   <PixelTome className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
-                   <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Rules</span>
-                </button>
-                <button onClick={() => setIsResetConfirmOpen(true)} className="flex flex-col items-center gap-0.5 h-auto p-0 bg-transparent border-none outline-none group">
-                   <PixelReset className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
-                   <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Reset</span>
-                </button>
+                <button onClick={() => setIsInventoryOpen(true)} disabled={hasStartedFloor} className="flex flex-col items-center gap-0.5 h-auto p-0 bg-transparent border-none outline-none group disabled:opacity-30"> <PixelSack className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" /> <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Loot</span> </button>
+                <button onClick={() => setIsRulesDialogOpen(true)} className="flex flex-col items-center gap-0.5 h-auto p-0 bg-transparent border-none outline-none group"> <PixelTome className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" /> <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Rules</span> </button>
+                <button onClick={() => setIsResetConfirmOpen(true)} className="flex flex-col items-center gap-0.5 h-auto p-0 bg-transparent border-none outline-none group"> <PixelReset className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" /> <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Reset</span> </button>
              </div>
           </CardContent> 
         </Card> 
