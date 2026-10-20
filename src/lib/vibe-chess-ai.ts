@@ -943,7 +943,7 @@ export class VibeChessAI {
                                 if (clear) canAttack = true;
                             }
                         } else if (FRONTLINE_TYPES.includes(attackerPattern)) {
-                            const forwardDir = attacker.color === 'white' ? 1 : -1;
+                            const forwardDir = attacker.color === 'white' ? -1 : 1;
                             const drFromAttacker = Math.sign(tr - nr);
                             const dcFromAttacker = Math.sign(tc - nc);
                             
@@ -953,7 +953,7 @@ export class VibeChessAI {
                                 else if (drFromAttacker === 0 && Math.abs(dcFromAttacker) === 1 && attackerLevel >= 3) canAttack = true;
                             }
                         } else if (attackerPattern === 'infiltrator') {
-                            const forwardDir = attacker.color === 'white' ? 1 : -1;
+                            const forwardDir = attacker.color === 'white' ? -1 : 1;
                             const drFromAttacker = Math.sign(tr - nr);
                             const dcFromAttacker = Math.sign(tc - nc);
                             if (drFromAttacker === forwardDir && dcFromAttacker === 0) canAttack = true;
@@ -994,7 +994,7 @@ export class VibeChessAI {
                         } else if (attackerPattern === 'infiltrator') {
                             canAttack = true;
                         } else if (dist === 1) {
-                            const forwardDir = attacker.color === 'white' ? 1 : -1;
+                            const forwardDir = attacker.color === 'white' ? -1 : 1;
                             const drFromAttacker = Math.sign(tr - nr);
                             if (drFromAttacker === forwardDir) canAttack = true;
                         }
