@@ -64,6 +64,7 @@ import { ChessPieceDisplay } from '@/components/evolving-chess/ChessPieceDisplay
 import { PieceAbilitiesInfo } from '@/components/evolving-chess/PieceAbilitiesInfo';
 import { Separator } from '@/components/ui/separator';
 import { PixelGemstoneMasonry, VibeChessTitle, PixelTome, PixelSack, PixelReset, PixelSwords, PixelSkull } from '@/components/evolving-chess/IconLibrary';
+import { UserInteractionPopover } from '@/components/social/UserInteractionPopover';
 
 const DUNGEON_EXP_MAP: Record<string, number> = {
   pawn: 1, dancer: 1, mimic: 1, grappler: 1, commander: 1, infiltrator: 1, myco_mage: 1, 
@@ -1668,7 +1669,13 @@ export default function DungeonPage() {
               {messages.filter(m => visibleCategories.has(m.category)).map((msg) => (
                 <div key={msg.id} className="flex flex-col">
                   <div className="flex items-start gap-1">
-                    <span className={cn("text-[0.6rem] font-bold uppercase", getMsgCol(msg))}>{msg.sender}:</span>
+                    {msg.sender !== 'SYSTEM' ? (
+                      <UserInteractionPopover userId={msg.senderId || ''} username={msg.sender}>
+                        <span className={cn("text-[0.6rem] font-bold uppercase", getMsgCol(msg))}>{msg.sender}:</span>
+                      </UserInteractionPopover>
+                    ) : (
+                      <span className="text-[0.6rem] font-bold uppercase text-primary">[SYS]:</span>
+                    )}
                     <span className={cn("text-[0.6rem] break-words flex-1", getMsgCol(msg))}>{msg.text}</span>
                   </div>
                 </div>

@@ -945,7 +945,7 @@ export class VibeChessAI {
                                 if (clear) canAttack = true;
                             }
                         } else if (FRONTLINE_TYPES.includes(attackerPattern)) {
-                            // Fix directional attack vector for Frontline units
+                            // Correct directional attack vector for Frontline units
                             const forwardDir = attacker.color === 'white' ? -1 : 1;
                             const drFromAttacker = Math.sign(tr - nr);
                             const dcFromAttacker = Math.sign(tc - nc);
