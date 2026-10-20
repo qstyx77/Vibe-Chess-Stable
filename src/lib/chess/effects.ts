@@ -93,28 +93,47 @@ export function syncLevelsAndSets(board: BoardState, color: PlayerColor, levelCh
     // 2. Luminous Set Bonus (Shared Divinity)
     const sets = getActiveSets(board, color);
     if (sets.includes('luminous')) {
-        let minL = 100;
-        const candidates: SquareState[] = [];
-        board.forEach(row => row.forEach(sq => {
-            if (sq.piece && sq.piece.color === color && sq.piece.type !== 'king') {
-                const l = sq.piece.level || 1;
-                if (l < minL) {
-                    minL = l;
-                    candidates.length = 0;
-                    candidates.push(sq);
-                } else if (l === minL) {
-                    candidates.push(sq);
-                }
-            }
-        }));
+        const luminousItems = ['logas', 'gnosis', 'golden_chalice'];
+        
+        // Count how many level-up events for Luminous pieces have occurred in this turn/action
+        const luminousLevelUpCount = levelChanges.filter(lc => {
+            if (lc.delta <= 0 || lc.reason === "Luminous Set") return false;
+            const { row, col } = algebraicToCoords(lc.square);
+            const p = board[row][col].piece;
+            return p && luminousItems.includes(p.heldItem || '');
+        }).length;
 
-        if (candidates.length > 0) {
-            const target = candidates[Math.floor(Math.random() * candidates.length)];
-            const p = target.piece!;
-            if (p.type !== 'queen' || p.level < 7) {
-                p.level++;
-                levelChanges.push({ square: target.algebraic, delta: 1, reason: "Luminous Set" });
-                p.isPoisoned = false; p.isExhausted = false; p.cooldownTurnsRemaining = 0;
+        // Count how many Shared Divinity bonuses have already been awarded
+        const sharedDivinityTriggerCount = levelChanges.filter(lc => lc.reason === "Luminous Set").length;
+
+        // Trigger only if we have pending payouts
+        if (luminousLevelUpCount > sharedDivinityTriggerCount) {
+            let minL = 100;
+            const candidates: SquareState[] = [];
+            board.forEach(row => row.forEach(sq => {
+                if (sq.piece && sq.piece.color === color && sq.piece.type !== 'king') {
+                    const l = sq.piece.level || 1;
+                    if (l < minL) {
+                        minL = l;
+                        candidates.length = 0;
+                        candidates.push(sq);
+                    } else if (l === minL) {
+                        candidates.push(sq);
+                    }
+                }
+            }));
+
+            if (candidates.length > 0) {
+                const target = candidates[Math.floor(Math.random() * candidates.length)];
+                const p = target.piece!;
+                if (p.type !== 'queen' || p.level < 7) {
+                    p.level++;
+                    levelChanges.push({ square: target.algebraic, delta: 1, reason: "Luminous Set" });
+                    p.isPoisoned = false; p.isExhausted = false; p.cooldownTurnsRemaining = 0;
+                    
+                    // Recursive call to ensure any cascading level-ups (like Soul Link) are handled
+                    syncLevelsAndSets(board, color, levelChanges);
+                }
             }
         }
     }
