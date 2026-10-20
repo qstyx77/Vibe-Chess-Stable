@@ -182,10 +182,13 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const sendMessage = useCallback((text: string, category: MessageCategory, targetId?: string) => {
-    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+        addLog("Not connected to server.");
+        return;
+    }
 
     if (text.startsWith('/')) {
-        const parts = text.split(' ');
+        const parts = text.trim().split(' ');
         const cmd = parts[0].toLowerCase();
         
         // INTERCEPT ADMIN COMMANDS

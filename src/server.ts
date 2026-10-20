@@ -387,19 +387,20 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                     const userSnap = await admin.firestore().doc(`users/${ws.userId}`).get();
                     const userData = userSnap.data();
                     
-                    const systemMsg = { id: `admin_${Date.now()}`, sender: 'SYSTEM', timestamp: Date.now(), category: 'log' };
+                    // FEEDBACK MESSAGES USE 'BATTLE' CATEGORY FOR INSTANT VISIBILITY
+                    const systemMsg = { id: `admin_${Date.now()}`, sender: 'SYSTEM', timestamp: Date.now(), category: 'battle' };
 
                     if (userData?.role !== 'admin') {
                         ws.send(JSON.stringify({ type: 'chat-message', message: { ...systemMsg, text: "PERMISSION DENIED: Admin role required for chat commands." } }));
                         break;
                     }
 
-                    const parts = data.text.split(' ');
+                    const parts = data.text.trim().split(' ');
                     const cmd = parts[0].toLowerCase();
 
                     if (cmd === '/adminhelp') {
                         const help = [
-                            "ADMIN COMMAND CENTER - SYNTAX GUIDE:",
+                            "ADMIN COMMAND CENTER - SYNTAX GUIDE (CASE SENSITIVE USERNAMES):",
                             "/gold <user> <amount> - e.g. /gold SUGGA 1000",
                             "/elo <user> <value> - e.g. /elo Bob 1500",
                             "/unlock <user> <piece> - e.g. /unlock Bob dancer",
@@ -410,7 +411,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                             "/unban <user> - Restore login access",
                             "/delete_acc <user> - WIPE Auth and Firestore record",
                             "/who - List all online players and their stats",
-                            "NOTE: Usernames are case-sensitive."
                         ];
                         help.forEach(h => ws.send(JSON.stringify({ type: 'chat-message', message: { ...systemMsg, text: h } })));
                     } else if (cmd === '/who') {
@@ -419,7 +419,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                             const d = snap.data();
                             return `${d?.username} (Elo: ${d?.eloRating}, Gold: ${d?.goldBalance})`;
                         }));
-                        ws.send(JSON.stringify({ type: 'chat-message', message: { ...systemMsg, text: `PLAYERS: ${online.join(', ')}` } }));
+                        ws.send(JSON.stringify({ type: 'chat-message', message: { ...systemMsg, text: `PLAYERS: ${online.length > 0 ? online.join(', ') : 'None online.'}` } }));
                     } else {
                         const targetName = parts[1];
                         if (!targetName) {
