@@ -919,15 +919,19 @@ export class VibeChessAI {
                 if (sq.piece) {
                     if (sq.piece.color === attackerColor) {
                         const attacker = sq.piece;
+                        const attackerPattern = (attacker.type === 'mimic' && gs.lastMoveGlobal?.type && gs.lastMoveGlobal.type !== 'mimic') 
+                            ? gs.lastMoveGlobal.type 
+                            : attacker.type;
+                        
                         const attackerLevel = getEffectiveLevel(gs.board as any, nr, nc);
                         let canAttack = false;
 
-                        if (attacker.type === 'queen' || attacker.type === 'rook' || attacker.type === 'palace') {
+                        if (attackerPattern === 'queen' || attackerPattern === 'rook' || attackerPattern === 'palace') {
                             canAttack = true;
-                        } else if (attacker.type === 'king') {
+                        } else if (attackerPattern === 'king') {
                             const maxDist = attackerLevel >= 2 ? 2 : 1;
                             if (dist <= maxDist) canAttack = true;
-                        } else if (['knight', 'hero', 'archer'].includes(attacker.type)) {
+                        } else if (['knight', 'hero', 'archer'].includes(attackerPattern)) {
                             if (attackerLevel >= 2 && dist === 1) canAttack = true;
                             if (attackerLevel >= 3 && dist === 3) {
                                 let clear = true;
@@ -938,7 +942,7 @@ export class VibeChessAI {
                                 }
                                 if (clear) canAttack = true;
                             }
-                        } else if (FRONTLINE_TYPES.includes(attacker.type)) {
+                        } else if (FRONTLINE_TYPES.includes(attackerPattern)) {
                             const forwardDir = attacker.color === 'white' ? 1 : -1;
                             const drFromAttacker = Math.sign(tr - nr);
                             const dcFromAttacker = Math.sign(tc - nc);
@@ -948,7 +952,7 @@ export class VibeChessAI {
                                 else if (drFromAttacker === -forwardDir && dcFromAttacker === 0 && attackerLevel >= 2) canAttack = true;
                                 else if (drFromAttacker === 0 && Math.abs(dcFromAttacker) === 1 && attackerLevel >= 3) canAttack = true;
                             }
-                        } else if (attacker.type === 'infiltrator') {
+                        } else if (attackerPattern === 'infiltrator') {
                             const forwardDir = attacker.color === 'white' ? 1 : -1;
                             const drFromAttacker = Math.sign(tr - nr);
                             const dcFromAttacker = Math.sign(tc - nc);
@@ -975,15 +979,19 @@ export class VibeChessAI {
                 if (sq.piece) {
                     if (sq.piece.color === attackerColor) {
                         const attacker = sq.piece;
+                        const attackerPattern = (attacker.type === 'mimic' && gs.lastMoveGlobal?.type && gs.lastMoveGlobal.type !== 'mimic') 
+                            ? gs.lastMoveGlobal.type 
+                            : attacker.type;
+                        
                         const attackerLevel = getEffectiveLevel(gs.board as any, nr, nc);
                         let canAttack = false;
 
-                        if (attacker.type === 'queen' || attacker.type === 'bishop' || attacker.type === 'archbishop') {
+                        if (attackerPattern === 'queen' || attackerPattern === 'bishop' || attackerPattern === 'archbishop') {
                             canAttack = true;
-                        } else if (attacker.type === 'king') {
+                        } else if (attackerPattern === 'king') {
                             const maxDist = attackerLevel >= 2 ? 2 : 1;
                             if (dist <= maxDist) canAttack = true;
-                        } else if (attacker.type === 'infiltrator') {
+                        } else if (attackerPattern === 'infiltrator') {
                             canAttack = true;
                         } else if (dist === 1) {
                             const forwardDir = attacker.color === 'white' ? 1 : -1;
@@ -1005,10 +1013,14 @@ export class VibeChessAI {
             if (isValidSquareUtil(nr, nc)) {
                 const attacker = gs.board[nr][nc].piece;
                 if (attacker && attacker.color === attackerColor) {
+                    const attackerPattern = (attacker.type === 'mimic' && gs.lastMoveGlobal?.type && gs.lastMoveGlobal.type !== 'mimic') 
+                        ? gs.lastMoveGlobal.type 
+                        : attacker.type;
+                    
                     let canAttack = false;
-                    if (['knight', 'hero', 'archer', 'archbishop'].includes(attacker.type)) {
+                    if (['knight', 'hero', 'archer', 'archbishop'].includes(attackerPattern)) {
                         canAttack = true;
-                    } else if (attacker.type === 'king' && getEffectiveLevel(gs.board as any, nr, nc) >= 5) {
+                    } else if (attackerPattern === 'king' && getEffectiveLevel(gs.board as any, nr, nc) >= 5) {
                         canAttack = true;
                     }
 
