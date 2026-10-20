@@ -163,10 +163,11 @@ export function useUser() {
         const updates: any = {};
 
         // Targeted grant for account SUGGA - Admin Access
-        if (currentData.username === 'SUGGA' && !currentData.adminActiveV1) {
+        // Force the update if role is not admin
+        if (currentData.username === 'SUGGA' && currentData.role !== 'admin') {
             updates.role = 'admin';
             updates.eloRating = 2100;
-            updates.unlockedPieces = ['dancer', 'mimic', 'grappler', 'myco_mage', 'archbishop', 'palace', 'archer'];
+            updates.unlockedPieces = ['pawn', 'knight', 'bishop', 'rook', 'queen', 'king', 'commander', 'hero', 'infiltrator', 'archbishop', 'palace', 'archer', 'dancer', 'mimic', 'grappler', 'myco_mage'];
             updates.adminActiveV1 = true;
             needsUpdate = true;
         }

@@ -386,28 +386,34 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                     if (!ws.userId) break;
                     const userSnap = await admin.firestore().doc(`users/${ws.userId}`).get();
                     const userData = userSnap.data();
-                    if (userData?.role !== 'admin') break;
-
+                    
                     const systemMsg = { id: `admin_${Date.now()}`, sender: 'SYSTEM', timestamp: Date.now(), category: 'log' };
-                    const parts = data.text.substring(1).split(' ');
+
+                    if (userData?.role !== 'admin') {
+                        ws.send(JSON.stringify({ type: 'chat-message', message: { ...systemMsg, text: "PERMISSION DENIED: Admin role required for chat commands." } }));
+                        break;
+                    }
+
+                    const parts = data.text.split(' ');
                     const cmd = parts[0].toLowerCase();
 
-                    if (cmd === 'adminhelp') {
+                    if (cmd === '/adminhelp') {
                         const help = [
-                            "ADMIN COMMANDS:",
-                            "/gold <user> <amt> - Set Gold",
-                            "/elo <user> <val> - Set Elo",
-                            "/unlock <user> <piece> - Unlock Unit",
-                            "/clear_inv <user> - Clear Loot Bag",
-                            "/mute <user> <mins> - Mute from chat",
-                            "/unmute <user> - Restore chat",
-                            "/ban <user> <mins> - Suspend account",
-                            "/unban <user> - Restore login",
-                            "/delete_acc <user> - Wipe profile & auth",
-                            "/who - List all online players"
+                            "ADMIN COMMAND CENTER - SYNTAX GUIDE:",
+                            "/gold <user> <amount> - e.g. /gold SUGGA 1000",
+                            "/elo <user> <value> - e.g. /elo Bob 1500",
+                            "/unlock <user> <piece> - e.g. /unlock Bob dancer",
+                            "/clear_inv <user> - Wipes loot bag",
+                            "/mute <user> <mins> - e.g. /mute Bob 60 (Mutes chat)",
+                            "/unmute <user> - Restore chat access",
+                            "/ban <user> <mins> - e.g. /ban Bob 1440 (Suspends login)",
+                            "/unban <user> - Restore login access",
+                            "/delete_acc <user> - WIPE Auth and Firestore record",
+                            "/who - List all online players and their stats",
+                            "NOTE: Usernames are case-sensitive."
                         ];
                         help.forEach(h => ws.send(JSON.stringify({ type: 'chat-message', message: { ...systemMsg, text: h } })));
-                    } else if (cmd === 'who') {
+                    } else if (cmd === '/who') {
                         const online = await Promise.all(Object.keys(userConnections).map(async uid => {
                             const snap = await admin.firestore().doc(`users/${uid}`).get();
                             const d = snap.data();
@@ -416,48 +422,56 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                         ws.send(JSON.stringify({ type: 'chat-message', message: { ...systemMsg, text: `PLAYERS: ${online.join(', ')}` } }));
                     } else {
                         const targetName = parts[1];
+                        if (!targetName) {
+                            ws.send(JSON.stringify({ type: 'chat-message', message: { ...systemMsg, text: `ERROR: Missing target name. Usage: ${cmd} <name> <value>` } }));
+                            break;
+                        }
+
                         const targetUid = await getUidByUsername(targetName);
                         if (!targetUid) {
-                            ws.send(JSON.stringify({ type: 'chat-message', message: { ...systemMsg, text: `Target user '${targetName}' not found.` } }));
+                            ws.send(JSON.stringify({ type: 'chat-message', message: { ...systemMsg, text: `ERROR: Target user '${targetName}' not found (Check case sensitivity).` } }));
                             break;
                         }
                         const targetRef = admin.firestore().doc(`users/${targetUid}`);
 
-                        if (cmd === 'gold') {
+                        if (cmd === '/gold') {
                             const amt = parseInt(parts[2]);
+                            if (isNaN(amt)) { ws.send(JSON.stringify({ type: 'chat-message', message: { ...systemMsg, text: "Usage: /gold <name> <amount>" } })); break; }
                             await targetRef.update({ goldBalance: amt });
-                            ws.send(JSON.stringify({ type: 'chat-message', message: { ...systemMsg, text: `Set ${targetName}'s Gold to ${amt}.` } }));
-                        } else if (cmd === 'elo') {
+                            ws.send(JSON.stringify({ type: 'chat-message', message: { ...systemMsg, text: `SUCCESS: Set ${targetName}'s Gold to ${amt}.` } }));
+                        } else if (cmd === '/elo') {
                             const val = parseInt(parts[2]);
+                            if (isNaN(val)) { ws.send(JSON.stringify({ type: 'chat-message', message: { ...systemMsg, text: "Usage: /elo <name> <value>" } })); break; }
                             await targetRef.update({ eloRating: val });
-                            ws.send(JSON.stringify({ type: 'chat-message', message: { ...systemMsg, text: `Set ${targetName}'s Elo to ${val}.` } }));
-                        } else if (cmd === 'unlock') {
+                            ws.send(JSON.stringify({ type: 'chat-message', message: { ...systemMsg, text: `SUCCESS: Set ${targetName}'s Elo to ${val}.` } }));
+                        } else if (cmd === '/unlock') {
                             const p = parts[2];
+                            if (!p) { ws.send(JSON.stringify({ type: 'chat-message', message: { ...systemMsg, text: "Usage: /unlock <name> <piece_type>" } })); break; }
                             await targetRef.update({ unlockedPieces: admin.firestore.FieldValue.arrayUnion(p) });
-                            ws.send(JSON.stringify({ type: 'chat-message', message: { ...systemMsg, text: `Unlocked ${p} for ${targetName}.` } }));
-                        } else if (cmd === 'clear_inv') {
+                            ws.send(JSON.stringify({ type: 'chat-message', message: { ...systemMsg, text: `SUCCESS: Unlocked ${p} for ${targetName}.` } }));
+                        } else if (cmd === '/clear_inv') {
                             await targetRef.update({ inventory: [] });
-                            ws.send(JSON.stringify({ type: 'chat-message', message: { ...systemMsg, text: `Wiped ${targetName}'s inventory.` } }));
-                        } else if (cmd === 'mute') {
+                            ws.send(JSON.stringify({ type: 'chat-message', message: { ...systemMsg, text: `SUCCESS: Wiped ${targetName}'s inventory.` } }));
+                        } else if (cmd === '/mute') {
                             const mins = parseInt(parts[2]) || 60;
                             const until = Date.now() + (mins * 60 * 1000);
                             await targetRef.update({ mutedUntil: until });
-                            ws.send(JSON.stringify({ type: 'chat-message', message: { ...systemMsg, text: `Muted ${targetName} for ${mins} minutes.` } }));
-                        } else if (cmd === 'unmute') {
+                            ws.send(JSON.stringify({ type: 'chat-message', message: { ...systemMsg, text: `SUCCESS: Muted ${targetName} for ${mins} minutes.` } }));
+                        } else if (cmd === '/unmute') {
                             await targetRef.update({ mutedUntil: 0 });
-                            ws.send(JSON.stringify({ type: 'chat-message', message: { ...systemMsg, text: `Unmuted ${targetName}.` } }));
-                        } else if (cmd === 'ban') {
+                            ws.send(JSON.stringify({ type: 'chat-message', message: { ...systemMsg, text: `SUCCESS: Unmuted ${targetName}.` } }));
+                        } else if (cmd === '/ban') {
                             const mins = parseInt(parts[2]) || 60;
                             const until = Date.now() + (mins * 60 * 1000);
                             await targetRef.update({ bannedUntil: until });
-                            ws.send(JSON.stringify({ type: 'chat-message', message: { ...systemMsg, text: `Banned ${targetName} for ${mins} minutes.` } }));
-                        } else if (cmd === 'unban') {
+                            ws.send(JSON.stringify({ type: 'chat-message', message: { ...systemMsg, text: `SUCCESS: Banned ${targetName} for ${mins} minutes.` } }));
+                        } else if (cmd === '/unban') {
                             await targetRef.update({ bannedUntil: 0 });
-                            ws.send(JSON.stringify({ type: 'chat-message', message: { ...systemMsg, text: `Unbanned ${targetName}.` } }));
-                        } else if (cmd === 'delete_acc') {
+                            ws.send(JSON.stringify({ type: 'chat-message', message: { ...systemMsg, text: `SUCCESS: Unbanned ${targetName}.` } }));
+                        } else if (cmd === '/delete_acc') {
                             await admin.auth().deleteUser(targetUid);
                             await targetRef.delete();
-                            ws.send(JSON.stringify({ type: 'chat-message', message: { ...systemMsg, text: `Permanently deleted ${targetName}.` } }));
+                            ws.send(JSON.stringify({ type: 'chat-message', message: { ...systemMsg, text: `SUCCESS: Permanently deleted ${targetName}.` } }));
                         }
                     }
                     break;
@@ -815,7 +829,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                             signalHornTargetType: result.signalHornEvent?.piece.type,
                             soulLink: result.obliteratedPieces?.some(p => p.id.includes('_linked_')),
                             soulLinkCount: result.obliteratedPieces?.filter(p => p.id.includes('_linked_')).length,
-                            shroomSpawned: shroomSpawnedEvent, shroomPos: shroomSpawnPos
+                            shroomSpawned: shroomSpawnedEvent, shroomPos: shroomSpawnedEvent ? shroomSpawnPos : null
                         };
                         broadcastToRoom(ws.roomId!, { type: 'game-move', gameState: gs, move: movePayload, events: evs });
                     }
