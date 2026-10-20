@@ -987,7 +987,19 @@ export default function EvolvingChessPage() {
       const isObliteration = applyResult.promotedToInfiltrator || (p.type === 'infiltrator' && applyResult.capturedPiece);
       if (isObliteration) { audioManager.playObliterate(); addLog("AI Obliterated a unit!"); addEffectCallback('poof', toAlg); }
       else if (applyResult.capturedPiece || (applyResult.selfDestructCaptures && applyResult.selfDestructCaptures.length > 0)) { audioManager.playCapture(); addEffectCallback('poof', toAlg); if (applyResult.capturedPiece) addLog(`AI Captured ${applyResult.capturedPiece.type}!`); }
-      else { audioManager.playMove(); addLog(`AI ${p.type} to ${toAlg}`); }
+      else { 
+        // FIX: Provide descriptive skill-based logging
+        let aiLogMsg = `AI ${p.type} to ${toAlg}`;
+        if (aiMove.type === 'grapple-throw') aiLogMsg = `AI Grappler tossed piece to ${toAlg}`;
+        else if (aiMove.type === 'self-destruct') aiLogMsg = `AI Knight self-destructed at ${toAlg}`;
+        else if (aiMove.type === 'swap') aiLogMsg = `AI swapped with ally at ${toAlg}`;
+        else if (aiMove.type === 'myco-propagate') aiLogMsg = `AI used Propagate!`;
+        else if (aiMove.type === 'tele-portobello') aiLogMsg = `AI used Tele-Portobello to ${toAlg}`;
+        else if (aiMove.type === 'spore-bomb') aiLogMsg = `AI used Spore Bomb at ${toAlg}`;
+        else if (aiMove.type === 'raise-mycelimen') aiLogMsg = `AI used Raise Myceli-men!`;
+        audioManager.playMove(); 
+        addLog(aiLogMsg); 
+      }
       
       if (applyResult.glassShardTriggered) addLog("Glass Shard! AI is exhausted.");
 

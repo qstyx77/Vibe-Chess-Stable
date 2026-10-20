@@ -1517,7 +1517,16 @@ export default function DungeonPage() {
             const targetL = getPromotionLevel(appRes.capturedPiece?.type || appRes.pieceCapturedByAnvil?.type || null);
             landed.type = 'queen'; landed.level = Math.min(7, targetL); aiPromoted = true;
         }
-        setBoard(nextB); addLog(`Dungeon: ${mP.type} to ${toAlg}${aiPromoted ? " (PROMOTED)" : ""}`);
+        
+        // FIX: Descriptive skill-based logging for Dungeon AI
+        let aiLogMsg = `Dungeon: ${mP.type} to ${toAlg}${aiPromoted ? " (PROMOTED)" : ""}`;
+        if (move.type === 'grapple-throw') aiLogMsg = `Dungeon: Grappler tossed piece to ${toAlg}`;
+        else if (move.type === 'self-destruct') aiLogMsg = `Dungeon: Knight self-destructed at ${toAlg}`;
+        else if (move.type === 'swap') aiLogMsg = `Dungeon: Ally swap to ${toAlg}`;
+        
+        setBoard(nextB); 
+        addLog(aiLogMsg);
+
         setTimeout(() => { 
           setIsAiThinking(false); setIsMoveProcessing(false); clickGuard.current = false; 
           const oS = killStreaks['black'], nS = (streakGain > 0) ? oS + streakGain : 0;
@@ -1740,6 +1749,7 @@ export default function DungeonPage() {
           <AlertDialogFooter> <AlertDialogCancel className="h-10 text-[10px] uppercase">Cancel</AlertDialogCancel> <AlertDialogAction className="h-10 text-[10px] uppercase bg-destructive text-white" onClick={() => { startRun(true); setIsResetConfirmOpen(false); }}>Reset Now</AlertDialogAction> </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <InventoryWindow isOpen={isInventoryOpen} onClose={() => setIsInventoryOpen(false)} inventory={inventory} selectedItemType={selectedInventoryItemType} onSelectItem={setSelectedInventoryItemType} onUseItem={handleUsePortalScroll} attunementSlots={attunementSlots} usedSlots={usedSlots} />
       <InventoryWindow isOpen={isInventoryOpen} onClose={() => setIsInventoryOpen(false)} inventory={inventory} selectedItemType={selectedInventoryItemType} onSelectItem={setSelectedInventoryItemType} onUseItem={handleUsePortalScroll} attunementSlots={attunementSlots} usedSlots={usedSlots} />
       <LootWinningsWindow isOpen={isLootWindowOpen} onClose={handleClaimLoot} loot={lootFound} floor={level} />
     </div>

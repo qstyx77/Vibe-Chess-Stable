@@ -282,6 +282,7 @@ export class VibeChessAI {
                 next.board[tR][tC].piece = p;
                 if (targetPiece?.color === opponent) captureCount++;
             }
+            // FIX: Grappler remains stationary while victim moves
             next.board[fR][fC].piece = { ...movingPiece, hasMoved: true };
         } else if (move.type === 'ram-push') {
             const dr = Math.sign(tR - fR); const dc = Math.sign(tC - fC);
@@ -392,7 +393,7 @@ export class VibeChessAI {
 
         if (removalOccurred) {
             next.killStreaks[player] += (captureCount + obliterationCount); 
-        } else if (!['swap', 'dance-swap', 'grapple-hook-swap', 'myco-propagate', 'life-leach', 'antidote', 'ram-push', 'glacial-ray', 'burning-ray', 'earthquake-scroll', 'oil-slick', 'phase-out', 'wind-scroll', 'summon-anvil', 'shield-scroll', 'resurrection-scroll', 'faith-scroll', 'kings-decree', 'heavy-rain'].includes(move.type || '')) {
+        } else if (!['swap', 'dance-swap', 'grapple-hook-swap', 'myco_propagate', 'life-leach', 'antidote', 'ram-push', 'glacial-ray', 'burning-ray', 'earthquake-scroll', 'oil-slick', 'phase-out', 'wind-scroll', 'summon-anvil', 'shield-scroll', 'resurrection-scroll', 'faith-scroll', 'kings-decree', 'heavy-rain'].includes(move.type || '')) {
             next.killStreaks[player] = 0;
         }
         
@@ -915,6 +916,7 @@ export class VibeChessAI {
                 if (!isValidSquareUtil(nr, nc)) break;
                 
                 const sq = gs.board[nr][nc];
+                // Anvils block checks; Shrooms do not.
                 if (sq.item?.type === 'anvil') break;
                 if (sq.piece) {
                     if (sq.piece.color === attackerColor) {
@@ -943,20 +945,22 @@ export class VibeChessAI {
                                 if (clear) canAttack = true;
                             }
                         } else if (FRONTLINE_TYPES.includes(attackerPattern)) {
+                            // Fix directional attack vector for Frontline units
                             const forwardDir = attacker.color === 'white' ? -1 : 1;
                             const drFromAttacker = Math.sign(tr - nr);
                             const dcFromAttacker = Math.sign(tc - nc);
                             
                             if (dist === 1) {
-                                if (drFromAttacker === forwardDir && dcFromAttacker === 0) canAttack = true;
-                                else if (drFromAttacker === -forwardDir && dcFromAttacker === 0 && attackerLevel >= 2) canAttack = true;
-                                else if (drFromAttacker === 0 && Math.abs(dcFromAttacker) === 1 && attackerLevel >= 3) canAttack = true;
+                                if (drFromAttacker === forwardDir && Math.abs(dcFromAttacker) === 1) canAttack = true; // Diag capture
+                                else if (drFromAttacker === -forwardDir && dcFromAttacker === 0 && attackerLevel >= 2) canAttack = true; // Back strike
+                                else if (drFromAttacker === 0 && Math.abs(dcFromAttacker) === 1 && attackerLevel >= 3) canAttack = true; // Side strike
                             }
                         } else if (attackerPattern === 'infiltrator') {
                             const forwardDir = attacker.color === 'white' ? -1 : 1;
                             const drFromAttacker = Math.sign(tr - nr);
                             const dcFromAttacker = Math.sign(tc - nc);
-                            if (drFromAttacker === forwardDir && dcFromAttacker === 0) canAttack = true;
+                            // Infiltrators strike along their movement lines
+                            if (drFromAttacker === forwardDir && (dcFromAttacker === 0 || Math.abs(dcFromAttacker) === 1)) canAttack = true;
                         }
 
                         if (canAttack && !isPieceInvulnerableToAttackUtil(targetPiece, attacker, targetEffectiveLevel, attackerLevel, gs.board as any, true)) return true;
@@ -992,8 +996,11 @@ export class VibeChessAI {
                             const maxDist = attackerLevel >= 2 ? 2 : 1;
                             if (dist <= maxDist) canAttack = true;
                         } else if (attackerPattern === 'infiltrator') {
-                            canAttack = true;
+                            const forwardDir = attacker.color === 'white' ? -1 : 1;
+                            const drFromAttacker = Math.sign(tr - nr);
+                            if (drFromAttacker === forwardDir) canAttack = true;
                         } else if (dist === 1) {
+                            // Correct vector for diagonal pawn capture
                             const forwardDir = attacker.color === 'white' ? -1 : 1;
                             const drFromAttacker = Math.sign(tr - nr);
                             if (drFromAttacker === forwardDir) canAttack = true;
