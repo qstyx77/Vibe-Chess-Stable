@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { useUser, useFirestore, updateDocumentNonBlocking, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, doc, setDoc, deleteDoc, getDoc, query, onSnapshot, runTransaction, increment } from 'firebase/firestore';
+import { collection, doc, setDoc, deleteDoc, query, increment, runTransaction } from 'firebase/firestore';
 import type { ChatMessage, MessageCategory, Friend, PlayerColor, InventoryItemType } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 
@@ -59,7 +59,6 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
   const [hasUnread, setHasUnread] = useState({ battle: false, social: false, log: false, market: false });
   const [chatInput, setChatInput] = useState('');
 
-  // Keep userDataRef in sync to avoid it being an effect dependency
   useEffect(() => {
     userDataRef.current = userData;
   }, [userData]);
@@ -176,7 +175,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
         if (wsRef.current) wsRef.current.close();
         clearTimeout(reconnectTimeout);
     };
-  }, [user?.uid]);
+  }, [user?.uid, toast]);
 
   const clearUnread = useCallback((category: MessageCategory) => {
       setHasUnread(prev => ({ ...prev, [category]: false }));
@@ -188,11 +187,22 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
     if (text.startsWith('/')) {
         const parts = text.split(' ');
         const cmd = parts[0].toLowerCase();
+        
+        // INTERCEPT ADMIN COMMANDS
+        const adminCmds = ['/gold', '/elo', '/unlock', '/clear_inv', '/mute', '/unmute', '/ban', '/unban', '/delete_acc', '/who', '/adminhelp'];
+        if (adminCmds.includes(cmd)) {
+            wsRef.current.send(JSON.stringify({
+                type: 'admin-command',
+                senderId: user?.uid,
+                text: text
+            }));
+            return;
+        }
+
         if (cmd === '/help') {
             addLog("COMMAND LIST:");
             addLog("/help - Show this list");
             addLog("@name <text> - Private whisper to a hero");
-            addLog("/friends <text> - Message all online friends");
             addLog("/clear - Wipe session history");
             return;
         }
@@ -229,8 +239,6 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
             }
         }
     }
-
-    const eq: Record<string, string> = {}; 
 
     wsRef.current.send(JSON.stringify({ 
         type: 'chat-message', 
@@ -298,7 +306,6 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
         return; 
     }
     
-    // DEDUCT ENTRY FEE
     const userRef = doc(firestore, 'users', user.uid);
     updateDocumentNonBlocking(userRef, { goldBalance: increment(-100) });
 

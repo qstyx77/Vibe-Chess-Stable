@@ -1,10 +1,11 @@
 'use client';
 import { doc, getFirestore, onSnapshot, setDoc, getDoc } from 'firebase/firestore';
 import { useEffect, useState, useRef } from 'react';
-import { User, onAuthStateChanged } from 'firebase/auth';
-import { useAuth, updateDocumentNonBlocking } from '@/firebase';
+import { User, onAuthStateChanged, getAuth, signOut } from 'firebase/auth';
+import { updateDocumentNonBlocking } from '@/firebase';
 import type { InventoryItem, InventoryItemType, PlayerColor, Piece, MarketListing } from '@/types';
 import { ITEM_METADATA } from '@/types';
+import { useToast } from '@/hooks/use-toast';
 
 interface DungeonState {
   level: number;
@@ -38,27 +39,12 @@ interface UserData {
   marketSlots?: MarketListing[];
   lastActive?: string;
   processedTransactions?: string[];
-  lootSyncV2?: boolean;
-  statusSyncV1?: boolean;
-  lootSyncV3?: boolean;
-  lootSyncV4?: boolean;
-  lootSyncV5?: boolean;
-  lootSyncV6?: boolean;
-  lootSyncV7?: boolean;
-  lootSyncV8?: boolean;
-  lootSyncV9?: boolean;
-  lootSyncV10?: boolean;
-  lootSyncV11?: boolean;
-  lootSyncV12?: boolean;
-  lootSyncV13?: boolean;
-  lootSyncV14?: boolean;
-  lootSyncV15?: boolean;
-  lootSyncV16?: boolean;
-  lootSyncV17?: boolean;
+  role?: 'admin' | 'player';
+  mutedUntil?: number;
+  bannedUntil?: number;
+  adminActiveV1?: boolean;
   lootSyncV18?: boolean;
-  suggaRestoreV1?: boolean;
   suggaRestoreV2?: boolean;
-  paymentFulfillmentV1?: boolean;
 }
 
 const ITEM_TYPES = Object.keys(ITEM_METADATA) as InventoryItemType[];
@@ -69,7 +55,8 @@ const PLAYTEST_UNLOCKS: string[] = [];
  * Hook to manage and provide current user data.
  */
 export function useUser() {
-  const auth = useAuth();
+  const auth = getAuth();
+  const { toast } = useToast();
   const [user, setUser] = useState<User | null>(null);
   const [userData, setUserData] = useState<UserData | null>(null);
   const [isUserLoading, setIsUserLoading] = useState(true);
@@ -93,6 +80,18 @@ export function useUser() {
         unsubProfile = onSnapshot(userRef, (docSnap) => {
           if (docSnap.exists()) {
             const data = docSnap.data() as UserData;
+            
+            // BAN CHECK
+            if (data.bannedUntil && data.bannedUntil > Date.now()) {
+                signOut(auth);
+                toast({ 
+                    variant: 'destructive', 
+                    title: "Account Suspended", 
+                    description: `This account is banned until ${new Date(data.bannedUntil).toLocaleString()}` 
+                });
+                return;
+            }
+
             setUserData({ ...data, id: firebaseUser.uid });
           } else {
             setUserData(null);
@@ -116,7 +115,7 @@ export function useUser() {
       unsubscribeAuth();
       if (unsubProfile) unsubProfile();
     };
-  }, [auth]);
+  }, [auth, toast]);
 
   useEffect(() => {
     if (!user || isUserLoading) return;
@@ -153,24 +152,8 @@ export function useUser() {
             goldBalance: 0,
             marketSlots: [],
             processedTransactions: [],
-            lootSyncV2: true,
-            statusSyncV1: true,
-            lootSyncV3: true,
-            lootSyncV4: true,
-            lootSyncV5: true,
-            lootSyncV6: true,
-            lootSyncV7: true,
-            lootSyncV8: true,
-            lootSyncV9: true,
-            lootSyncV10: true,
-            lootSyncV11: true,
-            lootSyncV12: true,
-            lootSyncV13: true,
-            lootSyncV14: true,
-            lootSyncV15: true,
-            lootSyncV16: true,
-            lootSyncV17: true,
-            lootSyncV18: true
+            role: 'player',
+            lootSyncV18: true,
           };
         } else {
           currentData = snap.data() as UserData;
@@ -179,62 +162,53 @@ export function useUser() {
         let needsUpdate = false;
         const updates: any = {};
 
+        // Targeted grant for account SUGGA - Admin Access
+        if (currentData.username === 'SUGGA' && !currentData.adminActiveV1) {
+            updates.role = 'admin';
+            updates.eloRating = 2100;
+            updates.unlockedPieces = ['dancer', 'mimic', 'grappler', 'myco_mage', 'archbishop', 'palace', 'archer'];
+            updates.adminActiveV1 = true;
+            needsUpdate = true;
+        }
+
         // SQUARE PAYMENT FULFILLMENT CHECK
         const urlParams = new URLSearchParams(window.location.search);
         const checkoutStatus = urlParams.get('checkout_status');
         const itemType = urlParams.get('item_type');
 
         if (checkoutStatus === 'success' && itemType) {
-            // Remove params from URL immediately
             const newUrl = window.location.origin + window.location.pathname;
             window.history.replaceState({}, document.title, newUrl);
 
-            // Simple idempotency check using timestamp window
             const now = Date.now();
-            const transactionId = `square_${itemType}_${Math.floor(now / 10000)}`; // 10s window
+            const transactionId = `square_${itemType}_${Math.floor(now / 10000)}`; 
             const processed = currentData.processedTransactions || [];
 
             if (!processed.includes(transactionId)) {
                 updates.processedTransactions = [...processed, transactionId];
-                
-                // Gold Packs
                 if (itemType === 'gold_100') updates.goldBalance = (currentData.goldBalance || 0) + 100;
                 else if (itemType === 'gold_600') updates.goldBalance = (currentData.goldBalance || 0) + 600;
-                // Daily Deal (1x Rare, 2x Uncommon, 3x Common)
                 else if (itemType === 'daily_deal') {
                     const nextInv = [...(currentData.inventory || [])];
+                    const rand = () => Math.random();
                     const allItems = Object.keys(ITEM_METADATA) as InventoryItemType[];
                     const rares = allItems.filter(i => ITEM_METADATA[i].rarity === 'rare');
                     const uncommons = allItems.filter(i => ITEM_METADATA[i].rarity === 'uncommon');
                     const commons = allItems.filter(i => ITEM_METADATA[i].rarity === 'common');
-                    
                     const pick = (list: any[]) => list[Math.floor(rand() * list.length)];
-                    const bundle = [pick(rares), pick(uncommons), pick(uncommons), pick(commons), pick(commons), pick(commons)];
-                    
-                    bundle.forEach(t => {
+                    [pick(rares), pick(uncommons), pick(uncommons), pick(commons), pick(commons), pick(commons)].forEach(t => {
                         const idx = nextInv.findIndex(i => i.type === t);
                         if (idx > -1) nextInv[idx].count++;
                         else nextInv.push({ type: t, count: 1 });
                     });
                     updates.inventory = nextInv;
                 }
-                // Units
                 else {
                     const unlocks = currentData.unlockedPieces || [];
-                    if (!unlocks.includes(itemType)) {
-                        updates.unlockedPieces = [...unlocks, itemType];
-                    }
+                    if (!unlocks.includes(itemType)) updates.unlockedPieces = [...unlocks, itemType];
                 }
                 needsUpdate = true;
             }
-        }
-
-        // Targeted restore for account SUGGA - Version 2 to ensure reset recovery
-        if (currentData.username === 'SUGGA' && !currentData.suggaRestoreV2) {
-            updates.eloRating = 2100;
-            updates.unlockedPieces = ['dancer', 'mimic', 'grappler', 'myco_mage', 'archbishop', 'palace', 'archer'];
-            updates.suggaRestoreV2 = true;
-            needsUpdate = true;
         }
 
         const currentInv = currentData.inventory || [];

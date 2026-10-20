@@ -1,6 +1,7 @@
 import WebSocket from 'ws';
 import http from 'http';
 import { URL } from 'url';
+import * as admin from 'firebase-admin';
 
 import { 
     initializeBoard, 
@@ -32,6 +33,10 @@ import {
 } from './lib/chess-utils';
 import type { PlayerColor, Piece, AlgebraicSquare, PieceType, InventoryItemType, ChatMessage, Move } from './types';
 
+// Initialize Admin SDK
+if (!admin.apps.length) {
+    admin.initializeApp();
+}
 
 const server = http.createServer((req, res) => {
     const urlString = req.url || '';
@@ -98,6 +103,13 @@ const broadcastPresence = () => {
         }
     });
 };
+
+async function getUidByUsername(username: string) {
+    const usersRef = admin.firestore().collection('users');
+    const q = await usersRef.where('username', '==', username).limit(1).get();
+    if (q.empty) return null;
+    return q.docs[0].id;
+}
 
 function calculateEloChange(winnerElo: number, loserElo: number) {
     const k = 32;
@@ -370,6 +382,86 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                     broadcastPresence();
                     ws.send(JSON.stringify({ type: 'tournament-queue-update', count: arenaQueue.length }));
                     break;
+                case 'admin-command': {
+                    if (!ws.userId) break;
+                    const userSnap = await admin.firestore().doc(`users/${ws.userId}`).get();
+                    const userData = userSnap.data();
+                    if (userData?.role !== 'admin') break;
+
+                    const systemMsg = { id: `admin_${Date.now()}`, sender: 'SYSTEM', timestamp: Date.now(), category: 'log' };
+                    const parts = data.text.substring(1).split(' ');
+                    const cmd = parts[0].toLowerCase();
+
+                    if (cmd === 'adminhelp') {
+                        const help = [
+                            "ADMIN COMMANDS:",
+                            "/gold <user> <amt> - Set Gold",
+                            "/elo <user> <val> - Set Elo",
+                            "/unlock <user> <piece> - Unlock Unit",
+                            "/clear_inv <user> - Clear Loot Bag",
+                            "/mute <user> <mins> - Mute from chat",
+                            "/unmute <user> - Restore chat",
+                            "/ban <user> <mins> - Suspend account",
+                            "/unban <user> - Restore login",
+                            "/delete_acc <user> - Wipe profile & auth",
+                            "/who - List all online players"
+                        ];
+                        help.forEach(h => ws.send(JSON.stringify({ type: 'chat-message', message: { ...systemMsg, text: h } })));
+                    } else if (cmd === 'who') {
+                        const online = await Promise.all(Object.keys(userConnections).map(async uid => {
+                            const snap = await admin.firestore().doc(`users/${uid}`).get();
+                            const d = snap.data();
+                            return `${d?.username} (Elo: ${d?.eloRating}, Gold: ${d?.goldBalance})`;
+                        }));
+                        ws.send(JSON.stringify({ type: 'chat-message', message: { ...systemMsg, text: `PLAYERS: ${online.join(', ')}` } }));
+                    } else {
+                        const targetName = parts[1];
+                        const targetUid = await getUidByUsername(targetName);
+                        if (!targetUid) {
+                            ws.send(JSON.stringify({ type: 'chat-message', message: { ...systemMsg, text: `Target user '${targetName}' not found.` } }));
+                            break;
+                        }
+                        const targetRef = admin.firestore().doc(`users/${targetUid}`);
+
+                        if (cmd === 'gold') {
+                            const amt = parseInt(parts[2]);
+                            await targetRef.update({ goldBalance: amt });
+                            ws.send(JSON.stringify({ type: 'chat-message', message: { ...systemMsg, text: `Set ${targetName}'s Gold to ${amt}.` } }));
+                        } else if (cmd === 'elo') {
+                            const val = parseInt(parts[2]);
+                            await targetRef.update({ eloRating: val });
+                            ws.send(JSON.stringify({ type: 'chat-message', message: { ...systemMsg, text: `Set ${targetName}'s Elo to ${val}.` } }));
+                        } else if (cmd === 'unlock') {
+                            const p = parts[2];
+                            await targetRef.update({ unlockedPieces: admin.firestore.FieldValue.arrayUnion(p) });
+                            ws.send(JSON.stringify({ type: 'chat-message', message: { ...systemMsg, text: `Unlocked ${p} for ${targetName}.` } }));
+                        } else if (cmd === 'clear_inv') {
+                            await targetRef.update({ inventory: [] });
+                            ws.send(JSON.stringify({ type: 'chat-message', message: { ...systemMsg, text: `Wiped ${targetName}'s inventory.` } }));
+                        } else if (cmd === 'mute') {
+                            const mins = parseInt(parts[2]) || 60;
+                            const until = Date.now() + (mins * 60 * 1000);
+                            await targetRef.update({ mutedUntil: until });
+                            ws.send(JSON.stringify({ type: 'chat-message', message: { ...systemMsg, text: `Muted ${targetName} for ${mins} minutes.` } }));
+                        } else if (cmd === 'unmute') {
+                            await targetRef.update({ mutedUntil: 0 });
+                            ws.send(JSON.stringify({ type: 'chat-message', message: { ...systemMsg, text: `Unmuted ${targetName}.` } }));
+                        } else if (cmd === 'ban') {
+                            const mins = parseInt(parts[2]) || 60;
+                            const until = Date.now() + (mins * 60 * 1000);
+                            await targetRef.update({ bannedUntil: until });
+                            ws.send(JSON.stringify({ type: 'chat-message', message: { ...systemMsg, text: `Banned ${targetName} for ${mins} minutes.` } }));
+                        } else if (cmd === 'unban') {
+                            await targetRef.update({ bannedUntil: 0 });
+                            ws.send(JSON.stringify({ type: 'chat-message', message: { ...systemMsg, text: `Unbanned ${targetName}.` } }));
+                        } else if (cmd === 'delete_acc') {
+                            await admin.auth().deleteUser(targetUid);
+                            await targetRef.delete();
+                            ws.send(JSON.stringify({ type: 'chat-message', message: { ...systemMsg, text: `Permanently deleted ${targetName}.` } }));
+                        }
+                    }
+                    break;
+                }
                 case 'join-tournament-queue':
                     if (!arenaQueue.find(p => p.userId === data.userId)) {
                         arenaQueue.push({ ws, userId: data.userId, userData: data.user });
@@ -377,7 +469,15 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                         if (arenaQueue.length >= 8) startArena();
                     }
                     break;
-                case 'chat-message':
+                case 'chat-message': {
+                    if (!data.senderId) break;
+                    const senderSnap = await admin.firestore().doc(`users/${data.senderId}`).get();
+                    const senderData = senderSnap.data();
+                    if (senderData?.mutedUntil && senderData.mutedUntil > Date.now()) {
+                        ws.send(JSON.stringify({ type: 'chat-message', message: { id: `mute_${Date.now()}`, sender: 'SYSTEM', text: "You are currently muted.", timestamp: Date.now(), category: 'log' } }));
+                        break;
+                    }
+
                     const msg: ChatMessage = {
                         id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
                         sender: data.sender,
@@ -394,6 +494,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                         });
                     }
                     break;
+                }
                 case 'create-room': {
                     const roomId = Math.random().toString(36).substring(2, 9);
                     ws.roomId = roomId;
@@ -454,7 +555,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                         roomToJoin.gameState.board.forEach((row: any) => row.forEach((sq: any) => {
                             if (sq.piece && sq.piece.color === pColor) {
                                 if (eq[sq.piece.id]) sq.piece.heldItem = eq[sq.piece.id];
-                                
                                 if (sq.piece.type === 'bishop' && elo >= 1500 && !bUp) { sq.piece.type = 'archbishop'; bUp = true; }
                                 if (sq.piece.type === 'rook' && elo >= 1800 && !rUp) { sq.piece.type = 'palace'; rUp = true; }
                                 if (sq.piece.type === 'knight' && elo >= 2100 && !nUp) { sq.piece.type = 'archer'; nUp = true; }
@@ -471,15 +571,10 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                     if (!room) break;
                     const playerColor = room.gameState.players.white?.userId === ws.userId ? 'white' : 'black';
                     if (room.gameState.currentPlayer !== playerColor) break;
-
                     const { row, col } = algebraicToCoords(data.square);
                     if (isValidSquare(row, col) && !room.gameState.board[row][col].piece && !room.gameState.board[row][col].item) {
                         room.gameState.board[row][col].item = { type: 'anvil' };
-                        broadcastToRoom(ws.roomId!, { 
-                            type: 'game-move', 
-                            gameState: room.gameState,
-                            events: { anvilDrop: true, dropPos: data.square }
-                        });
+                        broadcastToRoom(ws.roomId!, { type: 'game-move', gameState: room.gameState, events: { anvilDrop: true, dropPos: data.square } });
                     }
                     break;
                 }
@@ -488,28 +583,19 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                     if (!room) break;
                     const playerColor = room.gameState.players.white?.userId === ws.userId ? 'white' : 'black';
                     if (room.gameState.currentPlayer !== playerColor) break;
-
                     const { row, col } = algebraicToCoords(data.square);
                     const board = room.gameState.board;
                     if (isValidSquare(row, col) && board[row][col].piece?.color === playerColor) {
                         const targetPiece = board[row][col].piece;
                         targetPiece.isShielded = true;
-                        
                         const levelChanges = [];
                         const rosaryArchbishop = board.flat().find((sq: any) => sq.piece && sq.piece.color === playerColor && sq.piece.heldItem === 'rosary');
                         if (rosaryArchbishop) {
                             const oldL = targetPiece.level;
                             targetPiece.level = Math.min(targetPiece.type === 'queen' ? 7 : 99, (targetPiece.level || 1) + 1);
-                            if (targetPiece.level > oldL) {
-                                levelChanges.push({ square: data.square, delta: 1 });
-                            }
+                            if (targetPiece.level > oldL) levelChanges.push({ square: data.square, delta: 1 });
                         }
-
-                        broadcastToRoom(ws.roomId!, { 
-                            type: 'game-move', 
-                            gameState: room.gameState,
-                            events: { shield: true, shieldPos: data.square, levelChanges }
-                        });
+                        broadcastToRoom(ws.roomId!, { type: 'game-move', gameState: room.gameState, events: { shield: true, shieldPos: data.square, levelChanges } });
                     }
                     break;
                 }
@@ -518,16 +604,11 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                     if (!room) break;
                     const playerColor = room.gameState.players.white?.userId === ws.userId ? 'white' : 'black';
                     if (room.gameState.currentPlayer !== playerColor) break;
-
                     const { row, col } = algebraicToCoords(data.square);
                     const board = room.gameState.board;
                     if (isValidSquare(row, col) && board[row][col].piece?.color !== playerColor) {
                         const sniped = board[row][col].piece;
-                        
-                        let smokeEscaped = false;
-                        let hydraSplit = false;
-                        let phxRes = false;
-
+                        let smokeEscaped = false; let hydraSplit = false; let phxRes = false;
                         if (sniped.heldItem === 'smoke_bomb') {
                              const backIdx = sniped.color === 'white' ? 7 : 0;
                              const cands = [];
@@ -535,12 +616,10 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                              if (cands.length > 0) {
                                  const destC = cands[Math.floor(Math.random()*cands.length)];
                                  board[backIdx][destC].piece = { ...sniped, heldItem: null, hasMoved: true, id: `${sniped.id}_smoke_${Date.now()}` };
-                                 board[row][col].piece = null;
-                                 smokeEscaped = true;
+                                 board[row][col].piece = null; smokeEscaped = true;
                              }
                         } else if (sniped.id.startsWith('boss-hydra')) {
-                             hydraSplit = true;
-                             board[row][col].piece = null;
+                             hydraSplit = true; board[row][col].piece = null;
                              const hAdj = [];
                              for(let dr=-1; dr<=1; dr++) for(let dc=-1; dc<=1; dc++) {
                                  const nr=row+dr, nc=col+dc;
@@ -550,8 +629,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                                  board[pos.r][pos.c].piece = { id:`h_${sniped.id}_${i}`, type:'knight', color:sniped.color, level:2, hasMoved:true };
                              });
                         } else if (sniped.heldItem === 'phoenix_down') {
-                             phxRes = true;
-                             board[row][col].piece = null;
+                             phxRes = true; board[row][col].piece = null;
                              const em = [];
                              for(let r=0; r<8; r++) for(let c=0; c<8; c++) if(!board[r][c].piece && !board[r][c].item) em.push({r,c});
                              if (em.length > 0) {
@@ -559,24 +637,11 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                                  board[p.r][p.c].piece = { ...sniped, id:`phx_${sniped.id}`, hasMoved:true };
                              }
                         }
-
                         if (!smokeEscaped && !hydraSplit && !phxRes) {
                             room.gameState.capturedPieces[sniped.color].push(sniped);
                             board[row][col].piece = null;
                         }
-
-                        broadcastToRoom(ws.roomId!, { 
-                            type: 'game-move', 
-                            gameState: room.gameState,
-                            events: { 
-                                snipe: true, 
-                                snipePos: data.square,
-                                smokeBomb: smokeEscaped,
-                                smokePos: smokeEscaped ? data.square : undefined,
-                                hydraSplit: hydraSplit,
-                                phoenixRes: phxRes
-                            }
-                        });
+                        broadcastToRoom(ws.roomId!, { type: 'game-move', gameState: room.gameState, events: { snipe: true, snipePos: data.square, smokeBomb: smokeEscaped, smokePos: smokeEscaped ? data.square : undefined, hydraSplit: hydraSplit, phoenixRes: phxRes } });
                     }
                     break;
                 }
@@ -585,17 +650,12 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                     if (!room) break;
                     const playerColor = room.gameState.players.white?.userId === ws.userId ? 'white' : 'black';
                     if (room.gameState.currentPlayer !== playerColor) break;
-
                     const { row, col } = algebraicToCoords(data.payload.square);
                     if (isValidSquare(row, col) && room.gameState.board[row][col].piece?.color === playerColor) {
                         const sacrificed = room.gameState.board[row][col].piece;
                         room.gameState.capturedPieces[sacrificed.color].push(sacrificed);
                         room.gameState.board[row][col].piece = null;
-                        broadcastToRoom(ws.roomId!, { 
-                            type: 'game-move', 
-                            gameState: room.gameState,
-                            events: { sacrifice: true, sacPos: data.payload.square }
-                        });
+                        broadcastToRoom(ws.roomId!, { type: 'game-move', gameState: room.gameState, events: { sacrifice: true, sacPos: data.payload.square } });
                     }
                     break;
                 }
@@ -604,28 +664,14 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                     if (!room) break;
                     const playerColor = room.gameState.players.white?.userId === ws.userId ? 'white' : 'black';
                     if (room.gameState.currentPlayer !== playerColor) break;
-
                     const { pieceId, square } = data.payload;
                     const { row, col } = algebraicToCoords(square);
                     const piece = room.gameState.capturedPieces[playerColor].find((p: Piece) => p.id === pieceId);
                     if (piece && isValidSquare(row, col) && !room.gameState.board[row][col].piece) {
-                        const resPiece = { 
-                            ...piece, 
-                            id: `res_ks_${piece.id}_${Date.now()}`,
-                            level: 1, 
-                            hasMoved: true, 
-                            isShielded: false, 
-                            isPoisoned: false, 
-                            cooldownTurnsRemaining: 0, 
-                            frozenTurnsRemaining: 0 
-                        };
+                        const resPiece = { ...piece, id: `res_ks_${piece.id}_${Date.now()}`, level: 1, hasMoved: true, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
                         room.gameState.board[row][col].piece = resPiece;
                         room.gameState.capturedPieces[playerColor] = room.gameState.capturedPieces[playerColor].filter((p: Piece) => p.id !== pieceId);
-                        broadcastToRoom(ws.roomId!, { 
-                            type: 'game-move', 
-                            gameState: room.gameState,
-                            events: { resurrection: true, resPos: square }
-                        });
+                        broadcastToRoom(ws.roomId!, { type: 'game-move', gameState: room.gameState, events: { resurrection: true, resPos: square } });
                     }
                     break;
                 }
@@ -634,253 +680,144 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                     if (!room) break;
                     const movePayload = data.payload as Move;
                     const gs = room.gameState;
-                    
                     const playerColor = gs.players.white?.userId === ws.userId ? 'white' : 'black';
                     const isRewardMove = ['dance-swap', 'dance-move', 'anvil-drop', 'holy-shield', 'archer-snipe', 'pawn-sacrifice', 'ks-resurrection', 'myco-propagate', 'tele-portobello', 'spore-bomb', 'raise-mycelimen'].includes(movePayload.type || '');
-                    
                     if (gs.currentPlayer !== playerColor && !isRewardMove) break;
-
                     const fromSq = algebraicToCoords(movePayload.from);
                     const movingPiece = gs.board[fromSq.row][fromSq.col].piece;
                     if (!isRewardMove) {
                         if (!movingPiece || movingPiece.color !== playerColor) break;
-                        
-                        // SERVER-SIDE ITEM VERIFICATION
-                        const requiredItem = moveTypeToItem[movePayload.type || ''];
-                        if (requiredItem) {
-                            const actualItem = movingPiece.heldItem;
-                            if (actualItem !== requiredItem) {
-                                console.warn(`[Security] Client attempted ${movePayload.type} without ${requiredItem}. Piece had ${actualItem}.`);
-                                break;
-                            }
-                            if (movePayload.type === 'self-destruct') {
-                                const effL = getEffectiveLevel(gs.board, fromSq.row, fromSq.col);
-                                if (effL < 2 && actualItem === 'detonation_scroll') break;
-                                if (effL < 5 && actualItem !== 'detonation_scroll') break;
-                            }
-                            if (movePayload.type === 'kings-decree' && movingPiece.type !== 'king') break;
-                        }
-
                         const legalMoves = getPossibleMoves(gs.board, movePayload.from, gs.enPassantTargetSquare, room.historyTracks.white, room.historyTracks.black, room.historyTracks.global);
                         if (!legalMoves.includes(movePayload.to)) break;
                     }
-
                     const result = applyMove(gs.board, movePayload, gs.enPassantTargetSquare, gs.capturedPieces, room.historyTracks.white, room.historyTracks.black, room.historyTracks.global, gs.didOpponentCaptureLastTurn);
-                    
-                    gs.board = result.newBoard;
-                    gs.enPassantTargetSquare = result.enPassantTargetSet;
-                    
+                    gs.board = result.newBoard; gs.enPassantTargetSquare = result.enPassantTargetSet;
                     let resurrectionEvent = null;
                     if (result.capturedPiece) {
                         const targetPile = result.capturedPiece.color;
                         if (!Array.isArray(gs.capturedPieces[targetPile])) gs.capturedPieces[targetPile] = [];
                         gs.capturedPieces[targetPile].push(result.capturedPiece);
-                        gs.killStreaks[playerColor]++;
-                        gs.didOpponentCaptureLastTurn = true;
+                        gs.killStreaks[playerColor]++; gs.didOpponentCaptureLastTurn = true;
                     } else if (result.selfDestructCaptures?.length) {
                         result.selfDestructCaptures.forEach((p: Piece) => {
                             const targetPile = p.color;
                             if (!Array.isArray(gs.capturedPieces[targetPile])) gs.capturedPieces[targetPile] = [];
                             gs.capturedPieces[targetPile].push(p);
                         });
-                        gs.killStreaks[playerColor] += result.selfDestructCaptures.length;
-                        gs.didOpponentCaptureLastTurn = true;
+                        gs.killStreaks[playerColor] += result.selfDestructCaptures.length; gs.didOpponentCaptureLastTurn = true;
                     } else if (result.obliteratedPieces && result.obliteratedPieces.length > 0) {
-                        gs.killStreaks[playerColor] += result.obliteratedPieces.length;
-                        gs.didOpponentCaptureLastTurn = true;
+                        gs.killStreaks[playerColor] += result.obliteratedPieces.length; gs.didOpponentCaptureLastTurn = true;
                     } else if (!isRewardMove) {
-                        gs.killStreaks[playerColor] = 0;
-                        gs.didOpponentCaptureLastTurn = false;
+                        gs.killStreaks[playerColor] = 0; gs.didOpponentCaptureLastTurn = false;
                     }
-
+                    const wasCapture = !!(result.capturedPiece || result.selfDestructCaptures?.length || (result.obliteratedPieces && result.obliteratedPieces.length > 0) || result.smokeBombEvent);
                     const toCoords = algebraicToCoords(movePayload.to);
                     const landedPiece = gs.board[toCoords.row][toCoords.col].piece;
-                    const wasCapture = !!(result.capturedPiece || result.selfDestructCaptures?.length || (result.obliteratedPieces && result.obliteratedPieces.length > 0) || result.smokeBombEvent);
-                    
                     if (landedPiece && (landedPiece.type === 'rook' || landedPiece.type === 'palace') && wasCapture) {
                         const resRes = processRookResurrectionCheck(gs.board, playerColor, movePayload, movePayload.to, movingPiece?.level || 1, gs.capturedPieces, Date.now());
                         if (resRes.resurrectionPerformed) {
-                            gs.board = resRes.boardWithResurrection;
-                            gs.capturedPieces = resRes.capturedPiecesAfterResurrection;
-                            resurrectionEvent = {
-                                square: resRes.resurrectedSquareAlg,
-                                piece: resRes.resurrectedPieceData
-                            };
+                            gs.board = resRes.boardWithResurrection; gs.capturedPieces = resRes.capturedPiecesAfterResurrection;
+                            resurrectionEvent = { square: resRes.resurrectedSquareAlg, piece: resRes.resurrectedPieceData };
                         }
                     }
-
                     if (movingPiece) {
                         const trackInfo = { type: movingPiece.type, level: movingPiece.level, item: movingPiece.heldItem || null };
                         if (playerColor === 'white') room.historyTracks.white = trackInfo;
                         else room.historyTracks.black = trackInfo;
                         room.historyTracks.global = trackInfo;
                     }
-
-                    // --- SHROOM SPAWNING (Source of Truth for Multiplayer) ---
-                    let shroomSpawnedEvent = false;
-                    let shroomSpawnPos = null;
-
+                    let shroomSpawnedEvent = false; let shroomSpawnPos = null;
                     if (!isRewardMove) {
                         gs.shroomSpawnCounter++;
                         const activeSets = getActiveSets(gs.board, playerColor);
-                        if (activeSets.includes('alchemist')) {
-                            gs.shroomSpawnCounter++;
-                        }
-
+                        if (activeSets.includes('alchemist')) gs.shroomSpawnCounter++;
                         if (gs.shroomSpawnCounter >= gs.nextShroomSpawnTurn) {
-                            const { newBoard: boardAfterShroom, spawnedAt } = spawnShroom(gs.board);
-                            if (spawnedAt) {
-                                gs.board = boardAfterShroom;
-                                gs.shroomSpawnCounter = 0;
-                                gs.nextShroomSpawnTurn = Math.floor(Math.random() * 6) + 5;
-                                shroomSpawnedEvent = true;
-                                shroomSpawnPos = spawnedAt;
-                            }
+                            const { newBoard: bAS, spawnedAt } = spawnShroom(gs.board);
+                            if (spawnedAt) { gs.board = bAS; gs.shroomSpawnCounter = 0; gs.nextShroomSpawnTurn = Math.floor(Math.random() * 6) + 5; shroomSpawnedEvent = true; shroomSpawnPos = spawnedAt; }
                         }
                     }
-                    
-                    if (result.infiltrationWin) {
-                        if (room.tournamentId) handleTournamentGameOver(room.tournamentId, ws.roomId!, playerColor, 'infiltration');
+                    if (result.infiltrationWin || (gs.killStreaks[playerColor] >= 8 && gs.board.flat().find(sq => sq.piece?.type === 'king' && sq.piece.color === playerColor)?.piece?.heldItem === 'kings_conquest')) {
+                        const reason = result.infiltrationWin ? 'infiltration' : 'conquest';
+                        if (room.tournamentId) handleTournamentGameOver(room.tournamentId, ws.roomId!, playerColor, reason);
                         else {
                             const winnerData = playerColor === 'white' ? gs.players.white : gs.players.black;
                             const loserData = playerColor === 'white' ? gs.players.black : gs.players.white;
                             const eloInfo: any = {};
-                            const goldEarned: any = {};
                             if (winnerData && loserData) {
                                 const changes = calculateEloChange(winnerData.elo || 1200, loserData.elo || 1200);
                                 eloInfo[winnerData.userId] = { oldElo: winnerData.elo || 1200, newElo: (winnerData.elo || 1200) + changes.winnerGain };
                                 eloInfo[loserData.userId] = { oldElo: loserData.elo || 1200, newElo: (loserData.elo || 1200) + changes.loserLoss };
                             }
-                            broadcastToRoom(ws.roomId!, { type: 'game-over', winner: playerColor, reason: 'infiltration', eloInfo, goldEarned, moveCount: gs.gameMoveCounter });
+                            broadcastToRoom(ws.roomId!, { type: 'game-over', winner: playerColor, reason, eloInfo, goldEarned: {}, moveCount: gs.gameMoveCounter });
                         }
                         return;
                     }
-
-                    const actingKingSq = gs.board.flat().find(sq => sq.piece?.type === 'king' && sq.piece.color === playerColor);
-                    if (gs.killStreaks[playerColor] >= 8 && actingKingSq?.piece?.heldItem === 'kings_conquest') {
-                        if (room.tournamentId) handleTournamentGameOver(room.tournamentId, ws.roomId!, playerColor, 'conquest');
-                        else {
-                            const winnerData = playerColor === 'white' ? gs.players.white : gs.players.black;
-                            const loserData = playerColor === 'white' ? gs.players.black : gs.players.white;
-                            const eloInfo: any = {};
-                            const goldEarned: any = {};
-                            if (winnerData && loserData) {
-                                const changes = calculateEloChange(winnerData.elo || 1200, loserData.elo || 1200);
-                                eloInfo[winnerData.userId] = { oldElo: winnerData.elo || 1200, newElo: (winnerData.elo || 1200) + changes.winnerGain };
-                                eloInfo[loserData.userId] = { oldElo: loserData.elo || 1200, newElo: (loserData.elo || 1200) + changes.loserLoss };
-                            }
-                            broadcastToRoom(ws.roomId!, { type: 'game-over', winner: playerColor, reason: 'conquest', eloInfo, goldEarned, moveCount: gs.gameMoveCounter });
-                        }
-                        return;
-                    }
-
                     const oppColor = playerColor === 'white' ? 'black' : 'white';
                     let mate = isCheckmate(gs.board, oppColor, gs.enPassantTargetSquare, room.historyTracks.white, room.historyTracks.black, room.historyTracks.global);
-                    
                     if (mate) {
                         const kingInfo = findKing(gs.board, oppColor);
                         if (kingInfo && kingInfo.piece.heldItem === 'kings_ransom') {
-                            const backRankIdx = oppColor === 'white' ? 7 : 0;
-                            const safe = [];
+                            const bRI = oppColor === 'white' ? 7 : 0; const safe = [];
                             for (let c = 0; c < 8; c++) {
-                                const alg = coordsToAlgebraic(backRankIdx, c);
-                                if (!gs.board[backRankIdx][c].piece && !gs.board[backRankIdx][c].item) {
-                                    if (!isSquareAttacked(gs.board, alg, playerColor, false, null, gs.enPassantTargetSquare, room.historyTracks.white, room.historyTracks.black, room.historyTracks.global, true)) {
-                                        safe.push(alg);
-                                    }
-                                }
+                                const alg = coordsToAlgebraic(bRI, c);
+                                if (!gs.board[bRI][c].piece && !gs.board[bRI][c].item && !isSquareAttacked(gs.board, alg, playerColor, false, null, gs.enPassantTargetSquare, room.historyTracks.white, room.historyTracks.black, room.historyTracks.global, true)) safe.push(alg);
                             }
                             if (safe.length > 0) {
-                                const dest = safe[Math.floor(Math.random() * safe.length)];
-                                const { row: dr, col: dc } = algebraicToCoords(dest);
-                                const { row: kr, col: kc } = algebraicToCoords(kingInfo.algebraic);
-                                gs.board[kr][kc].piece = null;
-                                gs.board[dr][dc].piece = { ...kingInfo.piece, heldItem: null, level: 1, hasMoved: true };
-                                mate = false; // Ransom consumed
-                                broadcastToRoom(ws.roomId!, { type: 'chat-message', message: {
-                                    id: `ransom_${Date.now()}`,
-                                    sender: 'SYSTEM',
-                                    text: `[SYS]: ${oppColor.toUpperCase()} King saved by King's Ransom!`,
-                                    timestamp: Date.now(),
-                                    category: 'log'
-                                }});
+                                const dest = safe[Math.floor(Math.random() * safe.length)]; const { row: dr, col: dc } = algebraicToCoords(dest); const { row: kr, col: kc } = algebraicToCoords(kingInfo.algebraic);
+                                gs.board[kr][kc].piece = null; gs.board[dr][dc].piece = { ...kingInfo.piece, heldItem: null, level: 1, hasMoved: true };
+                                mate = false; broadcastToRoom(ws.roomId!, { type: 'chat-message', message: { id: `ransom_${Date.now()}`, sender: 'SYSTEM', text: `[SYS]: ${oppColor.toUpperCase()} King saved by King's Ransom!`, timestamp: Date.now(), category: 'log' } });
                             }
                         }
                     }
-
                     if (mate) {
                         if (room.tournamentId) handleTournamentGameOver(room.tournamentId, ws.roomId!, playerColor, 'checkmate');
                         else {
                             const winnerData = playerColor === 'white' ? gs.players.white : gs.players.black;
                             const loserData = playerColor === 'white' ? gs.players.black : gs.players.white;
                             const eloInfo: any = {};
-                            const goldEarned: any = {};
                             if (winnerData && loserData) {
                                 const changes = calculateEloChange(winnerData.elo || 1200, loserData.elo || 1200);
                                 eloInfo[winnerData.userId] = { oldElo: winnerData.elo || 1200, newElo: (winnerData.elo || 1200) + changes.winnerGain };
                                 eloInfo[loserData.userId] = { oldElo: loserData.elo || 1200, newElo: (loserData.elo || 1200) + changes.loserLoss };
                             }
-                            broadcastToRoom(ws.roomId!, { type: 'game-over', winner: playerColor, reason: 'checkmate', eloInfo, goldEarned, moveCount: gs.gameMoveCounter });
+                            broadcastToRoom(ws.roomId!, { type: 'game-over', winner: playerColor, reason: 'checkmate', eloInfo, goldEarned: {}, moveCount: gs.gameMoveCounter });
                         }
                         return;
                     }
-                    
                     const hash = boardToPositionHash(gs.board, gs.currentPlayer === 'white' ? 'black' : 'white', gs.enPassantTargetSquare);
-                    const isFrontlineMove = movingPiece?.type && FRONTLINE_TYPES.includes(movingPiece.type);
-                    if (wasCapture || isFrontlineMove) room.positionHistory = [hash];
-                    else room.positionHistory.push(hash);
-
+                    const isFLM = movingPiece?.type && FRONTLINE_TYPES.includes(movingPiece.type);
+                    if (wasCapture || isFLM) room.positionHistory = [hash]; else room.positionHistory.push(hash);
                     const repeats = room.positionHistory.filter(h => h === hash).length;
                     if (repeats >= 3) {
                         if (room.tournamentId) handleTournamentGameOver(room.tournamentId, ws.roomId!, 'draw', 'repetition');
                         else broadcastToRoom(ws.roomId!, { type: 'game-over', winner: 'draw', reason: 'repetition' });
                     } else {
-                        const extraTurn_move = result.extraTurn || false;
-                        if (!extraTurn_move && !isRewardMove) {
+                        const exT = result.extraTurn || false;
+                        if (!exT && !isRewardMove) {
                             gs.currentPlayer = gs.currentPlayer === 'white' ? 'black' : 'white';
-                            const { newBoard: boardAfterPoison, levelChanges: poisonChanges } = processPoisonDamage(gs.board, gs.currentPlayer);
-                            gs.board = boardAfterPoison;
-                            result.levelChanges = [...(result.levelChanges || []), ...poisonChanges];
+                            const { newBoard: bAP, levelChanges: pCh } = processPoisonDamage(gs.board, gs.currentPlayer);
+                            gs.board = bAP; result.levelChanges = [...(result.levelChanges || []), ...pCh];
                         }
-                        
-                        const events = {
+                        const evs = {
                             captured: wasCapture,
                             capturedType: (result.capturedPiece || result.obliteratedPieces?.[0] || result.smokeBombEvent?.piece)?.type,
                             obliterated: result.obliteratedPieces && result.obliteratedPieces.length > 0,
-                            shroom: result.shroomConsumed,
-                            hero: result.promotedToHero,
-                            rally: !!result.rallyCryTriggered,
-                            rallyPos: result.rallyCryTriggered?.square,
-                            conversions: result.conversionEvents?.map(e => e.at) || [],
-                            reflection: result.reflectionOccurred,
-                            ralliedSquares: result.ralliedSquares || [],
-                            extraTurn: extraTurn_move,
-                            resurrection: !!resurrectionEvent,
-                            resPos: resurrectionEvent?.square,
-                            hydraSplit: result.hydraSplitOccurred,
-                            hydraSpawnSquares: result.hydraSpawnSquares,
-                            resScroll: !!result.resurrectionScrollEvent,
-                            resScrollPos: result.resurrectionScrollEvent?.square,
-                            levelChanges: result.levelChanges || [],
-                            stolen: !!result.stolenItem,
-                            stolenItem: result.stolenItem,
-                            smokeBomb: !!result.smokeBombEvent,
-                            smokePos: result.smokeBombEvent?.square,
-                            glassShard: result.glassShardTriggered,
-                            signal_horn: !!result.signalHornEvent,
+                            shroom: result.shroomConsumed, hero: result.promotedToHero,
+                            rally: !!result.rallyCryTriggered, rallyPos: result.rallyCryTriggered?.square,
+                            conversions: result.conversionEvents?.map(e => e.at) || [], reflection: result.reflectionOccurred,
+                            ralliedSquares: result.ralliedSquares || [], extraTurn: exT,
+                            resurrection: !!resurrectionEvent, resPos: resurrectionEvent?.square,
+                            hydraSplit: result.hydraSplitOccurred, hydraSpawnSquares: result.hydraSpawnSquares,
+                            resScroll: !!result.resurrectionScrollEvent, resScrollPos: result.resurrectionScrollEvent?.square,
+                            levelChanges: result.levelChanges || [], stolen: !!result.stolenItem, stolenItem: result.stolenItem,
+                            smokeBomb: !!result.smokeBombEvent, smokePos: result.smokeBombEvent?.square,
+                            glassShard: result.glassShardTriggered, signal_horn: !!result.signalHornEvent,
                             signalHornTargetType: result.signalHornEvent?.piece.type,
                             soulLink: result.obliteratedPieces?.some(p => p.id.includes('_linked_')),
                             soulLinkCount: result.obliteratedPieces?.filter(p => p.id.includes('_linked_')).length,
-                            shroomSpawned: shroomSpawnedEvent,
-                            shroomPos: shroomSpawnPos
+                            shroomSpawned: shroomSpawnedEvent, shroomPos: shroomSpawnPos
                         };
-
-                        broadcastToRoom(ws.roomId!, { 
-                            type: 'game-move', 
-                            gameState: gs, 
-                            move: movePayload,
-                            events
-                        });
+                        broadcastToRoom(ws.roomId!, { type: 'game-move', gameState: gs, move: movePayload, events: evs });
                     }
                     break;
                 }
