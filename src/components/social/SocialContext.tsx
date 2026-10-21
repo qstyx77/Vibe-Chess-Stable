@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
@@ -194,6 +195,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
         // INTERCEPT ADMIN COMMANDS
         const adminCmds = ['/gold', '/elo', '/unlock', '/clear_inv', '/mute', '/unmute', '/ban', '/unban', '/delete_acc', '/who', '/adminhelp'];
         if (adminCmds.includes(cmd)) {
+            addLog(`Executing: ${cmd}...`);
             wsRef.current.send(JSON.stringify({
                 type: 'admin-command',
                 senderId: user?.uid,
