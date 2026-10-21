@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
@@ -51,6 +50,9 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
   const [tournamentQueueCount, setTournamentQueueCount] = useState(0);
   const [isTournamentIntermission, setIsTournamentIntermission] = useState(false);
   const [tournamentRound, setTournamentRound] = useState(0);
+  
+  // Ignore List (Session-based soft block)
+  const [ignoredUserIds, setIgnoredUserIds] = useState<Set<string>>(new Set());
   
   const wsRef = useRef<WebSocket | null>(null);
   const userDataRef = useRef(userData);
@@ -135,6 +137,10 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
         socket.onmessage = (event) => {
             const data = JSON.parse(event.data);
             if (data.type === 'chat-message') {
+                // Relationship Filtering (Block/Ignore)
+                const senderId = data.message.senderId;
+                if (ignoredUserIds.has(senderId)) return;
+                
                 setMessages(prev => {
                     if (prev.some(m => m.id === data.message.id)) return prev;
                     return [...prev, data.message];
@@ -176,7 +182,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
         if (wsRef.current) wsRef.current.close();
         clearTimeout(reconnectTimeout);
     };
-  }, [user?.uid, toast]);
+  }, [user?.uid, toast, ignoredUserIds]);
 
   const clearUnread = useCallback((category: MessageCategory) => {
       setHasUnread(prev => ({ ...prev, [category]: false }));
@@ -192,7 +198,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
         const parts = text.trim().split(' ');
         const cmd = parts[0].toLowerCase();
         
-        // INTERCEPT ADMIN COMMANDS
+        // ADMIN COMMANDS
         const adminCmds = ['/gold', '/elo', '/unlock', '/clear_inv', '/mute', '/unmute', '/ban', '/unban', '/delete_acc', '/who', '/adminhelp'];
         if (adminCmds.includes(cmd)) {
             addLog(`Executing: ${cmd}...`);
@@ -204,16 +210,62 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
             return;
         }
 
+        // PLAYER COMMANDS
         if (cmd === '/help') {
-            addLog("COMMAND LIST:");
-            addLog("/help - Show this list");
-            addLog("@name <text> - Private whisper to a hero");
-            addLog("/clear - Wipe session history");
+            addLog("HERO COMMAND LIST:");
+            addLog("/friend <name> - Send friend request");
+            addLog("/unfriend <name> - Remove friend");
+            addLog("/whisper <name> <msg> - Private message");
+            addLog("/invite <name> - Invite player to your room");
+            addLog("/spectate <name> - Join a player's session");
+            addLog("/block <name> - Permanent blacklist");
+            addLog("/unblock <name> - Restore communication");
+            addLog("/ignore <name> - Session hide (Soft block)");
+            addLog("/stats - View your combat record");
+            addLog("/rank - Check Hall of Champions position");
+            addLog("/clear - Wipe session logs");
             return;
         }
+
         if (cmd === '/clear') {
             setMessages([]);
             addLog("Session history cleared.");
+            return;
+        }
+
+        if (cmd === '/ignore') {
+            const targetName = parts[1];
+            if (targetName) {
+                const target = onlineUsers.find(u => u.username.toLowerCase() === targetName.toLowerCase());
+                if (target) {
+                    setIgnoredUserIds(prev => new Set(prev).add(target.userId));
+                    addLog(`Now ignoring messages from ${target.username} for this session.`);
+                } else {
+                    addLog(`Error: ${targetName} not found online.`);
+                }
+            } else {
+                addLog("Usage: /ignore <name>");
+            }
+            return;
+        }
+
+        if (cmd === '/stats') {
+            if (userDataRef.current) {
+                addLog(`YOUR RECORD: ${userDataRef.current.username}`);
+                addLog(`Elo: ${userDataRef.current.eloRating} | Victories: ${userDataRef.current.wins}`);
+                addLog(`Defeats: ${userDataRef.current.losses} | Gold: ${userDataRef.current.goldBalance}`);
+            }
+            return;
+        }
+
+        // PASS THROUGH PLAYER COMMANDS TO SERVER
+        const playerForwardCmds = ['/friend', '/unfriend', '/whisper', '/w', '/invite', '/block', '/unblock', '/rank', '/spectate'];
+        if (playerForwardCmds.includes(cmd)) {
+            wsRef.current.send(JSON.stringify({
+                type: 'player-command',
+                senderId: user?.uid,
+                text: text
+            }));
             return;
         }
     }

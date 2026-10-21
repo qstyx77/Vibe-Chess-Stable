@@ -1,4 +1,3 @@
-
 import WebSocket from 'ws';
 import http from 'http';
 import { URL } from 'url';
@@ -383,6 +382,73 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                     broadcastPresence();
                     ws.send(JSON.stringify({ type: 'tournament-queue-update', count: arenaQueue.length }));
                     break;
+                case 'player-command': {
+                    const sendResponse = (text: string) => {
+                        ws.send(JSON.stringify({ 
+                            type: 'chat-message', 
+                            message: { 
+                                id: `sys_${Date.now()}_${Math.random()}`, 
+                                sender: 'SYSTEM', 
+                                text,
+                                timestamp: Date.now(), 
+                                category: 'social' 
+                            } 
+                        }));
+                    };
+
+                    const parts = data.text.trim().split(' ');
+                    const cmd = parts[0].toLowerCase();
+                    const targetName = parts[1];
+                    const targetUid = targetName ? await getUidByUsername(targetName) : null;
+
+                    if (cmd === '/friend' && targetUid) {
+                        const targetRef = admin.firestore().doc(`users/${ws.userId}/friends/${targetUid}`);
+                        await targetRef.set({ id: targetUid, username: targetName, status: 'accepted', createdAt: new Date().toISOString() });
+                        sendResponse(`Successfully added ${targetName} to your friends list.`);
+                    } else if (cmd === '/unfriend' && targetUid) {
+                        await admin.firestore().doc(`users/${ws.userId}/friends/${targetUid}`).delete();
+                        sendResponse(`Removed ${targetName} from your friends.`);
+                    } else if ((cmd === '/whisper' || cmd === '/w') && targetUid) {
+                        const msg = parts.slice(2).join(' ');
+                        const targetWs = userConnections[targetUid];
+                        if (targetWs) {
+                            const chatMsg = { id: `pm_${Date.now()}`, sender: ws.username, senderId: ws.userId, text: `[WHISPER]: ${msg}`, timestamp: Date.now(), category: 'social' };
+                            targetWs.send(JSON.stringify({ type: 'chat-message', message: chatMsg }));
+                            ws.send(JSON.stringify({ type: 'chat-message', message: { ...chatMsg, text: `[TO ${targetName}]: ${msg}` } }));
+                        } else sendResponse(`Error: ${targetName} is offline.`);
+                    } else if (cmd === '/invite' && targetUid) {
+                        if (!ws.roomId) { sendResponse("Error: You are not in a game room."); break; }
+                        const targetWs = userConnections[targetUid];
+                        if (targetWs) {
+                            targetWs.send(JSON.stringify({ type: 'chat-message', message: {
+                                id: `inv_${Date.now()}`,
+                                sender: ws.username,
+                                text: `Sent you a duel invitation! [Link: /?roomId=${ws.roomId}]`,
+                                timestamp: Date.now(),
+                                category: 'social',
+                                isChallenge: true,
+                                challengeRoomId: ws.roomId
+                            }}));
+                            sendResponse(`Invitation sent to ${targetName}.`);
+                        } else sendResponse(`Error: ${targetName} is offline.`);
+                    } else if (cmd === '/block' && targetUid) {
+                        await admin.firestore().doc(`users/${ws.userId}/friends/${targetUid}`).set({ id: targetUid, username: targetName, status: 'blocked', createdAt: new Date().toISOString() });
+                        sendResponse(`Hero ${targetName} has been blacklisted.`);
+                    } else if (cmd === '/unblock' && targetUid) {
+                        await admin.firestore().doc(`users/${ws.userId}/friends/${targetUid}`).delete();
+                        sendResponse(`${targetName} is no longer blacklisted.`);
+                    } else if (cmd === '/rank') {
+                        const snap = await admin.firestore().collection('users').orderBy('eloRating', 'desc').get();
+                        const rank = snap.docs.findIndex(d => d.id === ws.userId) + 1;
+                        sendResponse(`GLOBAL STANDING: You are currently Rank #${rank} of ${snap.size}.`);
+                    } else if (cmd === '/spectate' && targetUid) {
+                        const targetWs = userConnections[targetUid];
+                        if (targetWs && targetWs.roomId) {
+                            sendResponse(`${targetName} is in Room ${targetWs.roomId}. [Link: /?roomId=${targetWs.roomId}]`);
+                        } else sendResponse(`Error: ${targetName} is not in an active game.`);
+                    }
+                    break;
+                }
                 case 'admin-command': {
                     const entropy = () => Math.random().toString(36).substr(2, 5);
                     const sendResponse = (text: string, index: number) => {
@@ -412,7 +478,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                             if (userData?.role === 'admin') isVerifiedAdmin = true;
                         } catch (dbError) {
                             console.warn("[Admin] Database unreachable, performing session fallback...");
-                            // FALLBACK: Allow SUGGA verified session even if database check times out
                             if (ws.username?.toUpperCase() === 'SUGGA') {
                                 isVerifiedAdmin = true;
                             }
