@@ -272,7 +272,7 @@ export class VibeChessAI {
         } else if (move.type === 'grapple-throw') {
             if (targetPiece?.type === 'king') return next; 
             if (move.grappledFrom) {
-                const [gr, gc] = move.grappledFrom;
+                const { row: gr, col: gc } = Array.isArray(move.grappledFrom) ? { row: move.grappledFrom[0], col: move.grappledFrom[1] } : algebraicToCoords(move.grappledFrom as AlgebraicSquare);
                 next.board[gr][gc].piece = null;
                 next.board[gr][gc].item = null;
             }
@@ -946,7 +946,7 @@ export class VibeChessAI {
                                 if (clear) canAttack = true;
                             }
                         } else if (FRONTLINE_TYPES.includes(attackerPattern)) {
-                            // Forward direction check
+                            // Corrected direction vectors: White: -1, Black: +1
                             const forwardDir = attacker.color === 'white' ? -1 : 1;
                             const drFromAttacker = Math.sign(tr - nr);
                             const dcFromAttacker = Math.sign(tc - nc);

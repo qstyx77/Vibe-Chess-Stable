@@ -165,7 +165,7 @@ export function useUser() {
 
         // Targeted grant for account SUGGA - Admin Access (Case Insensitive Display Name or Username)
         const isSugga = currentData.username?.toUpperCase() === 'SUGGA' || user.displayName?.toUpperCase() === 'SUGGA';
-        if (isSugga && !currentData.adminActiveV1) {
+        if (isSugga && currentData.role !== 'admin') {
             updates.role = 'admin';
             updates.eloRating = 2100;
             updates.unlockedPieces = ['pawn', 'knight', 'bishop', 'rook', 'queen', 'king', 'commander', 'hero', 'infiltrator', 'archbishop', 'palace', 'archer', 'dancer', 'mimic', 'grappler', 'myco_mage'];
