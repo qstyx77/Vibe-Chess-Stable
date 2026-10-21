@@ -1,3 +1,4 @@
+
 import type { Piece, PlayerColor, PieceType, AIMove, AIGameState, AIBoardState, AISquareState, Item, AlgebraicSquare, InventoryItemType, LastMoveInfo } from '@/types';
 import { coordsToAlgebraic, algebraicToCoords, getCastlingRightsString, isPieceInvulnerableToAttack as isPieceInvulnerableToAttackUtil, isValidSquare as isValidSquareUtil, getEffectiveLevel, getPromotionLevel, FRONTLINE_TYPES, VAL_MAP } from '@/lib/chess-utils';
 
@@ -282,7 +283,7 @@ export class VibeChessAI {
                 next.board[tR][tC].piece = p;
                 if (targetPiece?.color === opponent) captureCount++;
             }
-            // FIX: Grappler remains stationary while victim moves
+            // Fix: Grappler stays stationary, target moves
             next.board[fR][fC].piece = { ...movingPiece, hasMoved: true };
         } else if (move.type === 'ram-push') {
             const dr = Math.sign(tR - fR); const dc = Math.sign(tC - fC);
@@ -945,21 +946,20 @@ export class VibeChessAI {
                                 if (clear) canAttack = true;
                             }
                         } else if (FRONTLINE_TYPES.includes(attackerPattern)) {
-                            // Correct directional attack vector for Frontline units
+                            // Forward direction check
                             const forwardDir = attacker.color === 'white' ? -1 : 1;
                             const drFromAttacker = Math.sign(tr - nr);
                             const dcFromAttacker = Math.sign(tc - nc);
                             
                             if (dist === 1) {
-                                if (drFromAttacker === forwardDir && Math.abs(dcFromAttacker) === 1) canAttack = true; // Diag capture
-                                else if (drFromAttacker === -forwardDir && dcFromAttacker === 0 && attackerLevel >= 2) canAttack = true; // Back strike
-                                else if (drFromAttacker === 0 && Math.abs(dcFromAttacker) === 1 && attackerLevel >= 3) canAttack = true; // Side strike
+                                if (drFromAttacker === forwardDir && Math.abs(dcFromAttacker) === 1) canAttack = true; 
+                                else if (drFromAttacker === -forwardDir && dcFromAttacker === 0 && attackerLevel >= 2) canAttack = true; 
+                                else if (drFromAttacker === 0 && Math.abs(dcFromAttacker) === 1 && attackerLevel >= 3) canAttack = true; 
                             }
                         } else if (attackerPattern === 'infiltrator') {
                             const forwardDir = attacker.color === 'white' ? -1 : 1;
                             const drFromAttacker = Math.sign(tr - nr);
                             const dcFromAttacker = Math.sign(tc - nc);
-                            // Infiltrators strike along their movement lines
                             if (drFromAttacker === forwardDir && (dcFromAttacker === 0 || Math.abs(dcFromAttacker) === 1)) canAttack = true;
                         }
 
@@ -1000,7 +1000,6 @@ export class VibeChessAI {
                             const drFromAttacker = Math.sign(tr - nr);
                             if (drFromAttacker === forwardDir) canAttack = true;
                         } else if (dist === 1) {
-                            // Correct vector for diagonal pawn capture
                             const forwardDir = attacker.color === 'white' ? -1 : 1;
                             const drFromAttacker = Math.sign(tr - nr);
                             if (drFromAttacker === forwardDir) canAttack = true;

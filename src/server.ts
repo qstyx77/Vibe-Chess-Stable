@@ -384,10 +384,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                     ws.send(JSON.stringify({ type: 'tournament-queue-update', count: arenaQueue.length }));
                     break;
                 case 'admin-command': {
-                    if (!ws.userId) break;
-                    const userSnap = await admin.firestore().doc(`users/${ws.userId}`).get();
-                    const userData = userSnap.data();
-                    
                     const entropy = () => Math.random().toString(36).substr(2, 5);
                     const sendResponse = (text: string, index: number) => {
                         ws.send(JSON.stringify({ 
@@ -402,89 +398,108 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                         }));
                     };
 
-                    if (userData?.role !== 'admin') {
-                        sendResponse("PERMISSION DENIED: Admin role required.", 0);
+                    const authId = ws.userId || data.senderId;
+                    if (!authId) {
+                        sendResponse("ERROR: Session not identified. Please wait or re-log.", 0);
                         break;
                     }
 
-                    const parts = data.text.trim().split(' ');
-                    const cmd = parts[0].toLowerCase();
+                    try {
+                        const userSnap = await admin.firestore().doc(`users/${authId}`).get();
+                        const userData = userSnap.data();
 
-                    if (cmd === '/adminhelp') {
-                        const help = [
-                            "ADMIN COMMAND CENTER - SYNTAX GUIDE (CASE SENSITIVE USERNAMES):",
-                            "/gold <user> <amount> - e.g. /gold SUGGA 1000",
-                            "/elo <user> <value> - e.g. /elo Bob 1500",
-                            "/unlock <user> <piece> - e.g. /unlock Bob dancer",
-                            "/clear_inv <user> - Wipes loot bag",
-                            "/mute <user> <mins> - e.g. /mute Bob 60 (Mutes chat)",
-                            "/unmute <user> - Restore chat access",
-                            "/ban <user> <mins> - e.g. /ban Bob 1440 (Suspends login)",
-                            "/unban <user> - Restore login access",
-                            "/delete_acc <user> - WIPE Auth and Firestore record",
-                            "/who - List all online players and their stats",
-                        ];
-                        help.forEach((h, i) => sendResponse(h, i));
-                    } else if (cmd === '/who') {
-                        const online = await Promise.all(Object.keys(userConnections).map(async uid => {
-                            const snap = await admin.firestore().doc(`users/${uid}`).get();
-                            const d = snap.data();
-                            return `${d?.username} (Elo: ${d?.eloRating}, Gold: ${d?.goldBalance})`;
-                        }));
-                        sendResponse(`PLAYERS: ${online.length > 0 ? online.join(', ') : 'None online.'}`, 0);
-                    } else {
-                        const targetName = parts[1];
-                        if (!targetName) {
-                            sendResponse(`ERROR: Missing target name. Usage: ${cmd} <name> <value>`, 0);
+                        if (!userData) {
+                            sendResponse("ERROR: User profile record missing.", 0);
                             break;
                         }
 
-                        const targetUid = await getUidByUsername(targetName);
-                        if (!targetUid) {
-                            sendResponse(`ERROR: Target user '${targetName}' not found (Check case sensitivity).`, 0);
+                        if (userData.role !== 'admin') {
+                            sendResponse("PERMISSION DENIED: Administrative access required.", 0);
                             break;
                         }
-                        const targetRef = admin.firestore().doc(`users/${targetUid}`);
 
-                        if (cmd === '/gold') {
-                            const amt = parseInt(parts[2]);
-                            if (isNaN(amt)) { sendResponse("Usage: /gold <name> <amount>", 0); break; }
-                            await targetRef.update({ goldBalance: amt });
-                            sendResponse(`SUCCESS: Set ${targetName}'s Gold to ${amt}.`, 0);
-                        } else if (cmd === '/elo') {
-                            const val = parseInt(parts[2]);
-                            if (isNaN(val)) { sendResponse("Usage: /elo <name> <value>", 0); break; }
-                            await targetRef.update({ eloRating: val });
-                            sendResponse(`SUCCESS: Set ${targetName}'s Elo to ${val}.`, 0);
-                        } else if (cmd === '/unlock') {
-                            const p = parts[2];
-                            if (!p) { sendResponse("Usage: /unlock <name> <piece_type>", 0); break; }
-                            await targetRef.update({ unlockedPieces: admin.firestore.FieldValue.arrayUnion(p) });
-                            sendResponse(`SUCCESS: Unlocked ${p} for ${targetName}.`, 0);
-                        } else if (cmd === '/clear_inv') {
-                            await targetRef.update({ inventory: [] });
-                            sendResponse(`SUCCESS: Wiped ${targetName}'s inventory.`, 0);
-                        } else if (cmd === '/mute') {
-                            const mins = parseInt(parts[2]) || 60;
-                            const until = Date.now() + (mins * 60 * 1000);
-                            await targetRef.update({ mutedUntil: until });
-                            sendResponse(`SUCCESS: Muted ${targetName} for ${mins} minutes.`, 0);
-                        } else if (cmd === '/unmute') {
-                            await targetRef.update({ mutedUntil: 0 });
-                            sendResponse(`SUCCESS: Unmuted ${targetName}.`, 0);
-                        } else if (cmd === '/ban') {
-                            const mins = parseInt(parts[2]) || 60;
-                            const until = Date.now() + (mins * 60 * 1000);
-                            await targetRef.update({ bannedUntil: until });
-                            sendResponse(`SUCCESS: Banned ${targetName} for ${mins} minutes.`, 0);
-                        } else if (cmd === '/unban') {
-                            await targetRef.update({ bannedUntil: 0 });
-                            sendResponse(`SUCCESS: Unbanned ${targetName}.`, 0);
-                        } else if (cmd === '/delete_acc') {
-                            await admin.auth().deleteUser(targetUid);
-                            await targetRef.delete();
-                            sendResponse(`SUCCESS: Permanently deleted ${targetName}.`, 0);
+                        const parts = data.text.trim().split(' ');
+                        const cmd = parts[0].toLowerCase();
+
+                        if (cmd === '/adminhelp') {
+                            const help = [
+                                "ADMIN COMMAND CENTER - SYNTAX GUIDE (CASE SENSITIVE USERNAMES):",
+                                "/gold <user> <amount> - e.g. /gold SUGGA 1000",
+                                "/elo <user> <value> - e.g. /elo Bob 1500",
+                                "/unlock <user> <piece> - e.g. /unlock Bob dancer",
+                                "/clear_inv <user> - Wipes loot bag",
+                                "/mute <user> <mins> - e.g. /mute Bob 60 (Mutes chat)",
+                                "/unmute <user> - Restore chat access",
+                                "/ban <user> <mins> - e.g. /ban Bob 1440 (Suspends login)",
+                                "/unban <user> - Restore login access",
+                                "/delete_acc <user> - WIPE Auth and Firestore record",
+                                "/who - List all online players and their stats",
+                            ];
+                            help.forEach((h, i) => sendResponse(h, i));
+                        } else if (cmd === '/who') {
+                            const online = await Promise.all(Object.keys(userConnections).map(async uid => {
+                                const snap = await admin.firestore().doc(`users/${uid}`).get();
+                                const d = snap.data();
+                                return `${d?.username} (Elo: ${d?.eloRating}, Gold: ${d?.goldBalance})`;
+                            }));
+                            sendResponse(`PLAYERS: ${online.length > 0 ? online.join(', ') : 'None online.'}`, 0);
+                        } else {
+                            const targetName = parts[1];
+                            if (!targetName) {
+                                sendResponse(`ERROR: Missing target name. Usage: ${cmd} <name> <value>`, 0);
+                                break;
+                            }
+
+                            const targetUid = await getUidByUsername(targetName);
+                            if (!targetUid) {
+                                sendResponse(`ERROR: Target user '${targetName}' not found (Check case sensitivity).`, 0);
+                                break;
+                            }
+                            const targetRef = admin.firestore().doc(`users/${targetUid}`);
+
+                            if (cmd === '/gold') {
+                                const amt = parseInt(parts[2]);
+                                if (isNaN(amt)) { sendResponse("Usage: /gold <name> <amount>", 0); break; }
+                                await targetRef.update({ goldBalance: amt });
+                                sendResponse(`SUCCESS: Set ${targetName}'s Gold to ${amt}.`, 0);
+                            } else if (cmd === '/elo') {
+                                const val = parseInt(parts[2]);
+                                if (isNaN(val)) { sendResponse("Usage: /elo <name> <value>", 0); break; }
+                                await targetRef.update({ eloRating: val });
+                                sendResponse(`SUCCESS: Set ${targetName}'s Elo to ${val}.`, 0);
+                            } else if (cmd === '/unlock') {
+                                const p = parts[2];
+                                if (!p) { sendResponse("Usage: /unlock <name> <piece_type>", 0); break; }
+                                await targetRef.update({ unlockedPieces: admin.firestore.FieldValue.arrayUnion(p) });
+                                sendResponse(`SUCCESS: Unlocked ${p} for ${targetName}.`, 0);
+                            } else if (cmd === '/clear_inv') {
+                                await targetRef.update({ inventory: [] });
+                                sendResponse(`SUCCESS: Wiped ${targetName}'s inventory.`, 0);
+                            } else if (cmd === '/mute') {
+                                const mins = parseInt(parts[2]) || 60;
+                                const until = Date.now() + (mins * 60 * 1000);
+                                await targetRef.update({ mutedUntil: until });
+                                sendResponse(`SUCCESS: Muted ${targetName} for ${mins} minutes.`, 0);
+                            } else if (cmd === '/unmute') {
+                                await targetRef.update({ mutedUntil: 0 });
+                                sendResponse(`SUCCESS: Unmuted ${targetName}.`, 0);
+                            } else if (cmd === '/ban') {
+                                const mins = parseInt(parts[2]) || 60;
+                                const until = Date.now() + (mins * 60 * 1000);
+                                await targetRef.update({ bannedUntil: until });
+                                sendResponse(`SUCCESS: Banned ${targetName} for ${mins} minutes.`, 0);
+                            } else if (cmd === '/unban') {
+                                await targetRef.update({ bannedUntil: 0 });
+                                sendResponse(`SUCCESS: Unbanned ${targetName}.`, 0);
+                            } else if (cmd === '/delete_acc') {
+                                await admin.auth().deleteUser(targetUid);
+                                await targetRef.delete();
+                                sendResponse(`SUCCESS: Permanently deleted ${targetName}.`, 0);
+                            }
                         }
+                    } catch (e) {
+                        console.error("[Admin Command Processor Error]", e);
+                        sendResponse("ERROR: Database connection timeout.", 0);
                     }
                     break;
                 }
