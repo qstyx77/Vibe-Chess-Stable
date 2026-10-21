@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -306,6 +307,7 @@ export default function DungeonPage() {
   const [isAwaitingSwapTarget, setIsAwaitingSwapTarget] = useState(false);
   const [isAwaitingSwapClergyTarget, setIsAwaitingSwapClergyTarget] = useState(false);
   const [isAwaitingSwapCavalryTarget, setIsAwaitingSwapCavalryTarget] = useState(false);
+  const [isAwaitingSwapCavalryTarget, setIsAwaitingSwapCavalryTarget] = useState(false);
   const [isAwaitingDecreeTarget, setIsAwaitingDecreeTarget] = useState(false);
   const [isAwaitingEarthquakeScrollTarget, setIsAwaitingEarthquakeScrollTarget] = useState(false);
 
@@ -333,6 +335,43 @@ export default function DungeonPage() {
   const attunementSlots = useMemo(() => {
     const elo = userData?.eloRating || 1200; return 3 + Math.floor((Math.max(0, elo - 1200)) / 400);
   }, [userData]);
+
+  // Track Attunement and Unlocks for Alerts
+  const prevAttunementRef = useRef<number | null>(null);
+  const prevUnlockedRef = useRef<string[] | null>(null);
+
+  useEffect(() => {
+    if (isUserLoading || !userData) return;
+
+    // Check Attunement
+    if (prevAttunementRef.current !== null && attunementSlots !== prevAttunementRef.current) {
+        if (attunementSlots > prevAttunementRef.current) {
+            const msg = `ATTUNEMENT INCREASED! You now have ${attunementSlots} equipment slots.`;
+            toast({ title: "Power Up!", description: msg });
+            addLog(msg);
+            audioManager.playLevelUp();
+        } else {
+            const msg = `ATTUNEMENT DECREASED. You now have ${attunementSlots} equipment slots.`;
+            toast({ variant: 'destructive', title: "Power Drained", description: msg });
+            addLog(msg);
+        }
+    }
+    prevAttunementRef.current = attunementSlots;
+
+    // Check Unlocks
+    const currentUnlocked = userData.unlockedPieces || [];
+    if (prevUnlockedRef.current !== null) {
+        const newPieces = currentUnlocked.filter(p => !prevUnlockedRef.current?.includes(p));
+        newPieces.forEach(p => {
+            const name = p.charAt(0).toUpperCase() + p.slice(1).replace('_', ' ');
+            const msg = `NEW UNIT UNLOCKED: The ${name} is now available!`;
+            toast({ title: "Recruitment Complete", description: msg });
+            addLog(msg);
+            audioManager.playLevelUp();
+        });
+    }
+    prevUnlockedRef.current = currentUnlocked;
+  }, [userData, isUserLoading, attunementSlots, toast, addLog]);
 
   const usedSlots = useMemo(() => board.flat().filter(sq => sq.piece?.heldItem).length, [board]);
 
@@ -742,7 +781,7 @@ export default function DungeonPage() {
                     }
                     const sc = Math.min(adj.length, 2); const sh = adj.sort(() => Math.random() - 0.5);
                     for (let i = 0; i < sc; i++) {
-                        const pos = hAdj[i]; nxtB[pos.r][pos.col].piece = { id: `hydra_spawn_snipe_${sniped.id}_${i}_${Date.now()}`, type: 'knight', color: sniped.color, level: 2, hasMoved: true, isShielded: false };
+                        const pos = sh[i]; nxtB[pos.r][pos.col].piece = { id: `hydra_spawn_snipe_${sniped.id}_${i}_${Date.now()}`, type: 'knight', color: sniped.color, level: 2, hasMoved: true, isShielded: false };
                         nxtB[pos.r][pos.col].item = null;
                         addEffect('light-beam', coordsToAlgebraic(pos.r, pos.col));
                     }
@@ -750,7 +789,7 @@ export default function DungeonPage() {
                 }
                 addLog(`${actP === 'white' ? "Hero" : "Dungeon"} sniped a Level ${sniped.level} ${sniped.type}!`); audioManager.playSnipe(); addEffect('poof', coordsToAlgebraic(row, col));
                 const targetP = sniped.color; nG[targetP] = [...(nG[targetP]||[]), sniped];
-                triggerSpecialsChain(nxtB, nG, cKs, oldS, newS, isEx, nEp, actP, [...compM, 'snipe'], capId, wasCap, movedT, effWhite, effBlack, effGlobal); return;
+                triggerSpecialsChain(nxtB, nG, cKs, oldS, newS, isEx, nEp, actP, [...compM, 'snipe'], capId, wasCap, movedT, nextAITracks.white, nextAITracks.black, nextAITracks.global); return;
             } else {
                 setSpecialActionContext({ boardForNextStep: bCh, playerWhoseTurnCompleted: actP, isExtraTurn: isEx, newEnPassantTarget: nEp, oldStreak: oldS, newStreak: newS, completedMilestones: [...compM, 'snipe'], currentGraveyard: nG, currentKs: cKs, capturingPieceId: capId, trackWhite: effWhite, trackBlack: effBlack, trackGlobal: effGlobal });
                 setIsAwaitingArcherSnipe(true); addLog("Sniper active! Select a target to snipe."); return;
@@ -1162,7 +1201,7 @@ export default function DungeonPage() {
                 }
                 const sc = Math.min(adj.length, 2); const sh = adj.sort(() => Math.random() - 0.5);
                 for (let i = 0; i < sc; i++) {
-                    const pos = hAdj[i]; nxtB[pos.r][pos.col].piece = { id: `hydra_spawn_snipe_${sniped.id}_${i}_${Date.now()}`, type: 'knight', color: sniped.color, level: 2, hasMoved: true, isShielded: false };
+                    const pos = sh[i]; nxtB[pos.r][pos.col].piece = { id: `hydra_spawn_snipe_${sniped.id}_${i}_${Date.now()}`, type: 'knight', color: sniped.color, level: 2, hasMoved: true, isShielded: false };
                     nxtB[pos.r][pos.col].item = null;
                     addEffect('light-beam', coordsToAlgebraic(pos.r, pos.col));
                 }
@@ -1757,8 +1796,8 @@ export default function DungeonPage() {
         </AlertDialogContent>
       </AlertDialog>
       <InventoryWindow isOpen={isInventoryOpen} onClose={() => setIsInventoryOpen(false)} inventory={inventory} selectedItemType={selectedInventoryItemType} onSelectItem={setSelectedInventoryItemType} onUseItem={handleUsePortalScroll} attunementSlots={attunementSlots} usedSlots={usedSlots} />
-      <InventoryWindow isOpen={isInventoryOpen} onClose={() => setIsInventoryOpen(false)} inventory={inventory} selectedItemType={selectedInventoryItemType} onSelectItem={setSelectedInventoryItemType} onUseItem={handleUsePortalScroll} attunementSlots={attunementSlots} usedSlots={usedSlots} />
       <LootWinningsWindow isOpen={isLootWindowOpen} onClose={handleClaimLoot} loot={lootFound} floor={level} />
     </div>
   );
 }
+
