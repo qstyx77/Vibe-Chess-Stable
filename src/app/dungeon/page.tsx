@@ -334,43 +334,6 @@ export default function DungeonPage() {
     const elo = userData?.eloRating || 1200; return 3 + Math.floor((Math.max(0, elo - 1200)) / 400);
   }, [userData]);
 
-  // Track Attunement and Unlocks for Alerts
-  const prevAttunementRef = useRef<number | null>(null);
-  const prevUnlockedRef = useRef<string[] | null>(null);
-
-  useEffect(() => {
-    if (isUserLoading || !userData) return;
-
-    // Check Attunement
-    if (prevAttunementRef.current !== null && attunementSlots !== prevAttunementRef.current) {
-        if (attunementSlots > prevAttunementRef.current) {
-            const msg = `ATTUNEMENT INCREASED! You now have ${attunementSlots} equipment slots.`;
-            toast({ title: "Power Up!", description: msg });
-            addLog(msg);
-            audioManager.playLevelUp();
-        } else {
-            const msg = `ATTUNEMENT DECREASED. You now have ${attunementSlots} equipment slots.`;
-            toast({ variant: 'destructive', title: "Power Drained", description: msg });
-            addLog(msg);
-        }
-    }
-    prevAttunementRef.current = attunementSlots;
-
-    // Check Unlocks
-    const currentUnlocked = userData.unlockedPieces || [];
-    if (prevUnlockedRef.current !== null) {
-        const newPieces = currentUnlocked.filter(p => !prevUnlockedRef.current?.includes(p));
-        newPieces.forEach(p => {
-            const name = p.charAt(0).toUpperCase() + p.slice(1).replace('_', ' ');
-            const msg = `NEW UNIT UNLOCKED: The ${name} is now available!`;
-            toast({ title: "Recruitment Complete", description: msg });
-            addLog(msg);
-            audioManager.playLevelUp();
-        });
-    }
-    prevUnlockedRef.current = currentUnlocked;
-  }, [userData, isUserLoading, attunementSlots, toast, addLog]);
-
   const usedSlots = useMemo(() => board.flat().filter(sq => sq.piece?.heldItem).length, [board]);
 
   const hasStartedFloor = useMemo(() => board.flat().some(sq => sq.piece?.color === 'white' && sq.piece.hasMoved), [board]);
@@ -624,8 +587,20 @@ export default function DungeonPage() {
                         }
                     }
                     cands.sort((a,b) => b.pri - a.pri);
-                    if (cands.length > 0) {
-                        const best = cands[0]; const tSq = nextBoard[best.r][best.c]; const tP = tSq.piece; const targetItem = tSq.item;
+                    
+                    // King safety check for AI Dancer skill
+                    const safeCands = cands.filter(cand => {
+                        const tempB = nextBoard.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null})));
+                        const p1 = {...dP, hasMoved: true, isShielded: false};
+                        const targetSq = tempB[cand.r][cand.c];
+                        const p2 = targetSq.piece ? {...targetSq.piece, hasMoved: true, isShielded: false} : null;
+                        tempB[cand.r][cand.c].piece = p1;
+                        tempB[r][c].piece = p2;
+                        return !isKingInCheck(tempB, actP, nEp, actP === 'white' ? {type: dP.type, item: dP.heldItem || null, level: dP.level} : effWhite, actP === 'black' ? {type: dP.type, item: dP.heldItem || null, level: dP.level} : effBlack, {type: dP.type, item: dP.heldItem || null, level: dP.level});
+                    });
+
+                    if (safeCands.length > 0) {
+                        const best = safeCands[0]; const tSq = nextBoard[best.r][best.c]; const tP = tSq.piece; const targetItem = tSq.item;
                         const dancerMoveInfo: LastMoveInfo = { type: dP.type, level: dP.level, item: dP.heldItem || null };
                         const nextAITracks = { white: actP === 'white' ? dancerMoveInfo : effWhite, black: actP === 'black' ? dancerMoveInfo : effBlack, global: dancerMoveInfo };
                         if (actP === 'white') setLastMoveWhite(dancerMoveInfo); else setLastMoveBlack(dancerMoveInfo);
@@ -733,7 +708,7 @@ export default function DungeonPage() {
         const mG = actP === 'white' ? nG.white : nG.black; 
         if (mG.length > 0) {
             const nxtB = bCh.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null})));
-            const srt = [...mG].sort((a,b) => (VAL_MAP[b.type]||0) - (VAL_MAP[a.type]||0)); const choice = srt[0]; const emp = nxtB.flat().filter(sq => !sq.piece && !sq.item);
+            const srt = [...mG].sort((a,b) => (VAL_MAP[b.type]||0) - (VAL_MAP[a.type]||0))[0]; const choice = srt; const emp = nxtB.flat().filter(sq => !sq.piece && !sq.item);
             if (choice && emp.length > 0) {
                 const sq = emp[Math.floor(Math.random()*emp.length)]; const {row: rr, col: rc} = algebraicToCoords(sq.algebraic);
                 let resLevel = 1;
@@ -794,9 +769,9 @@ export default function DungeonPage() {
                 }
                 addLog(`${actP === 'white' ? "Hero" : "Dungeon"} sniped a Level ${sniped.level} ${sniped.type}!`); audioManager.playSnipe(); addEffect('poof', coordsToAlgebraic(row, col));
                 const targetP = sniped.color; nG[targetP] = [...(nG[targetP]||[]), sniped];
-                triggerSpecialsChain(nxtB, nG, cKs, oldS, newS, isEx, nEp, actP, [...compM, 'snipe'], capId, wasCap, movedT, nextAITracks.white, nextAITracks.black, nextAITracks.global); return;
+                triggerSpecialsChain(nxtB, nG, cKs, oldS, newS, isEx, nEp, actP, [...compM, 'snipe'], capId, wasCap, movedT, effWhite, effBlack, effGlobal); return;
             } else {
-                setSpecialActionContext({ boardForNextStep: bCh, playerWhoseTurnCompleted: actP, isExtraTurn: isExtraTurn, newEnPassantTarget: nEp, oldStreak: oldS, newStreak: newS, completedMilestones: [...compM, 'snipe'], currentGraveyard: nG, currentKs: cKs, capturingPieceId: capId, trackWhite: effWhite, trackBlack: effBlack, trackGlobal: effGlobal });
+                setSpecialActionContext({ boardForNextStep: bCh, playerWhoseTurnCompleted: actP, isExtraTurn: isEx, newEnPassantTarget: nEp, oldStreak: oldS, newStreak: newS, completedMilestones: [...compM, 'snipe'], currentGraveyard: nG, currentKs: cKs, capturingPieceId: capId, trackWhite: effWhite, trackBlack: effBlack, trackGlobal: effGlobal });
                 setIsAwaitingArcherSnipe(true); addLog("Sniper active! Select a target to snipe."); return;
             }
         }
@@ -825,7 +800,7 @@ export default function DungeonPage() {
             return true;
         }
         setIsAwaitingPawnSacrifice(true); setPlayerToSacrificePawn(p); setBoardForPostSacrifice(bAf);
-        setSpecialActionContext({ boardForNextStep: bAf, playerWhoseTurnCompleted: p, isExtraTurn: isEx, newEnPassantTarget: ep, oldStreak: oS, newStreak: nS, currentGraveyard: g, currentKs: cKs, capturingPieceId: cId, trackWhite: effWhite, trackBlack: effBlack, trackGlobal: effGlobal }); 
+        setSpecialActionContext({ boardForNextStep: bAf, playerWhoseTurnCompleted: p, isExtraTurn: isEx, newEnPassantTarget: ep, oldStreak: oS, newStreak: nS, currentGraveyard: g, currentKs: cKs, capturingPieceId: cId, trackWhite: effWhite, trackBlack: trackBlack, trackGlobal: effGlobal }); 
         addLog("Royal Sacrifice required! Select a unit to give up."); return true;
       }
     }
@@ -1522,7 +1497,18 @@ export default function DungeonPage() {
         const newMoveInfo: LastMoveInfo = { type: oT, level: oL, item: oH || null };
         const nextTracks = { white: lastMoveWhite, black: newMoveInfo, global: newMoveInfo };
         setLastMoveBlack(newMoveInfo); setLastMoveGlobal(newMoveInfo);
-        const appRes = applyMove(currentWorkingBoard, { from: fromAlg, to: toAlg, type: move.type as Move['type'], grappledFrom: move.grappledFrom ? (Array.isArray(move.grappledFrom) ? coordsToAlgebraic(move.grappledFrom[0], move.grappledFrom[1]) : move.grappledFrom) : undefined }, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, didCaptureLastTurn.white);
+        
+        // FIXED: Explicitly passed all AI-generated move properties to engine
+        const appRes = applyMove(currentWorkingBoard, { 
+          from: fromAlg, 
+          to: toAlg, 
+          type: move.type as Move['type'], 
+          grappledFrom: move.grappledFrom ? (Array.isArray(move.grappledFrom) ? coordsToAlgebraic(move.grappledFrom[0], move.grappledFrom[1]) : move.grappledFrom) : undefined,
+          thrownPiece: move.thrownPiece,
+          thrownItem: move.thrownItem,
+          promoteTo: move.promoteTo
+        }, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, didCaptureLastTurn.white);
+        
         appRes.levelChanges?.forEach(lc => {
             addEffect('level-change', lc.square, 'black', lc.delta);
             if (lc.reason) addLog(`${getPlayerDisplayName('black')}: ${lc.reason} (${lc.delta > 0 ? '+' : ''}${lc.delta})`);

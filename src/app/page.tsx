@@ -192,6 +192,7 @@ export default function EvolvingChessPage() {
   const [isMoveProcessing, setIsMoveProcessing] = useState(false);
   const [lastMoveFrom, setLastMoveFrom] = useState<AlgebraicSquare | null>(null);
   const [lastMoveTo, setLastMoveTo] = useState<AlgebraicSquare | null>(null);
+  const [selectedInventoryItemType, setSelectedInventoryItemType] = useState<InventoryItemType | null>(null);
   
   const [lastMoveWhite, setLastMoveWhite] = useState<LastMoveInfo | null>(null);
   const [lastMoveBlack, setLastMoveBlack] = useState<LastMoveInfo | null>(null);
@@ -263,7 +264,6 @@ export default function EvolvingChessPage() {
   const [isSelectingSporeBombShroom, setIsSelectingSporeBombShroom] = useState(false);
   const [isInventoryOpen, setIsInventoryOpen] = useState(false);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
-  const [selectedInventoryItemType, setSelectedInventoryItemType] = useState<InventoryItemType | null>(null);
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
   const [isArenaConfirmOpen, setIsArenaConfirmOpen] = useState(false);
   const [promotionQueue, setPromotionQueue] = useState<{ square: AlgebraicSquare, targetLevel: number }[]>([]);
@@ -544,14 +544,11 @@ export default function EvolvingChessPage() {
           setInventory(initialSnapshot.inventory);
           addLog("Training complete. Used items returned to ranks.");
       } else if (isCompetitive) {
-          // Competitive deduction is handled incrementally by sync logic
-          // but we can enforce final piece control here (conversion results)
           const currentInv = [...inventory];
           board.flat().forEach(sq => {
               if (sq.piece && sq.piece.heldItem && sq.piece.color === localPlayerColor) {
                   const wasOpponentOriginal = (localPlayerColor === 'white' && sq.piece.id.startsWith('b')) || (localPlayerColor === 'black' && sq.piece.id.startsWith('w'));
                   if (wasOpponentOriginal) {
-                      // Piece was converted to us - we keep the item in our loot bag
                       const itemIdx = currentInv.findIndex(i => i.type === sq.piece!.heldItem);
                       if (itemIdx > -1) currentInv[itemIdx].count++;
                       else currentInv.push({ type: sq.piece.heldItem, count: 1 });
@@ -560,7 +557,6 @@ export default function EvolvingChessPage() {
               }
           });
 
-          // Sync final equipment state for competitive reciprocal stakes
           const finalEq: Record<string, string> = {};
           board.flat().forEach(sq => {
               if (sq.piece?.heldItem && sq.piece.color === localPlayerColor) {
@@ -749,8 +745,19 @@ export default function EvolvingChessPage() {
                         }
                     }
                     candidates.sort((a,b) => b.priority - a.priority);
-                    if (candidates.length > 0) {
-                        const best = candidates[0];
+                    
+                    const safeCandidates = candidates.filter(cand => {
+                        const tempB = nextBoard.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null})));
+                        const p1 = {...dancerPiece, hasMoved: true, isShielded: false};
+                        const targetSq = tempB[cand.r][cand.c];
+                        const p2 = targetSq.piece ? {...targetSq.piece, hasMoved: true, isShielded: false} : null;
+                        tempB[cand.r][cand.c].piece = p1;
+                        tempB[r][c].piece = p2;
+                        return !isKingInCheck(tempB, actingPlayer, nextEp, actingPlayer === 'white' ? {type: dancerPiece.type, item: dancerPiece.heldItem || null, level: dancerPiece.level} : effWhite, actingPlayer === 'black' ? {type: dancerPiece.type, item: dancerPiece.heldItem || null, level: dancerPiece.level} : effBlack, {type: dancerPiece.type, item: dancerPiece.heldItem || null, level: dancerPiece.level});
+                    });
+
+                    if (safeCandidates.length > 0) {
+                        const best = safeCandidates[0];
                         const tSq = nextBoard[best.r][best.c];
                         const tP = tSq.piece;
                         const targetItem = tSq.item;
@@ -1003,7 +1010,24 @@ export default function EvolvingChessPage() {
       const gsAI = adaptBoardForAI(board, currentPlayer, killStreaks, capturedPieces, gameMoveCounter, firstBloodAchieved, playerWhoGotFirstBlood, enPassantTargetSquare, lastMoveWhite, lastMoveBlack, lastMoveGlobal, shroomSpawnCounter, nextShroomSpawnTurn, oppCapLastTurn, positionHistory);
       const resAI = aiInstanceRef.current.getBestMove(gsAI, currentPlayer); 
       let aiMove = resAI?.move;
-      if (!aiMove) { setIsAiThinking(false); return; }
+      
+      if (!aiMove) { 
+          const inCheck = isKingInCheck(board, currentPlayer, enPassantTargetSquare, lastMoveWhite, lastMoveBlack, lastMoveGlobal);
+          const mate = inCheck && isCheckmate(board, currentPlayer, enPassantTargetSquare, lastMoveWhite, lastMoveBlack, lastMoveGlobal);
+          const stale = !inCheck && isStalemate(board, currentPlayer, enPassantTargetSquare, lastMoveWhite, lastMoveBlack, lastMoveGlobal);
+          
+          if (mate || stale) {
+              const winner = mate ? (currentPlayer === 'white' ? 'black' : 'white') : 'draw';
+              const msg = mate ? `Checkmate! ${getPlayerDisplayName(winner)} wins!` : "Stalemate!";
+              setGameInfo({ ...gameInfo, gameOver: true, winner, message: msg });
+              gameOverRef.current = true;
+          } else {
+              setCurrentPlayer(currentPlayer === 'white' ? 'black' : 'white');
+          }
+          setIsAiThinking(false);
+          return;
+      }
+      
       const fromAlg = coordsToAlgebraic(aiMove.from[0], aiMove.from[1]); const toAlg = coordsToAlgebraic(aiMove.to[0], aiMove.to[1]);
       const p = board[aiMove.from[0]][aiMove.from[1]].piece; if (!p) { setIsAiThinking(false); return; }
       const oldL = p.level, oldT = p.type, oldH = p.heldItem;
@@ -1013,7 +1037,17 @@ export default function EvolvingChessPage() {
       if (currentPlayer === 'white') setLastMoveWhite(newMoveInfo); else setLastMoveBlack(newMoveInfo);
       setLastMoveGlobal(newMoveInfo);
       pushHistory();
-      const applyResult = applyMove(board, { from: fromAlg, to: toAlg, type: aiMove.type as Move['type'], promoteTo: aiMove.promoteTo, grappledFrom: aiMove.grappledFrom }, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, oppCapLastTurn);
+      
+      const applyResult = applyMove(board, { 
+        from: fromAlg, 
+        to: toAlg, 
+        type: aiMove.type as Move['type'], 
+        promoteTo: aiMove.promoteTo, 
+        grappledFrom: aiMove.grappledFrom,
+        thrownPiece: aiMove.thrownPiece,
+        thrownItem: aiMove.thrownItem
+      }, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, oppCapLastTurn);
+      
       let nextB = applyResult.newBoard; const updatedG = { white: Array.isArray(capturedPieces?.white) ? [...capturedPieces.white] : [], black: Array.isArray(capturedPieces?.black) ? [...capturedPieces.black] : [] };
       applyResult.levelChanges?.forEach(lc => addEffectCallback('level-change', lc.square, currentPlayer, lc.delta, undefined));
       if (applyResult.itemReturned) { setInventory(prev => { const next = [...prev]; const existing = next.find(i => i.type === applyResult.itemReturned); if (existing) existing.count++; else next.push({ type: applyResult.itemReturned!, count: 1 }); return next; }); addLog(`AI returned equipment: ${ITEM_METADATA[applyResult.itemReturned].name}`); }
@@ -1033,15 +1067,10 @@ export default function EvolvingChessPage() {
       if (isObliteration) { audioManager.playObliterate(); addLog("AI Obliterated a unit!"); addEffectCallback('poof', toAlg); }
       else if (applyResult.capturedPiece || (applyResult.selfDestructCaptures && applyResult.selfDestructCaptures.length > 0)) { audioManager.playCapture(); addEffectCallback('poof', toAlg); if (applyResult.capturedPiece) addLog(`AI Captured ${applyResult.capturedPiece.type}!`); }
       else { 
-        // Descriptive skill-based logging for AI
         let aiLogMsg = `AI ${p.type} to ${toAlg}`;
         if (aiMove.type === 'grapple-throw') aiLogMsg = `AI Grappler tossed piece to ${toAlg}`;
         else if (aiMove.type === 'self-destruct') aiLogMsg = `AI Knight self-destructed at ${toAlg}`;
         else if (aiMove.type === 'swap') aiLogMsg = `AI swapped with ally at ${toAlg}`;
-        else if (aiMove.type === 'myco-propagate') aiLogMsg = `AI used Propagate!`;
-        else if (aiMove.type === 'tele-portobello') aiLogMsg = `AI used Tele-Portobello to ${toAlg}`;
-        else if (aiMove.type === 'spore-bomb') aiLogMsg = `AI used Spore Bomb at ${toAlg}`;
-        else if (aiMove.type === 'raise-mycelimen') aiLogMsg = `AI used Raise Myceli-men!`;
         audioManager.playMove(); 
         addLog(aiLogMsg); 
       }
@@ -1279,7 +1308,6 @@ export default function EvolvingChessPage() {
           if (piece.heldItem === selectedInventoryItemType) { setSelectedInventoryItemType(null); return; }
           if (!isItemValidForPiece(selectedInventoryItemType, piece.type)) return;
           
-          // --- PER-COLOR ATTUNEMENT LIMIT (LOBBY ONLY) ---
           const colorUsedSlots = board.flat().filter(sq => sq.piece?.heldItem && sq.piece.color === piece.color).length;
           if (!piece.heldItem && colorUsedSlots >= attunementSlots) { 
               addLog(`${piece.color.toUpperCase()} Attunement Limit Reached!`); 
@@ -1804,8 +1832,6 @@ export default function EvolvingChessPage() {
               setLastMoveGlobal(moveInfo);
             }
             setBoard(nextGs.board); setCurrentPlayer(nextGs.currentPlayer); setEnPassantTargetSquare(nextGs.enPassantTargetSquare); setKillStreaks(nextGs.killStreaks); setCapturedPieces(nextGs.capturedPieces);
-            
-            // Sync shroom state from server
             setShroomSpawnCounter(nextGs.shroomSpawnCounter);
             setNextShroomSpawnTurn(nextGs.nextShroomSpawnTurn);
 
@@ -1876,7 +1902,6 @@ export default function EvolvingChessPage() {
     if (!user) return;
     initWebSocket(() => {
         const eq: Record<string, string> = {}; 
-        // Always use White Equipment loadout for Online Play
         if (userData?.equipment) Object.assign(eq, userData.equipment);
         
         if (action === 'create') { wsRef.current?.send(JSON.stringify({ type: 'create-room', user: { userId: user.uid, username: userData?.username || user.displayName || 'Host', elo: userData?.eloRating || 1200, wins: userData?.unlockedPieces || [], equipment: eq, unlockedPieces: userData?.unlockedPieces || [] } })); } 
@@ -1932,7 +1957,6 @@ export default function EvolvingChessPage() {
     if (!user) return true;
     if (isTournamentIntermission) return false;
     if (onlineStatus !== 'disconnected') return true;
-    // In casual mode, allow looting during setup only
     if (gameMoveCounter > 0) return true;
     return false;
   }, [user, isTournamentIntermission, onlineStatus, gameMoveCounter]);
@@ -2154,6 +2178,12 @@ export default function EvolvingChessPage() {
             <AlertDialogTitle className="text-primary uppercase text-[0.75rem]">Reset Game?</AlertDialogTitle>
           </AlertDialogHeader> 
           <AlertDialogFooter>
+            <Accordion type="single" collapsible className="w-full mb-2">
+                <AccordionItem value="reset-details" className="border-border/30">
+                    <AccordionTrigger className="text-[0.5rem] uppercase py-2">View Reset Warning</AccordionTrigger>
+                    <AccordionContent className="text-[0.45rem] text-muted-foreground uppercase leading-tight"> Warning: All match progress, killstreaks, and board state will be permanently wiped. Items currently equipped will be lost. </AccordionContent>
+                </AccordionItem>
+            </Accordion>
             <AlertDialogCancel className="font-pixel text-[0.65rem] uppercase">Cancel</AlertDialogCancel> 
             <AlertDialogAction className="bg-destructive font-pixel text-[0.65rem] uppercase" onClick={() => { setIsResetConfirmOpen(false); fullGameReset(); }}>Confirm Reset</AlertDialogAction> 
           </AlertDialogFooter> 
