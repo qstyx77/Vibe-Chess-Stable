@@ -912,9 +912,7 @@ export class VibeChessAI {
         const targetPiece = gs.board[tr][tc].piece;
         const targetEffectiveLevel = getEffectiveLevel(gs.board as any, tr, tc);
 
-        // Target-Based Threat Scanner: Identifies which pieces can strike the target square.
-        
-        // 1. Cardinal (Rook, Queen, King, Frontline, Infiltrator, Knight/Hero/Archer L2+)
+        // Cardinal scanner (Rook, Queen, King, Infiltrator)
         const cardinalDirs: [number, number][] = [[0, 1], [0, -1], [1, 0], [-1, 0]];
         for (const [dr, dc] of cardinalDirs) {
             for (let dist = 1; dist < 8; dist++) {
@@ -923,7 +921,6 @@ export class VibeChessAI {
                 if (!isValidSquareUtil(nr, nc)) break;
                 
                 const sq = gs.board[nr][nc];
-                // Anvils block checks; Shrooms do not.
                 if (sq.item?.type === 'anvil') break;
                 if (sq.piece) {
                     if (sq.piece.color === attackerColor) {
@@ -940,6 +937,12 @@ export class VibeChessAI {
                         } else if (attackerPattern === 'king') {
                             const maxDist = attackerLevel >= 2 ? 2 : 1;
                             if (dist <= maxDist) canAttack = true;
+                        } else if (attackerPattern === 'infiltrator') {
+                            const forwardDir = attacker.color === 'white' ? -1 : 1;
+                            const drFromAttacker = Math.sign(tr - nr);
+                            const dcFromAttacker = Math.sign(tc - nc);
+                            // Infiltrators can capture cardinally forward only
+                            if (drFromAttacker === forwardDir && dcFromAttacker === 0) canAttack = true;
                         } else if (['knight', 'hero', 'archer'].includes(attackerPattern)) {
                             if (attackerLevel >= 2 && dist === 1) canAttack = true;
                             if (attackerLevel >= 3 && dist === 3) {
@@ -951,35 +954,16 @@ export class VibeChessAI {
                                 }
                                 if (clear) canAttack = true;
                             }
-                        } else if (FRONTLINE_TYPES.includes(attackerPattern)) {
-                            // Forward strikes only (White attacks -1, Black attacks +1)
-                            const forwardDir = attacker.color === 'white' ? -1 : 1;
-                            const drFromAttacker = Math.sign(tr - nr);
-                            const dcFromAttacker = Math.sign(tc - nc);
-                            
-                            if (dist === 1) {
-                                // Frontline attack: Forward-Diagonal only
-                                if (drFromAttacker === forwardDir && Math.abs(dcFromAttacker) === 1) canAttack = true; 
-                                // Cardinal skills: Backward (L2), Sideways (L3)
-                                else if (drFromAttacker === -forwardDir && dcFromAttacker === 0 && attackerLevel >= 2) canAttack = true; 
-                                else if (drFromAttacker === 0 && Math.abs(dcFromAttacker) === 1 && attackerLevel >= 3) canAttack = true; 
-                            }
-                        } else if (attackerPattern === 'infiltrator') {
-                            const forwardDir = attacker.color === 'white' ? -1 : 1;
-                            const drFromAttacker = Math.sign(tr - nr);
-                            const dcFromAttacker = Math.sign(tc - nc);
-                            // Infiltrator cardinal: forward only
-                            if (drFromAttacker === forwardDir && dcFromAttacker === 0) canAttack = true;
                         }
 
                         if (canAttack && !isPieceInvulnerableToAttackUtil(targetPiece, attacker, targetEffectiveLevel, attackerLevel, gs.board as any, true)) return true;
                     }
-                    break; // Blocked by this piece
+                    break; 
                 }
             }
         }
 
-        // 2. Diagonal (Bishop, Queen, King, Infiltrator, Pawn, Frontline)
+        // Diagonal scanner (Bishop, Queen, King, Frontline, Infiltrator)
         const diagonalDirs: [number, number][] = [[1, 1], [1, -1], [-1, 1], [-1, -1]];
         for (const [dr, dc] of diagonalDirs) {
             for (let dist = 1; dist < 8; dist++) {
@@ -1004,16 +988,13 @@ export class VibeChessAI {
                         } else if (attackerPattern === 'king') {
                             const maxDist = attackerLevel >= 2 ? 2 : 1;
                             if (dist <= maxDist) canAttack = true;
-                        } else if (attackerPattern === 'infiltrator') {
-                            const forwardDir = attacker.color === 'white' ? -1 : 1;
-                            const drFromAttacker = Math.sign(tr - nr);
-                            // Infiltrator diagonal: forward only
-                            if (drFromAttacker === forwardDir) canAttack = true;
-                        } else if (dist === 1) {
-                            // Frontline diagonal: forward only
-                            const forwardDir = attacker.color === 'white' ? -1 : 1;
-                            const drFromAttacker = Math.sign(tr - nr);
-                            if (drFromAttacker === forwardDir) canAttack = true;
+                        } else if (FRONTLINE_TYPES.includes(attackerPattern)) {
+                            // Frontline capture is ALWAYS forward-diagonal only, dist 1
+                            if (dist === 1) {
+                                const forwardDir = attacker.color === 'white' ? -1 : 1;
+                                const drFromAttacker = Math.sign(tr - nr);
+                                if (drFromAttacker === forwardDir) canAttack = true;
+                            }
                         }
 
                         if (canAttack && !isPieceInvulnerableToAttackUtil(targetPiece, attacker, targetEffectiveLevel, attackerLevel, gs.board as any, true)) return true;
@@ -1023,7 +1004,7 @@ export class VibeChessAI {
             }
         }
 
-        // 3. Knight leaps
+        // Knight leaps
         for (const [dr, dc] of this.knightMoves) {
             const nr = tr + dr;
             const nc = tc + dc;

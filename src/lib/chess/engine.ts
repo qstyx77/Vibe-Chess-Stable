@@ -320,7 +320,7 @@ export function applyMove(
 
   if (move.type === 'trap-net') {
       triggerExhaustion(newBoard, fromRow, fromCol, movingPiece.color);
-      newBoard[fromRow][fromCol].piece!.heldItem = null; // Trap Net is consumed on use
+      newBoard[fromRow][fromCol].piece!.heldItem = null; 
       return { newBoard, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered: null, originalPieceLevel: movingPiece.level, originalPieceType: movingPiece.type, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null, anvilDroppedSquares, levelChanges, obliteratedPieces: [] };
   }
 
@@ -815,7 +815,7 @@ export function applyMove(
 
     if (captured.heldItem === 'trap_net') { 
         triggerExhaustion(newBoard, toRow, toCol, pieceLanded.color); 
-        captured.heldItem = null; // Trap Net is consumed on capture
+        captured.heldItem = null; 
     }
 
     if (pieceLanded.heldItem === 'thieves_gloves' && captured.heldItem) {
@@ -835,12 +835,10 @@ export function applyMove(
             pieceLanded.frozenTurnsRemaining = 2; pieceLanded.cooldownTurnsRemaining = 2;
         }
     }
-    if (captured.heldItem === 'trap_net') { triggerExhaustion(newBoard, toRow, toCol, pieceLanded.color); }
     if (['pawn', 'dancer', 'mimic', 'grappler', 'myco_mage'].includes(pieceLanded.type) && captured.type === 'commander') pieceLanded.type = 'commander';
     
     let baseGain = effectiveHeldItem === 'berserkers_mask' ? 3 : ({pawn: 1, dancer: 1, mimic: 1, grappler: 1, commander: 1, infiltrator: 1, myco_mage: 1, knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2}[captured.type] || 0);
     
-    // Logas Bonus
     for(let dr=-1; dr<=1; dr++) for(let dc=-1; dc<=1; dc++) {
         if(dr===0 && dc===0) continue;
         const nr = toRow + dr; const nc = toCol + dc;
@@ -966,7 +964,6 @@ export function applyMove(
     }
   }
 
-  // --- TORTOISE HAMMER SPLASH CAPTURE ---
   const isLandedSilencedFinal = isSilenced(newBoard, toRow, toCol, pieceLanded.color);
   if (pieceLanded.heldItem === 'tortoise_hammer' && !isLandedSilencedFinal) {
       let hammerGain = 0;
@@ -991,7 +988,6 @@ export function applyMove(
       }
   }
 
-  // Authoritatively sync Soul Link and Set bonuses after all possible level-up triggers in applyMove
   syncLevelsAndSets(newBoard, pieceLanded.color, levelChanges);
 
   if (didLevelUpFlag) { 
