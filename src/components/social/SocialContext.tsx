@@ -137,15 +137,29 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
         socket.onmessage = (event) => {
             const data = JSON.parse(event.data);
             if (data.type === 'chat-message') {
-                // Relationship Filtering (Block/Ignore)
                 const senderId = data.message.senderId;
                 if (ignoredUserIds.has(senderId)) return;
                 
+                const cat = data.message.category as MessageCategory;
+                const isWhisper = data.message.text.includes('[WHISPER]') || data.message.text.includes('[TO ');
+
                 setMessages(prev => {
                     if (prev.some(m => m.id === data.message.id)) return prev;
                     return [...prev, data.message];
                 });
-                const cat = data.message.category as MessageCategory;
+
+                // Auto-switch categories for whispers or personal messages
+                if (isWhisper || senderId === user?.uid) {
+                    setVisibleCategories(prev => {
+                        if (!prev.has(cat)) {
+                            const next = new Set(prev);
+                            next.add(cat);
+                            return next;
+                        }
+                        return prev;
+                    });
+                }
+
                 setHasUnread(prev => {
                     if (!isMessengerOpen || !visibleCategories.has(cat)) {
                         return { ...prev, [cat]: true };
@@ -182,7 +196,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
         if (wsRef.current) wsRef.current.close();
         clearTimeout(reconnectTimeout);
     };
-  }, [user?.uid, toast, ignoredUserIds]);
+  }, [user?.uid, toast, ignoredUserIds, isMessengerOpen, visibleCategories]);
 
   const clearUnread = useCallback((category: MessageCategory) => {
       setHasUnread(prev => ({ ...prev, [category]: false }));
@@ -194,6 +208,10 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
         return;
     }
 
+    const myUsername = userDataRef.current?.username || user?.displayName || 'Player';
+    const myId = user?.uid;
+    const entropy = Math.random().toString(36).substr(2, 5);
+
     if (text.startsWith('/')) {
         const parts = text.trim().split(' ');
         const cmd = parts[0].toLowerCase();
@@ -204,7 +222,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
             addLog(`Executing: ${cmd}...`);
             wsRef.current.send(JSON.stringify({
                 type: 'admin-command',
-                senderId: user?.uid,
+                senderId: myId,
                 text: text
             }));
             return;
@@ -263,13 +281,14 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
         if (playerForwardCmds.includes(cmd)) {
             wsRef.current.send(JSON.stringify({
                 type: 'player-command',
-                senderId: user?.uid,
+                senderId: myId,
                 text: text
             }));
             return;
         }
     }
 
+    // Handle @ Mentions / Whispers
     if (text.startsWith('@')) {
         const sortedOnlineUsers = [...onlineUsers].sort((a, b) => b.username.length - a.username.length);
         let foundUser = null;
@@ -284,26 +303,54 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
             const prefixLen = foundUser.username.length + 2;
             const msgBody = text.substring(prefixLen).trim();
             if (msgBody) {
+                const msgId = `opt_w_${Date.now()}_${entropy}`;
+                
+                // Optimistic Local Display
+                setMessages(prev => [...prev, {
+                    id: msgId,
+                    sender: myUsername,
+                    senderId: myId,
+                    text: `[TO ${foundUser.username}]: ${msgBody}`,
+                    timestamp: Date.now(),
+                    category: 'social'
+                }]);
+                setVisibleCategories(prev => new Set(prev).add('social'));
+
                 wsRef.current.send(JSON.stringify({ 
                     type: 'chat-message', 
+                    id: msgId,
                     category: 'social', 
                     text: msgBody, 
                     targetName: foundUser.username, 
-                    sender: userDataRef.current?.username || user?.displayName || 'Player', 
-                    senderId: user?.uid 
+                    sender: myUsername, 
+                    senderId: myId 
                 }));
                 return;
             }
         }
     }
 
+    // Standard Chat Message
+    const msgId = `opt_${Date.now()}_${entropy}`;
+    
+    // Optimistic Local Display
+    setMessages(prev => [...prev, {
+        id: msgId,
+        sender: myUsername,
+        senderId: myId,
+        text: text,
+        timestamp: Date.now(),
+        category: category
+    }]);
+
     wsRef.current.send(JSON.stringify({ 
         type: 'chat-message', 
+        id: msgId,
         category, 
         text, 
         targetId, 
-        sender: userDataRef.current?.username || user?.displayName || 'Player', 
-        senderId: user?.uid 
+        sender: myUsername, 
+        senderId: myId 
     }));
   }, [user?.uid, addLog, onlineUsers]);
 

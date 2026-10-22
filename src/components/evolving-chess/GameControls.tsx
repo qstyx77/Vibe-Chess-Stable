@@ -105,7 +105,15 @@ export function GameControls({
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
     if (chatInput.trim()) {
-      sendMessage(chatInput.trim(), 'battle');
+      // Intelligently select category based on current visible tab
+      let targetCategory: MessageCategory = 'battle';
+      if (visibleCategories.has('social') && !visibleCategories.has('battle')) {
+          targetCategory = 'social';
+      } else if (visibleCategories.has('market') && !visibleCategories.has('battle')) {
+          targetCategory = 'market';
+      }
+      
+      sendMessage(chatInput.trim(), targetCategory);
       setChatInput('');
     }
   };

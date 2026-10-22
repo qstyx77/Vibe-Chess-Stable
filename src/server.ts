@@ -412,9 +412,10 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                         const msg = parts.slice(2).join(' ');
                         const targetWs = userConnections[targetUid];
                         if (targetWs) {
-                            const chatMsg = { id: `pm_${Date.now()}`, sender: ws.username, senderId: ws.userId, text: `[WHISPER]: ${msg}`, timestamp: Date.now(), category: 'social' };
+                            const entropy = Math.random().toString(36).substr(2, 5);
+                            const chatMsg = { id: `pm_${Date.now()}_${entropy}`, sender: ws.username, senderId: ws.userId, text: `[WHISPER]: ${msg}`, timestamp: Date.now(), category: 'social' };
                             targetWs.send(JSON.stringify({ type: 'chat-message', message: chatMsg }));
-                            ws.send(JSON.stringify({ type: 'chat-message', message: { ...chatMsg, text: `[TO ${targetName}]: ${msg}` } }));
+                            ws.send(JSON.stringify({ type: 'chat-message', message: { ...chatMsg, id: `pm_conf_${Date.now()}_${entropy}`, text: `[TO ${targetName}]: ${msg}` } }));
                         } else sendResponse(`Error: ${targetName} is offline.`);
                     } else if (cmd === '/invite' && targetUid) {
                         if (!ws.roomId) { sendResponse("Error: You are not in a game room."); break; }
@@ -589,8 +590,9 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                         break;
                     }
 
+                    const entropy = Math.random().toString(36).substr(2, 5);
                     const msg: ChatMessage = {
-                        id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                        id: data.id || `msg_${Date.now()}_${entropy}`,
                         sender: data.sender,
                         senderId: data.senderId,
                         text: data.text,
@@ -598,6 +600,20 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                         color: data.color,
                         category: data.category
                     };
+
+                    if (data.targetName) {
+                        const targetUid = await getUidByUsername(data.targetName);
+                        const targetWs = targetUid ? userConnections[targetUid] : null;
+                        if (targetWs) {
+                            const chatMsg = { ...msg, text: `[WHISPER]: ${data.text}` };
+                            targetWs.send(JSON.stringify({ type: 'chat-message', message: chatMsg }));
+                            ws.send(JSON.stringify({ type: 'chat-message', message: { ...msg, id: `msg_conf_${Date.now()}_${entropy}`, text: `[TO ${data.targetName}]: ${data.text}` } }));
+                        } else {
+                            ws.send(JSON.stringify({ type: 'chat-message', message: { ...msg, id: `msg_err_${Date.now()}_${entropy}`, sender: 'SYSTEM', text: `Error: ${data.targetName} is offline.`, category: 'log' } }));
+                        }
+                        break;
+                    }
+
                     if (data.category === 'battle' && ws.roomId) broadcastToRoom(ws.roomId, { type: 'chat-message', message: msg });
                     else {
                         wss.clients.forEach(client => {
