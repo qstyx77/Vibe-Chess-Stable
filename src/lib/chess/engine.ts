@@ -712,7 +712,10 @@ export function applyMove(
   }
 
   const pieceLanded = { ...movingPiece, isShielded: false, hasMoved: true };
+  
+  let patternType = pieceLanded.type;
   if (pieceLanded.type === 'mimic') {
+    patternType = (lastMoveGlobal?.type && lastMoveGlobal.type !== 'mimic') ? lastMoveGlobal.type : 'pawn';
     let mimItem: InventoryItemType | null = null;
     if (pieceLanded.heldItem === 'mirror_mask') {
         const enemyLast = pieceLanded.color === 'white' ? lastMoveBlack : lastMoveWhite;

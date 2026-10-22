@@ -512,7 +512,11 @@ export class VibeChessAI {
         const silenced = isSilencedInternal(gs.board, r, c, p.color);
         const opponentColor = p.color === 'white' ? 'black' : 'white';
 
-        let patternType = (p.type === 'mimic' && gs.lastMoveGlobal?.type && gs.lastMoveGlobal.type !== 'mimic') ? gs.lastMoveGlobal.type : p.type;
+        let patternType = p.type;
+        if (p.type === 'mimic') {
+            patternType = (gs.lastMoveGlobal?.type && gs.lastMoveGlobal.type !== 'mimic') ? gs.lastMoveGlobal.type : 'pawn';
+        }
+
         let effItem = p.heldItem;
         if (p.type === 'mimic') {
             if (p.heldItem === 'mirror_mask') effItem = (p.color === 'white' ? gs.lastMoveBlack : gs.lastMoveWhite)?.item || null;
@@ -925,9 +929,10 @@ export class VibeChessAI {
                 if (sq.piece) {
                     if (sq.piece.color === attackerColor) {
                         const attacker = sq.piece;
-                        const attackerPattern = (attacker.type === 'mimic' && gs.lastMoveGlobal?.type && gs.lastMoveGlobal.type !== 'mimic') 
-                            ? gs.lastMoveGlobal.type 
-                            : attacker.type;
+                        let attackerPattern = attacker.type;
+                        if (attacker.type === 'mimic') {
+                            attackerPattern = (gs.lastMoveGlobal?.type && gs.lastMoveGlobal.type !== 'mimic') ? gs.lastMoveGlobal.type : 'pawn';
+                        }
                         
                         const attackerLevel = getEffectiveLevel(gs.board as any, nr, nc);
                         let canAttack = false;
@@ -976,9 +981,10 @@ export class VibeChessAI {
                 if (sq.piece) {
                     if (sq.piece.color === attackerColor) {
                         const attacker = sq.piece;
-                        const attackerPattern = (attacker.type === 'mimic' && gs.lastMoveGlobal?.type && gs.lastMoveGlobal.type !== 'mimic') 
-                            ? gs.lastMoveGlobal.type 
-                            : attacker.type;
+                        let attackerPattern = attacker.type;
+                        if (attacker.type === 'mimic') {
+                            attackerPattern = (gs.lastMoveGlobal?.type && gs.lastMoveGlobal.type !== 'mimic') ? gs.lastMoveGlobal.type : 'pawn';
+                        }
                         
                         const attackerLevel = getEffectiveLevel(gs.board as any, nr, nc);
                         let canAttack = false;
@@ -1011,9 +1017,10 @@ export class VibeChessAI {
             if (isValidSquareUtil(nr, nc)) {
                 const attacker = gs.board[nr][nc].piece;
                 if (attacker && attacker.color === attackerColor) {
-                    const attackerPattern = (attacker.type === 'mimic' && gs.lastMoveGlobal?.type && gs.lastMoveGlobal.type !== 'mimic') 
-                        ? gs.lastMoveGlobal.type 
-                        : attacker.type;
+                    let attackerPattern = attacker.type;
+                    if (attacker.type === 'mimic') {
+                        attackerPattern = (gs.lastMoveGlobal?.type && gs.lastMoveGlobal.type !== 'mimic') ? gs.lastMoveGlobal.type : 'pawn';
+                    }
                     
                     let canAttack = false;
                     if (['knight', 'hero', 'archer', 'archbishop'].includes(attackerPattern)) {

@@ -195,7 +195,7 @@ export function getPossibleMovesInternal(
 
   if (isAssassinSet && FRONTLINE_TYPES.includes(piece.type) && currentLevel >= 5) {
       [-1, 0, 1].forEach(dc => {
-          const nr = fromRow + dir; const nc = fromCol + dc;
+          const nr = fromRow + dir; const nc = us.col + dc;
           if (isValidSquare(nr, nc)) {
               const targetSq = board[nr][nc];
               if (targetSq.item?.type === 'anvil') return; 
