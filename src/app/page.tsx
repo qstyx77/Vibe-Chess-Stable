@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -73,12 +72,13 @@ import { doc, getFirestore, increment } from 'firebase/firestore';
 import { audioManager } from '@/lib/audio-manager';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Slider } from '@/components/ui/slider';
-import { VibeChessTitle, PixelAnvil, ShroomIcon, PixelTome, PixelSack, PixelStall, PixelSwords, PixelTrophy, PixelRobotHead, PixelGear, PixelUndo, PixelReset, PixelUndo as PixelUndoIcon, PixelMonitor, PixelGemstoneMasonry } from '@/components/evolving-chess/IconLibrary';
+import { VibeChessTitle, PixelAnvil, ShroomIcon, PixelTome, PixelSack, PixelStall, PixelSwords, PixelTrophy, PixelRobotHead, PixelGear, PixelUndo, PixelReset, PixelUndo as PixelUndoIcon, PixelMonitor, PixelGemstoneMasonry, PixelSkull } from '@/components/evolving-chess/IconLibrary';
 import { useSocial } from '@/components/social/SocialContext';
 import { Separator } from '@/components/ui/separator';
 import { ChessPieceDisplay } from '@/components/evolving-chess/ChessPieceDisplay';
 import { PieceAbilitiesInfo } from '@/components/evolving-chess/PieceAbilitiesInfo';
 import { UserInteractionPopover } from '@/components/social/UserInteractionPopover';
+import Link from 'next/link';
 
 const initialGameStatus: GameStatus = {
   message: " ",
@@ -765,16 +765,23 @@ export default function EvolvingChessPage() {
                         
                         if (targetItem?.type === 'shroom') {
                             const oldDancerL = dancerPiece.level;
-                            nextBoard[best.r][best.c].piece = { ...dancerPiece, hasMoved: true, level: (dancerPiece.level || 1) + 1 };
+                            nextBoard[best.r][best.c].piece = { ...dancerPiece, hasMoved: true, level: (dancerPiece.level || 1) + 1, isShielded: false };
                             if (nextBoard[best.r][best.c].piece!.level > 7 && nextBoard[best.r][best.c].piece!.type === 'queen') nextBoard[best.r][best.c].piece!.level = 7;
                             if (nextBoard[best.r][best.c].piece!.level > oldDancerL) {
                                 addEffectCallback('level-change', coordsToAlgebraic(best.r, best.c), actingPlayer, 1, undefined);
                             }
-                        } else { nextBoard[best.r][best.c].piece = { ...dancerPiece, hasMoved: true }; }
+                        } else { nextBoard[best.r][best.c].piece = { ...dancerPiece, hasMoved: true, isShielded: false }; }
                         nextBoard[best.r][best.c].item = null;
                         nextBoard[r][c].piece = tP ? { ...tP, hasMoved: true, isShielded: false } : null;
                         nextBoard[r][c].item = targetItem?.type === 'shroom' ? null : targetItem;
                         addLog(`${getPlayerDisplayName(actingPlayer)} Dancer performed a free ${tP ? 'swap' : (targetItem ? 'anvil swap' : 'move')}!`);
+
+                        const backRank = actingPlayer === 'white' ? 0 : 7;
+                        if (best.r === backRank) {
+                            nextBoard[best.r][best.c].piece!.type = 'queen';
+                            nextBoard[best.r][best.c].piece!.level = 1;
+                        }
+
                         triggerSpecialsChain(nextBoard, nextGraveyard, currentKs, oldStreak, newStreak, isExtraTurn, nextEp, actingPlayer, [...completedMilestones, 'dance'], capturingPieceId, wasCaptureThisTurn, movedPieceType, nextAITracks.white, nextAITracks.black, nextAITracks.global); return;
                     }
                 }
@@ -1331,7 +1338,7 @@ export default function EvolvingChessPage() {
         }
         return;
     }
-    if (isSelectingTeleportAlly) { if (piece && piece.color === currentPlayer && piece.type !== 'king' && piece.type !== 'queen' && piece.id !== (selectedSquare ? boardState[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece?.id : null)) { setTeleportAllyPieceId(piece.id); setIsSelectingTeleportAlly(false); setIsSelectingTeleportShroom(true); addLog("Select a shroom to teleport to!"); } return; }
+    if (isSelectingTeleportAlly) { if (piece && piece.color === currentPlayer && piece.type !== 'king' && piece.type !== 'queen' && piece.id !== (selectedSquare ? board[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece?.id : null)) { setTeleportAllyPieceId(piece.id); setIsSelectingTeleportAlly(false); setIsSelectingTeleportShroom(true); addLog("Select a shroom to teleport to!"); } return; }
     if (isSelectingTeleportShroom && sq?.item?.type === 'shroom') {
         const mage = board[algebraicToCoords(selectedSquare!).row][algebraicToCoords(selectedSquare!).col].piece!;
         const newMoveInfo: LastMoveInfo = { type: mage.type, level: mage.level, item: mage.heldItem || null };
@@ -1388,10 +1395,30 @@ export default function EvolvingChessPage() {
 
                 let nextBoard = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null})));
                 const activeD_next = nextBoard[fr][fc].piece!; const tP = nextBoard[row][col].piece; const targetItem = nextBoard[row][col].item;
-                if (targetItem?.type === 'shroom') { activeD_next.level = Math.min(activeD_next.type === 'queen' ? 7 : 99, (activeD_next.level || 1) + 1); nextBoard[row][col].item = null; }
-                nextBoard[row][col].piece = activeD_next; nextBoard[fr][fc].piece = tP ? { ...tP, hasMoved: true } : null; nextBoard[fr][fc].item = targetItem?.type === 'shroom' ? null : targetItem;
+                if (targetItem?.type === 'shroom') { 
+                    const oldL = activeD_next.level;
+                    activeD_next.level = Math.min(activeD_next.type === 'queen' ? 7 : 99, (activeD_next.level || 1) + 1); 
+                    nextBoard[row][col].item = null;
+                    if (activeD_next.level > oldL) addEffectCallback('level-change', algebraic, currentPlayer, 1, undefined);
+                }
+                nextBoard[row][col].piece = { ...activeD_next, isShielded: false }; 
+                nextBoard[fr][fc].piece = tP ? { ...tP, hasMoved: true, isShielded: false } : null; 
+                nextBoard[fr][fc].item = targetItem?.type === 'shroom' ? null : targetItem;
+                
+                const backRank = currentPlayer === 'white' ? 0 : 7;
+                let q = [];
+                if (row === backRank && FRONTLINE_TYPES.includes(activeD_next.type)) {
+                    q.push({ square: algebraic, targetLevel: 1 });
+                }
+
                 setBoard(nextBoard); setIsAwaitingDanceTarget(false); setDancerToDance(null); audioManager.playMove(); 
-                triggerSpecialsChain(nextBoard, specialActionContext!.currentGraveyard, specialActionContext!.currentKs, specialActionContext!.oldStreak, specialActionContext!.newStreak, specialActionContext!.isExtraTurn, specialActionContext!.newEnPassantTarget, currentPlayer, specialActionContext!.completedMilestones, specialActionContext.capturingPieceId, false, dancerMoveInfo.type, nextTracks.white, nextTracks.black, nextTracks.global);
+                
+                if (q.length > 0) {
+                    setPromotionQueue(q); setPlayerToPromote(currentPlayer); setIsPromotingPawn(true); setPromotionSquare(q[0].square); setPromotionTargetLevel(q[0].targetLevel);
+                    setSpecialActionContext({ boardForNextStep: nextBoard, playerWhoseTurnCompleted: currentPlayer, isExtraTurn: specialActionContext!.isExtraTurn, newEnPassantTarget: specialActionContext!.newEnPassantTarget, oldStreak: specialActionContext!.oldStreak, newStreak: specialActionContext!.newStreak, currentGraveyard: specialActionContext!.currentGraveyard, currentKs: specialActionContext!.currentKs, capturingPieceId: specialActionContext!.capturingPieceId, trackWhite: nextTracks.white, trackBlack: nextTracks.black, trackGlobal: nextTracks.global, completedMilestones: specialActionContext!.completedMilestones } as any);
+                } else {
+                    triggerSpecialsChain(nextBoard, specialActionContext!.currentGraveyard, specialActionContext!.currentKs, specialActionContext!.oldStreak, specialActionContext!.newStreak, specialActionContext!.isExtraTurn, specialActionContext!.newEnPassantTarget, currentPlayer, specialActionContext!.completedMilestones, specialActionContext.capturingPieceId, false, dancerMoveInfo.type, nextTracks.white, nextTracks.black, nextTracks.global);
+                }
             }
         }
         return;

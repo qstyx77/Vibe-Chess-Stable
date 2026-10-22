@@ -618,11 +618,17 @@ export function applyMove(
             p2.isPoisoned = false; p2.isExhausted = false; p2.cooldownTurnsRemaining = 0;
         }
     }
-    newBoard[toRow][toCol].piece = { ...p1, hasMoved: true };
+    newBoard[toRow][toCol].piece = { ...p1, hasMoved: true, isShielded: false };
     newBoard[toRow][toCol].item = null;
     newBoard[fromRow][fromCol].piece = p2 ? { ...p2, hasMoved: true, isShielded: false } : null;
     newBoard[fromRow][fromCol].item = it2;
-    return { newBoard, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered: null, originalPieceLevel: 0, originalPieceType: 'dancer', selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn, specialCaptureSquare: null, anvilDroppedSquares: [], levelChanges, obliteratedPieces: [] };
+
+    const oppBackRankIdx = p1.color === 'white' ? 0 : 7;
+    if (toRow === oppBackRankIdx) {
+        multiPromotions.push({ square: move.to, targetLevel: 1 });
+    }
+
+    return { newBoard, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered: null, originalPieceLevel: 0, originalPieceType: 'dancer', selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn, specialCaptureSquare: null, anvilDroppedSquares: [], levelChanges, obliteratedPieces: [], multiPromotions };
   }
 
   const originalLevelValue = Number(movingPiece.level || 1);

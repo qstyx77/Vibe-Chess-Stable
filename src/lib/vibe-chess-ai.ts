@@ -1,5 +1,3 @@
-
-
 import type { Piece, PlayerColor, PieceType, AIMove, AIGameState, AIBoardState, AISquareState, Item, AlgebraicSquare, InventoryItemType, LastMoveInfo } from '@/types';
 import { coordsToAlgebraic, algebraicToCoords, getCastlingRightsString, isPieceInvulnerableToAttack as isPieceInvulnerableToAttackUtil, isValidSquare as isValidSquareUtil, getEffectiveLevel, getPromotionLevel, FRONTLINE_TYPES, VAL_MAP } from '@/lib/chess-utils';
 
@@ -284,7 +282,6 @@ export class VibeChessAI {
                 next.board[tR][tC].piece = p;
                 if (targetPiece?.color === opponent) captureCount++;
             }
-            // Corrected: Grappler remains stationary
             next.board[fR][fC].piece = { ...movingPiece, hasMoved: true };
         } else if (move.type === 'ram-push') {
             const dr = Math.sign(tR - fR); const dc = Math.sign(tC - fC);
@@ -321,6 +318,12 @@ export class VibeChessAI {
             }
             next.board[tR][tC].piece = p1;
             next.board[fR][fC].piece = p2;
+
+            const backRank = p1.color === 'white' ? 0 : 7;
+            if (tR === backRank && FRONTLINE_TYPES.includes(p1.type)) {
+                p1.type = 'queen';
+                p1.level = 1;
+            }
         } else if (move.type === 'self-destruct') {
             next.board[fR][fC].piece = null;
             for(let dr=-1; dr<=1; dr++) for(let dc=-1; dc<=1; dc++) {
@@ -1064,4 +1067,3 @@ function isSilencedInternal(board: AIBoardState, r: number, c: number, color: Pl
   }
   return false;
 }
-

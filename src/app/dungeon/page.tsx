@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -306,7 +305,6 @@ export default function DungeonPage() {
   const [isAwaitingSwapScrollTarget, setIsAwaitingSwapScrollTarget] = useState(false);
   const [isAwaitingSwapTarget, setIsAwaitingSwapTarget] = useState(false);
   const [isAwaitingSwapClergyTarget, setIsAwaitingSwapClergyTarget] = useState(false);
-  const [isAwaitingSwapCavalryTarget, setIsAwaitingSwapCavalryTarget] = useState(false);
   const [isAwaitingSwapCavalryTarget, setIsAwaitingSwapCavalryTarget] = useState(false);
   const [isAwaitingDecreeTarget, setIsAwaitingDecreeTarget] = useState(false);
   const [isAwaitingEarthquakeScrollTarget, setIsAwaitingEarthquakeScrollTarget] = useState(false);
@@ -635,11 +633,18 @@ export default function DungeonPage() {
 
                         if (targetItem?.type === 'shroom') { 
                             const oldL = dP.level;
-                            nextBoard[best.r][best.c].piece = { ...dP, hasMoved: true, level: (dP.level || 1) + 1 }; 
+                            nextBoard[best.r][best.c].piece = { ...dP, hasMoved: true, level: (dP.level || 1) + 1, isShielded: false }; 
                             if (nextBoard[best.r][best.c].piece!.level > oldL) addEffect('level-change', coordsToAlgebraic(best.r, best.c), actP, 1);
-                        } else { nextBoard[best.r][best.c].piece = { ...dP, hasMoved: true }; }
+                        } else { nextBoard[best.r][best.c].piece = { ...dP, hasMoved: true, isShielded: false }; }
                         nextBoard[best.r][best.c].item = null; nextBoard[r][c].piece = tP ? { ...tP, hasMoved: true, isShielded: false } : null; nextBoard[r][c].item = targetItem?.type === 'shroom' ? null : targetItem;
                         addLog(`${getPlayerDisplayName(actP)} Dancer performed a free ${tP ? 'swap' : (targetItem ? 'anvil swap' : 'move')}!`);
+
+                        const oppBackRank = actP === 'white' ? 0 : 7;
+                        if (best.r === oppBackRank) {
+                            nextBoard[best.r][best.c].piece!.type = 'queen';
+                            nextBoard[best.r][best.c].piece!.level = 1;
+                        }
+
                         triggerSpecialsChain(nextBoard, nG, cKs, oldS, newS, isEx, nEp, actP, [...compM, 'dance'], capId, wasCap, movedT, nextAITracks.white, nextAITracks.black, nextAITracks.global); return;
                     }
                 }
@@ -791,7 +796,7 @@ export default function DungeonPage() {
                 const targetP = sniped.color; nG[targetP] = [...(nG[targetP]||[]), sniped];
                 triggerSpecialsChain(nxtB, nG, cKs, oldS, newS, isEx, nEp, actP, [...compM, 'snipe'], capId, wasCap, movedT, nextAITracks.white, nextAITracks.black, nextAITracks.global); return;
             } else {
-                setSpecialActionContext({ boardForNextStep: bCh, playerWhoseTurnCompleted: actP, isExtraTurn: isEx, newEnPassantTarget: nEp, oldStreak: oldS, newStreak: newS, completedMilestones: [...compM, 'snipe'], currentGraveyard: nG, currentKs: cKs, capturingPieceId: capId, trackWhite: effWhite, trackBlack: effBlack, trackGlobal: effGlobal });
+                setSpecialActionContext({ boardForNextStep: bCh, playerWhoseTurnCompleted: actP, isExtraTurn: isExtraTurn, newEnPassantTarget: nEp, oldStreak: oldS, newStreak: newS, completedMilestones: [...compM, 'snipe'], currentGraveyard: nG, currentKs: cKs, capturingPieceId: capId, trackWhite: effWhite, trackBlack: effBlack, trackGlobal: effGlobal });
                 setIsAwaitingArcherSnipe(true); addLog("Sniper active! Select a target to snipe."); return;
             }
         }
@@ -1235,11 +1240,25 @@ export default function DungeonPage() {
                 activeD_next.level = Math.min(activeD_next.type === 'queen' ? 7 : 99, (activeD_next.level || 1) + 1); nxtB[row][col].item = null; 
                 if (activeD_next.level > oldL) addEffect('level-change', alg, 'white', 1);
             }
-            nxtB[row][col].piece = activeD_next; nxtB[fr][fc].piece = tP ? { ...tP, hasMoved: true } : null; nxtB[fr][fc].item = targetItem?.type === 'shroom' ? null : targetItem;
+            nxtB[row][col].piece = { ...activeD_next, isShielded: false }; 
+            nxtB[fr][fc].piece = tP ? { ...tP, hasMoved: true, isShielded: false } : null; 
+            nxtB[fr][fc].item = targetItem?.type === 'shroom' ? null : targetItem;
             setBoard(nxtB); setIsAwaitingDanceTarget(false); setDancerToDance(null); audioManager.playMove(); 
             if (currentPlayer === 'white') setLastMoveWhite(dancerMoveInfo); else setLastMoveBlack(dancerMoveInfo);
             setLastMoveGlobal(dancerMoveInfo);
-            triggerSpecialsChain(nxtB, specialActionContext!.currentGraveyard, specialActionContext!.currentKs, specialActionContext!.oldStreak, specialActionContext!.newStreak, specialActionContext!.isExtraTurn, specialActionContext!.newEnPassantTarget, 'white', specialActionContext!.completedMilestones, specialActionContext.capturingPieceId, false, dancerMoveInfo.type, nextTracks.white, nextTracks.black, nextTracks.global);
+
+            const backRank = currentPlayer === 'white' ? 0 : 7;
+            let q = [];
+            if (row === backRank && FRONTLINE_TYPES.includes(activeD_next.type)) {
+                q.push({ square: alg, targetLevel: 1 });
+            }
+
+            if (q.length > 0) {
+                setPromotionQueue(q); setIsPromotingPawn(true); setPromotionSquare(q[0].square); setPromotionTargetLevel(q[0].targetLevel);
+                setSpecialActionContext({ boardForNextStep: nxtB, playerWhoseTurnCompleted: 'white', isExtraTurn: specialActionContext!.isExtraTurn, newEnPassantTarget: specialActionContext!.newEnPassantTarget, oldStreak: specialActionContext!.oldStreak, newStreak: specialActionContext!.newStreak, currentGraveyard: specialActionContext!.currentGraveyard, currentKs: specialActionContext!.currentKs, capturingPieceId: specialActionContext!.capturingPieceId, trackWhite: nextTracks.white, trackBlack: nextTracks.black, trackGlobal: nextTracks.global, completedMilestones: specialActionContext!.completedMilestones } as any);
+            } else {
+                triggerSpecialsChain(nxtB, specialActionContext!.currentGraveyard, specialActionContext!.currentKs, specialActionContext!.oldStreak, specialActionContext!.newStreak, specialActionContext!.isExtraTurn, specialActionContext!.newEnPassantTarget, 'white', specialActionContext!.completedMilestones, specialActionContext.capturingPieceId, false, dancerMoveInfo.type, nextTracks.white, nextTracks.black, nextTracks.global);
+            }
         }
         return;
     }
@@ -1523,7 +1542,7 @@ export default function DungeonPage() {
         if (appRes.anvilDroppedSquares) appRes.anvilDroppedSquares.forEach(sq => { setTimeout(() => { addEffect('focus', sq); audioManager.playAnvil(); }, 300); });
         let nextB = appRes.newBoard;
         if (mP.id === 'boss-entity' && streakGain > 0) {
-            addLog("Time Lock! The Void freezes reality!"); audioManager.playFreeze();
+            addLog("Time Lock! The Void entities reality!"); audioManager.playFreeze();
             const { row: tr, col: tc } = algebraicToCoords(toAlg);
             for(let dr=-1; dr<=1; dr++) for(let dc=-1; dc<=1; dc++) {
                 if (dr === 0 && dc === 0) continue;
@@ -1558,7 +1577,6 @@ export default function DungeonPage() {
             landed.type = 'queen'; landed.level = Math.min(7, targetL); aiPromoted = true;
         }
         
-        // FIX: Descriptive skill-based logging for Dungeon AI
         let aiLogMsg = `Dungeon: ${mP.type} to ${toAlg}${aiPromoted ? " (PROMOTED)" : ""}`;
         if (move.type === 'grapple-throw') aiLogMsg = `Dungeon: Grappler tossed piece to ${toAlg}`;
         else if (move.type === 'self-destruct') aiLogMsg = `Dungeon: Knight self-destructed at ${toAlg}`;
@@ -1800,4 +1818,3 @@ export default function DungeonPage() {
     </div>
   );
 }
-
