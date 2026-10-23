@@ -233,7 +233,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
             addLog("HERO COMMAND LIST:");
             addLog("/friend <name> - Send friend request");
             addLog("/unfriend <name> - Remove friend");
-            addLog("/whisper <name> <msg> - Private message");
+            addLog("@<name> <msg> - Private message");
             addLog("/invite <name> - Invite player to your room");
             addLog("/spectate <name> - Join a player's session");
             addLog("/block <name> - Permanent blacklist");
@@ -277,7 +277,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
         }
 
         // PASS THROUGH PLAYER COMMANDS TO SERVER
-        const playerForwardCmds = ['/friend', '/unfriend', '/whisper', '/w', '/invite', '/block', '/unblock', '/rank', '/spectate'];
+        const playerForwardCmds = ['/friend', '/unfriend', '/invite', '/block', '/unblock', '/rank', '/spectate'];
         if (playerForwardCmds.includes(cmd)) {
             wsRef.current.send(JSON.stringify({
                 type: 'player-command',

@@ -274,7 +274,7 @@ const handleTournamentGameOver = (tournamentId: string, roomId: string, winnerCo
     tournament.roundWinners.push(winnerData.userId);
     tournament.activeRoomIds.delete(roomId);
 
-    const eloChanges = calculateEloChange(winnerData.elo || 1200, loserData.elo || 1200);
+    const eloChanges = calculateEloChange(winnerData.elo || 1200, loserElo || 1200);
     const eloInfo: any = {};
     eloInfo[winnerData.userId] = { oldElo: winnerData.elo || 1200, newElo: (winnerData.elo || 1200) + eloChanges.winnerGain };
     eloInfo[loserData.userId] = { oldElo: loserData.elo || 1200, newElo: (loserData.elo || 1200) + eloChanges.loserLoss };
@@ -408,15 +408,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                     } else if (cmd === '/unfriend' && targetUid) {
                         await admin.firestore().doc(`users/${ws.userId}/friends/${targetUid}`).delete();
                         sendResponse(`Removed ${targetName} from your friends.`);
-                    } else if ((cmd === '/whisper' || cmd === '/w') && targetUid) {
-                        const msg = parts.slice(2).join(' ');
-                        const targetWs = userConnections[targetUid];
-                        if (targetWs) {
-                            const entropy = Math.random().toString(36).substr(2, 5);
-                            const chatMsg = { id: `pm_${Date.now()}_${entropy}`, sender: ws.username, senderId: ws.userId, text: `[WHISPER]: ${msg}`, timestamp: Date.now(), category: 'social' };
-                            targetWs.send(JSON.stringify({ type: 'chat-message', message: chatMsg }));
-                            ws.send(JSON.stringify({ type: 'chat-message', message: { ...chatMsg, id: `pm_conf_${Date.now()}_${entropy}`, text: `[TO ${targetName}]: ${msg}` } }));
-                        } else sendResponse(`Error: ${targetName} is offline.`);
                     } else if (cmd === '/invite' && targetUid) {
                         if (!ws.roomId) { sendResponse("Error: You are not in a game room."); break; }
                         const targetWs = userConnections[targetUid];
@@ -444,7 +435,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                         sendResponse(`GLOBAL STANDING: You are currently Rank #${rank} of ${snap.size}.`);
                     } else if (cmd === '/spectate' && targetUid) {
                         const targetWs = userConnections[targetUid];
-                        if (targetWs && targetWs.roomId) {
+                        if (targetWs) {
                             sendResponse(`${targetName} is in Room ${targetWs.roomId}. [Link: /?roomId=${targetWs.roomId}]`);
                         } else sendResponse(`Error: ${targetName} is not in an active game.`);
                     }
