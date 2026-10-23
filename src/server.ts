@@ -434,7 +434,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                         const snap = await admin.firestore().collection('users').orderBy('eloRating', 'desc').get();
                         const rank = snap.docs.findIndex(d => d.id === ws.userId) + 1;
                         sendResponse(`GLOBAL STANDING: You are currently Rank #${rank} of ${snap.size}.`);
-                    } else if (cmd === '/spectate' && targetUid) {
+                    } else if (cmd === '/spectate' && targetName) {
                         const targetWs = targetUid ? userConnections[targetUid] : null;
                         if (targetWs) {
                             sendResponse(`${targetName} is in Room ${targetWs.roomId}. [Link: /?roomId=${targetWs.roomId}]`);
@@ -599,7 +599,8 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                         if (targetWs) {
                             const chatMsg = { ...msg, text: `[WHISPER]: ${data.text}` };
                             targetWs.send(JSON.stringify({ type: 'chat-message', message: chatMsg }));
-                            ws.send(JSON.stringify({ type: 'chat-message', message: { ...msg, id: `msg_conf_${Date.now()}_${entropy}`, text: `[TO ${data.targetName}]: ${data.text}` } }));
+                            // Echo back with SAME ID to satisfy client deduplication
+                            ws.send(JSON.stringify({ type: 'chat-message', message: { ...msg, text: `[TO ${data.targetName}]: ${data.text}` } }));
                         } else {
                             ws.send(JSON.stringify({ type: 'chat-message', message: { ...msg, id: `msg_err_${Date.now()}_${entropy}`, sender: 'SYSTEM', text: `Error: ${data.targetName} is offline.`, category: 'log' } }));
                         }

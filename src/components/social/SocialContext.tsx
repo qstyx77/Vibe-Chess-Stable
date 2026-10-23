@@ -160,6 +160,9 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
                     });
                 }
 
+                // Prevent notification for self
+                if (senderId === user?.uid) return;
+
                 setHasUnread(prev => {
                     if (!isMessengerOpen || !visibleCategories.has(cat)) {
                         return { ...prev, [cat]: true };
