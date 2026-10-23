@@ -195,7 +195,7 @@ export function getPossibleMovesInternal(
 
   if (isAssassinSet && FRONTLINE_TYPES.includes(piece.type) && currentLevel >= 5) {
       [-1, 0, 1].forEach(dc => {
-          const nr = fromRow + dir; const nc = us.col + dc;
+          const nr = fromRow + dir; const nc = fromCol + dc;
           if (isValidSquare(nr, nc)) {
               const targetSq = board[nr][nc];
               if (targetSq.item?.type === 'anvil') return; 
@@ -586,7 +586,11 @@ function isMoveValidInternal(board: BoardState, from: AlgebraicSquare, to: Algeb
     }
     if (dr === 0 && Math.abs(dc) <= (1 + rangeBonus) && effL >= 3 && (!targetP || (targetSq.item?.type === 'anvil' && (piece.heldItem === 'crowbar' || canPushAnvils)))) return true;
     if (dr === forward && Math.abs(dc) === 1) {
-       if (targetP && targetP.color === opp) return true;
+       if (targetP && targetP.color === opp) {
+           const targetLevel = getEffectiveLevel(board, tR, tC);
+           if (isPieceInvulnerableToAttack(targetP, piece, targetLevel, effL, board, simplified)) return false;
+           return true;
+       }
        if (!targetP && to === ep) return true;
        if (simplified) return true; 
     }
