@@ -274,7 +274,8 @@ const handleTournamentGameOver = (tournamentId: string, roomId: string, winnerCo
     tournament.roundWinners.push(winnerData.userId);
     tournament.activeRoomIds.delete(roomId);
 
-    const eloChanges = calculateEloChange(winnerData.elo || 1200, loserElo || 1200);
+    const loserElo = loserData.elo || 1200;
+    const eloChanges = calculateEloChange(winnerData.elo || 1200, loserElo);
     const eloInfo: any = {};
     eloInfo[winnerData.userId] = { oldElo: winnerData.elo || 1200, newElo: (winnerData.elo || 1200) + eloChanges.winnerGain };
     eloInfo[loserData.userId] = { oldElo: loserData.elo || 1200, newElo: (loserData.elo || 1200) + eloChanges.loserLoss };
@@ -434,7 +435,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                         const rank = snap.docs.findIndex(d => d.id === ws.userId) + 1;
                         sendResponse(`GLOBAL STANDING: You are currently Rank #${rank} of ${snap.size}.`);
                     } else if (cmd === '/spectate' && targetUid) {
-                        const targetWs = userConnections[targetUid];
+                        const targetWs = targetUid ? userConnections[targetUid] : null;
                         if (targetWs) {
                             sendResponse(`${targetName} is in Room ${targetWs.roomId}. [Link: /?roomId=${targetWs.roomId}]`);
                         } else sendResponse(`Error: ${targetName} is not in an active game.`);
