@@ -616,11 +616,16 @@ export default function DungeonPage() {
 
                         const oppBackRank = actP === 'white' ? 0 : 7;
                         if (best.r === oppBackRank) {
-                            nextBoard[best.r][best.c].piece!.type = 'queen';
-                            nextBoard[best.r][best.c].piece!.level = 1;
+                            multiPromotions.push({ square: coordsToAlgebraic(best.r, best.c), targetLevel: 1 });
                         }
 
-                        triggerSpecialsChain(nextBoard, nG, cKs, oldS, newS, isEx, nEp, actP, [...compM, 'dance'], capId, wasCap, movedT, nextAITracks.white, nextAITracks.black, nextAITracks.global); return;
+                        if (multiPromotions.length > 0) {
+                           setPromotionQueue(multiPromotions); setIsPromotingPawn(true); setPromotionSquare(multiPromotions[0].square); setPromotionTargetLevel(multiPromotions[0].targetLevel);
+                           setSpecialActionContext({ boardForNextStep: nextBoard, playerWhoseTurnCompleted: actP, isExtraTurn: isEx, newEnPassantTarget: nEp, oldStreak: oldS, newStreak: newS, completedMilestones: [...compM, 'dance'], currentGraveyard: nG, currentKs: cKs, capturingPieceId: sil ? null : capId, trackWhite: nextAITracks.white, trackBlack: nextAITracks.black, trackGlobal: nextAITracks.global });
+                        } else {
+                           triggerSpecialsChain(nextBoard, nG, cKs, oldS, newS, isEx, nEp, actP, [...compM, 'dance'], capId, wasCap, movedT, nextAITracks.white, nextAITracks.black, nextAITracks.global);
+                        }
+                        return;
                     }
                 }
                 triggerSpecialsChain(nextBoard, nG, cKs, oldS, newS, isEx, nEp, actP, [...compM, 'dance'], capId, wasCap, movedT, effWhite, effBlack, effGlobal); return;

@@ -1770,7 +1770,7 @@ export default function EvolvingChessPage() {
                   }
                   const oS = killStreaks[currentPlayer]; const nS = wasCap ? oS + streakGain : 0; const updatedKs = { ...killStreaks, [currentPlayer]: nS }; const isExtra = applyRes.extraTurn || (oS < 6 && nS >= 6); const q = applyRes.multiPromotions || []; const oppBackRank = currentPlayer === 'white' ? 0 : 7;
                   if (FRONTLINE_TYPES.includes(nextB[row][col].piece?.type || '') && row === oppBackRank) q.push({ square: algebraic, targetLevel: getPromotionLevel(applyRes.capturedPiece?.type || null) });
-                  if (rookResResult?.promotionRequiredForResurrectedPawn) q.push({ square: rookResResult.resurrectedSquareAlg!, targetLevel: 1 });
+                  if (rookResResult?.promotionRequiredForResurrectedPawn) q.push({ square: algebraic, targetLevel: 1 });
                   if (q.length > 0) { 
                       setPromotionQueue(q); setPlayerToPromote(currentPlayer); setIsPromotingPawn(true); setPromotionSquare(q[0].square); setPromotionTargetLevel(q[0].targetLevel);
                       setSpecialActionContext({ boardForNextStep: nextB, playerWhoseTurnCompleted: currentPlayer, isExtraTurn: isExtra, newEnPassantTarget: applyRes.enPassantTargetSet, oldStreak: oS, newStreak: nS, currentGraveyard: updatedG, currentKs: updatedKs, capturingPieceId: nextB[row][col].piece?.id || null, trackWhite: nextTracks.white, trackBlack: nextTracks.black, trackGlobal: nextTracks.global } as any); 
