@@ -377,6 +377,38 @@ export const VibeChessTitle = ({ className, suffix = "" }: IconProps) => (
             <rect x="193" y="25" width="16" height="4" />
           </g>
        </g>
+
+       {/* BETA - Small White Overlay */}
+       <g fill="white" transform="translate(89, 25)">
+          {/* B */}
+          <g>
+            <rect x="0" y="0" width="2" height="12" />
+            <rect x="2" y="0" width="5" height="2" />
+            <rect x="7" y="2" width="2" height="3" />
+            <rect x="2" y="5" width="5" height="2" />
+            <rect x="7" y="7" width="2" height="3" />
+            <rect x="2" y="10" width="5" height="2" />
+          </g>
+          {/* E */}
+          <g>
+            <rect x="11" y="0" width="2" height="12" />
+            <rect x="13" y="0" width="7" height="2" />
+            <rect x="13" y="5" width="5" height="2" />
+            <rect x="13" y="10" width="7" height="2" />
+          </g>
+          {/* T */}
+          <g>
+            <rect x="22" y="0" width="9" height="2" />
+            <rect x="25.5" y="2" width="2" height="10" />
+          </g>
+          {/* A */}
+          <g>
+            <rect x="33" y="2" width="2" height="10" />
+            <rect x="40" y="2" width="2" height="10" />
+            <rect x="35" y="0" width="5" height="2" />
+            <rect x="35" y="6" width="5" height="2" />
+          </g>
+       </g>
     </g>
   </svg>
 );
