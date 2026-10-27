@@ -287,6 +287,7 @@ export default function EvolvingChessPage() {
   const wsRef = useRef<WebSocket | null>(null);
   const uniqueIdCounterRef = useRef(0);
   const lastInitializedUid = useRef<string | null>(null);
+  const hasTriggeredWelcomeRef = useRef(false);
 
   const [headerIconsActive, setHeaderIconsActive] = useState(true);
   const [headerIconsOpacity, setHeaderIconsOpacity] = useState(true);
@@ -417,8 +418,9 @@ export default function EvolvingChessPage() {
     prevUnlockedRef.current = currentUnlocked;
 
     // Trigger Beta Welcome Dialog
-    if (!userData?.hideBetaWelcome && gameMoveCounter === 0 && onlineStatus === 'disconnected') {
+    if (!userData?.hideBetaWelcome && gameMoveCounter === 0 && onlineStatus === 'disconnected' && !hasTriggeredWelcomeRef.current) {
       setIsBetaWelcomeOpen(true);
+      hasTriggeredWelcomeRef.current = true;
     }
   }, [userData, isUserLoading, attunementSlots, toast, addLog, gameMoveCounter, onlineStatus]);
 
@@ -1115,7 +1117,7 @@ export default function EvolvingChessPage() {
       setTimeout(() => {
         setIsAiThinking(false); setIsMoveProcessing(false); clickGuardRef.current = false; if (gameOverRef.current) return;
         if (applyResult.infiltrationWin) {
-            const msg = `INFILTRATION WIN! AI has breached the back rank!`;
+            const msg = `INFILTRATION WIN! ${getPlayerDisplayName(currentPlayer)} has breached the back rank!`;
             setGameInfo({ message: msg, isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: false, isThreefoldRepetitionDraw: false, gameOver: true, winner: currentPlayer, isInfiltrationWin: true });
             addLog(msg); gameOverRef.current = true; playOutcomeSound(currentPlayer); 
             handleGameEndCleanup(currentPlayer);
@@ -1841,6 +1843,7 @@ export default function EvolvingChessPage() {
             setBoard(nextGs.board); setCurrentPlayer(nextGs.currentPlayer); setEnPassantTargetSquare(nextGs.enPassantTargetSquare); setKillStreaks(nextGs.killStreaks); setCapturedPieces(nextGs.capturedPieces);
             setShroomSpawnCounter(nextGs.shroomSpawnCounter);
             setNextShroomSpawnTurn(nextGs.nextShroomSpawnTurn);
+            if (nextGs.gameMoveCounter !== undefined) setGameMoveCounter(nextGs.gameMoveCounter);
 
             if (remoteEvents && remoteMove) {
                 const actingColor = nextGs.currentPlayer === 'white' ? 'black' : 'white';
@@ -2203,6 +2206,12 @@ export default function EvolvingChessPage() {
             <AlertDialogDescription className="text-white text-[0.65rem] uppercase leading-relaxed"> Joining the Arena battle queue costs <span className="text-yellow-500">100 Gold</span>. Are you sure you want to proceed? </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="mt-4 gap-2">
+            <Accordion type="single" collapsible className="w-full mb-2">
+              <AccordionItem value="entry-fee" className="border-border/30">
+                <AccordionTrigger className="text-[0.6rem] uppercase py-2">View Queue Details</AccordionTrigger>
+                <AccordionContent className="text-[0.55rem] text-muted-foreground uppercase leading-tight"> Arena battles use your current Elo and Equipment. Matches are 8-player bracketed tournaments. </AccordionContent>
+              </AccordionItem>
+            </Accordion>
             <Accordion type="single" collapsible className="w-full mb-2">
               <AccordionItem value="entry-fee" className="border-border/30">
                 <AccordionTrigger className="text-[0.6rem] uppercase py-2">View Queue Details</AccordionTrigger>
