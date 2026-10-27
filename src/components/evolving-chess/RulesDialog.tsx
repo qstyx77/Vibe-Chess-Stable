@@ -52,8 +52,11 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
           <DialogTitle className="text-primary text-center text-xl font-medium uppercase font-pixel tracking-tighter">
             VIBE CHESS - RULEBOOK 
           </DialogTitle>
-          <DialogDescription className="sr-only">
+          <DialogTitle className="sr-only">
             Comprehensive Game Rules
+          </DialogTitle>
+          <DialogDescription className="sr-only">
+            Learn about leveling, units, items, and dungeon hazards.
           </DialogDescription>
         </DialogHeader>
 
@@ -228,6 +231,12 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                 <RuleText>• Persistence: Damage, levels, and items carry over between floors.</RuleText>
                 <RuleText>• Shrooms 🍄: Spawn every 5-10 turns. Consume for +1 Level and +1 Mana for Myco Mages.</RuleText>
                 <RuleText>• Bosses: Every 10 floors features a unique entity (Hydra, Necromancer, Colossus, etc.) with custom passive traits.</RuleText>
+                <SubRule title="The Wraith (Spectral Balance)">
+                  <RuleText>• Manifestation: Spawned by high-level Royal presence (Level 5+). A cyan 'Omen' flicker warns of their arrival.</RuleText>
+                  <RuleText>• Behavior: Persistent threats that move independently (up to 2 spaces) and phase through non-royal units.</RuleText>
+                  <RuleText>• Soul Drain: They target the highest-level Royals, stealing 1 Level and pushing them back on impact instead of capturing.</RuleText>
+                  <RuleText>• Banishment: Can be captured by any unit, but grant zero experience or items. They exist purely to balance overwhelming power.</RuleText>
+                </SubRule>
                 <RuleText>• Floor Collapse: If the dungeon enemy cannot move any pieces for 3 turns in a row, all of their remaining pieces self destruct, destroying your adjacent pieces and advancing you to the next floor.</RuleText>
               </AccordionContent>
             </AccordionItem>
