@@ -72,8 +72,8 @@ export function BetaWelcomeDialog({ isOpen, onOpenChange }: BetaWelcomeDialogPro
           <DialogDescription>Essential information about game mechanics, economy, and beta rules.</DialogDescription>
         </DialogHeader>
 
-        {/* 1:1 Lobby Header Recreation - Adjusted padding to prevent cutoff */}
-        <div className="pt-10 pb-6 px-6 border-b border-border/50 bg-black/80 sticky top-0 z-20">
+        {/* 1:1 Lobby Header Recreation - Centered and Spaced */}
+        <div className="pt-16 pb-14 px-6 border-b border-border/50 bg-black/80 sticky top-0 z-20">
             <div className="w-full flex items-center justify-center gap-6 overflow-visible"> 
                <div className={cn(headerIconsOpacity ? "opacity-100" : "opacity-0 transition-opacity duration-1000")}>
                   {headerIconsActive && (
@@ -128,7 +128,6 @@ export function BetaWelcomeDialog({ isOpen, onOpenChange }: BetaWelcomeDialogPro
                 </div>
                 <div className="p-3 bg-muted/10 border border-border/30 rounded-sm">
                     <p className="text-[0.55rem] text-muted-foreground uppercase leading-relaxed text-center italic">
-                        In VIBE CHESS, Gold is the lifeblood of the Arena (100g entry fee) and the key to acquiring powerful gear from your fellow players. 
                         Note that an account reset will occur before we move into Open Beta.
                     </p>
                 </div>
@@ -144,7 +143,7 @@ export function BetaWelcomeDialog({ isOpen, onOpenChange }: BetaWelcomeDialogPro
                 {/* Visual Showcase Row */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 py-2">
                     <div className="flex flex-col items-center gap-3 p-4 bg-black border-2 border-primary/20 shadow-[0_0_15px_rgba(var(--primary),0.1)]">
-                        <div className="h-12 w-12 relative flex items-center justify-center">
+                        <div className="h-10 w-10 relative flex items-center justify-center">
                              <ChessPieceDisplay piece={{ id: 'show-hero', type: 'hero', color: 'white', level: 1, hasMoved: false }} isMini />
                              <span className="absolute font-pixel text-[#4ade80] text-sm animate-[level-float_2s_infinite] drop-shadow-[0_0_2px_black]">+1</span>
                         </div>
@@ -154,7 +153,7 @@ export function BetaWelcomeDialog({ isOpen, onOpenChange }: BetaWelcomeDialogPro
                         </div>
                     </div>
                     <div className="flex flex-col items-center gap-3 p-4 bg-black border-2 border-destructive/20 shadow-[0_0_15px_rgba(var(--destructive),0.1)]">
-                        <div className="h-12 w-full flex items-center justify-center gap-2">
+                        <div className="h-10 w-full flex items-center justify-center gap-2">
                              <div className="h-10 w-10 text-[#10B981] animate-hydra-idle">
                                 <PixelHydra className="w-full h-full ascii-shader" />
                              </div>
@@ -168,8 +167,8 @@ export function BetaWelcomeDialog({ isOpen, onOpenChange }: BetaWelcomeDialogPro
                         </div>
                     </div>
                     <div className="flex flex-col items-center gap-3 p-4 bg-black border-2 border-accent/20 shadow-[0_0_15px_rgba(var(--accent),0.1)] overflow-hidden">
-                        <div className="h-12 w-12 flex items-center justify-center">
-                             <div className="h-10 w-10 text-[#94A3B8] animate-anvil-impact">
+                        <div className="h-10 w-10 flex items-center justify-center">
+                             <div className="h-full w-full text-[#94A3B8] animate-anvil-impact">
                                 <PixelAnvil className="w-full h-full ascii-shader" />
                              </div>
                         </div>
