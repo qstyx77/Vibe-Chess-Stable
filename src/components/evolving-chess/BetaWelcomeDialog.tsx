@@ -24,6 +24,7 @@ import { cn } from '@/lib/utils';
 import { useUser, updateDocumentNonBlocking } from '@/firebase';
 import { doc, getFirestore } from 'firebase/firestore';
 import { ChessPieceDisplay } from './ChessPieceDisplay';
+import { ItemSprite } from './ItemSprite';
 
 interface BetaWelcomeDialogProps {
   isOpen: boolean;
@@ -73,7 +74,7 @@ export function BetaWelcomeDialog({ isOpen, onOpenChange }: BetaWelcomeDialogPro
         </DialogHeader>
 
         {/* 1:1 Lobby Header Recreation - Centered and Spaced */}
-        <div className="pt-16 pb-14 px-6 border-b border-border/50 bg-black/80 sticky top-0 z-20">
+        <div className="pt-16 pb-8 px-6 border-b border-border/50 bg-black sticky top-0 z-20 overflow-visible">
             <div className="w-full flex items-center justify-center gap-6 overflow-visible"> 
                <div className={cn(headerIconsOpacity ? "opacity-100" : "opacity-0 transition-opacity duration-1000")}>
                   {headerIconsActive && (
@@ -82,7 +83,7 @@ export function BetaWelcomeDialog({ isOpen, onOpenChange }: BetaWelcomeDialogPro
                     </div>
                   )}
                </div>
-               <VibeChessTitle className="h-12 md:h-16 w-auto ascii-shader overflow-visible" suffix="-welcome" /> 
+               <VibeChessTitle className="h-12 md:h-16 w-auto overflow-visible" suffix="-welcome" /> 
                <div className={cn(headerIconsOpacity ? "opacity-100" : "opacity-0 transition-opacity duration-1000")}>
                   {headerIconsActive && (
                     <div className="h-10 w-10 shrink-0 animate-shroom-spring">
@@ -141,7 +142,7 @@ export function BetaWelcomeDialog({ isOpen, onOpenChange }: BetaWelcomeDialogPro
                 </div>
                 
                 {/* Visual Showcase Row */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 py-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 py-2">
                     <div className="flex flex-col items-center gap-3 p-4 bg-black border-2 border-primary/20 shadow-[0_0_15px_rgba(var(--primary),0.1)]">
                         <div className="h-10 w-10 relative flex items-center justify-center">
                              <ChessPieceDisplay piece={{ id: 'show-hero', type: 'hero', color: 'white', level: 1, hasMoved: false }} isMini />
@@ -168,7 +169,7 @@ export function BetaWelcomeDialog({ isOpen, onOpenChange }: BetaWelcomeDialogPro
                     </div>
                     <div className="flex flex-col items-center gap-3 p-4 bg-black border-2 border-accent/20 shadow-[0_0_15px_rgba(var(--accent),0.1)] overflow-hidden">
                         <div className="h-10 w-10 flex items-center justify-center">
-                             <div className="h-full w-full text-[#94A3B8] animate-anvil-impact">
+                             <div className="h-7 w-7 text-[#94A3B8] animate-[anvil-impact_2s_infinite]">
                                 <PixelAnvil className="w-full h-full ascii-shader" />
                              </div>
                         </div>
@@ -177,12 +178,23 @@ export function BetaWelcomeDialog({ isOpen, onOpenChange }: BetaWelcomeDialogPro
                             <p className="text-[0.4rem] text-muted-foreground mt-1 uppercase">Chain kills for global spells.</p>
                         </div>
                     </div>
+                    <div className="flex flex-col items-center gap-3 p-4 bg-black border-2 border-yellow-500/20 shadow-[0_0_15px_rgba(234,179,8,0.1)]">
+                        <div className="h-10 w-full flex items-center justify-center gap-3">
+                             <ItemSprite type="wind_sword" size={24} />
+                             <ItemSprite type="crossbow" size={24} />
+                             <ItemSprite type="obsidian_blade" size={24} />
+                        </div>
+                        <div className="text-center">
+                            <p className="text-[0.55rem] text-yellow-500 font-bold uppercase">Equipment</p>
+                            <p className="text-[0.4rem] text-muted-foreground mt-1 uppercase">Carry items found in the Dungeon.</p>
+                        </div>
+                    </div>
                 </div>
 
                 <div className="space-y-3 bg-muted/5 p-4 border border-border/20">
                     <div className="text-[0.55rem] uppercase leading-tight"><span className="text-foreground font-bold">Evolution:</span> When your piece captures a foe, it gains Levels and new abilities.</div>
                     <div className="text-[0.55rem] uppercase leading-tight"><span className="text-foreground font-bold">Equipment:</span> Units can carry Items found in the Dungeon or bought from players.</div>
-                    <div className="text-[0.55rem] uppercase leading-tight"><span className="text-foreground font-bold">Killstreaks:</span> consecutive turns of combat allow you to alter the board state globally.</div>
+                    <div className="text-[0.55rem] uppercase leading-tight"><span className="text-foreground font-bold">Killstreaks:</span> Consecutive turns of combat allow you to alter the board state globally.</div>
                 </div>
             </section>
 
