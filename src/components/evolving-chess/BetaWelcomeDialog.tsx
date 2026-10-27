@@ -17,7 +17,8 @@ import {
     VibeChessTitle, 
     PixelAnvil, 
     ShroomIcon, 
-    PixelColossus
+    PixelHydra,
+    PixelNecromancer
 } from './IconLibrary';
 import { cn } from '@/lib/utils';
 import { useUser, updateDocumentNonBlocking } from '@/firebase';
@@ -71,9 +72,9 @@ export function BetaWelcomeDialog({ isOpen, onOpenChange }: BetaWelcomeDialogPro
           <DialogDescription>Essential information about game mechanics, economy, and beta rules.</DialogDescription>
         </DialogHeader>
 
-        {/* 1:1 Lobby Header Recreation */}
-        <div className="p-6 pb-4 border-b border-border/50 bg-black/80 sticky top-0 z-20">
-            <div className="w-full flex items-center justify-center gap-6"> 
+        {/* 1:1 Lobby Header Recreation - Adjusted padding to prevent cutoff */}
+        <div className="pt-10 pb-6 px-6 border-b border-border/50 bg-black/80 sticky top-0 z-20">
+            <div className="w-full flex items-center justify-center gap-6 overflow-visible"> 
                <div className={cn(headerIconsOpacity ? "opacity-100" : "opacity-0 transition-opacity duration-1000")}>
                   {headerIconsActive && (
                     <div className="h-10 w-10 shrink-0 animate-anvil-impact">
@@ -81,7 +82,7 @@ export function BetaWelcomeDialog({ isOpen, onOpenChange }: BetaWelcomeDialogPro
                     </div>
                   )}
                </div>
-               <VibeChessTitle className="h-12 md:h-16 w-auto ascii-shader" suffix="-welcome" /> 
+               <VibeChessTitle className="h-12 md:h-16 w-auto ascii-shader overflow-visible" suffix="-welcome" /> 
                <div className={cn(headerIconsOpacity ? "opacity-100" : "opacity-0 transition-opacity duration-1000")}>
                   {headerIconsActive && (
                     <div className="h-10 w-10 shrink-0 animate-shroom-spring">
@@ -97,8 +98,7 @@ export function BetaWelcomeDialog({ isOpen, onOpenChange }: BetaWelcomeDialogPro
             
             {/* WELCOME SECTION */}
             <section className="space-y-4">
-                <h2 className="text-primary text-[0.85rem] uppercase tracking-tighter border-l-4 border-primary pl-3">Welcome to Closed Beta</h2>
-                <div className="text-[0.6rem] md:text-[0.65rem] leading-relaxed space-y-4 text-foreground/90 uppercase">
+                <div className="text-[0.6rem] md:text-[0.65rem] leading-relaxed space-y-4 text-foreground/90 uppercase pt-2">
                     <p>Welcome to the Closed Beta of <span className="text-primary">VIBE CHESS</span>. You must create an account and log in to participate.</p>
                     <p className="text-accent">Closed Beta will cap the number of accounts at <span className="underline">200</span> to keep metrics and player communication manageable.</p>
                     <p>To ensure a balanced testing ground and a true simulation of the game’s economy, we have implemented the following rules for this phase:</p>
@@ -144,8 +144,9 @@ export function BetaWelcomeDialog({ isOpen, onOpenChange }: BetaWelcomeDialogPro
                 {/* Visual Showcase Row */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 py-2">
                     <div className="flex flex-col items-center gap-3 p-4 bg-black border-2 border-primary/20 shadow-[0_0_15px_rgba(var(--primary),0.1)]">
-                        <div className="h-12 w-12 animate-ascended-glow">
-                             <ChessPieceDisplay piece={{ id: 'show-hero', type: 'hero', color: 'white', level: 6, hasMoved: false }} isMini />
+                        <div className="h-12 w-12 relative flex items-center justify-center">
+                             <ChessPieceDisplay piece={{ id: 'show-hero', type: 'hero', color: 'white', level: 1, hasMoved: false }} isMini />
+                             <span className="absolute font-pixel text-[#4ade80] text-sm animate-[level-float_2s_infinite] drop-shadow-[0_0_2px_black]">+1</span>
                         </div>
                         <div className="text-center">
                             <p className="text-[0.55rem] text-primary font-bold uppercase">Level Up</p>
@@ -153,17 +154,24 @@ export function BetaWelcomeDialog({ isOpen, onOpenChange }: BetaWelcomeDialogPro
                         </div>
                     </div>
                     <div className="flex flex-col items-center gap-3 p-4 bg-black border-2 border-destructive/20 shadow-[0_0_15px_rgba(var(--destructive),0.1)]">
-                        <div className="h-12 w-12 animate-void-vibe">
-                             <ChessPieceDisplay piece={{ id: 'boss-entity', type: 'queen', color: 'black', level: 7, hasMoved: false }} isMini />
+                        <div className="h-12 w-full flex items-center justify-center gap-2">
+                             <div className="h-10 w-10 text-[#10B981] animate-hydra-idle">
+                                <PixelHydra className="w-full h-full ascii-shader" />
+                             </div>
+                             <div className="h-10 w-10 text-[#8B5CF6] animate-necro-hover">
+                                <PixelNecromancer className="w-full h-full ascii-shader" />
+                             </div>
                         </div>
                         <div className="text-center">
                             <p className="text-[0.55rem] text-destructive font-bold uppercase">Boss Foes</p>
                             <p className="text-[0.4rem] text-muted-foreground mt-1 uppercase">Face world-warping entities.</p>
                         </div>
                     </div>
-                    <div className="flex flex-col items-center gap-3 p-4 bg-black border-2 border-accent/20 shadow-[0_0_15px_rgba(var(--accent),0.1)]">
-                        <div className="h-12 w-12">
-                             <PixelColossus className="w-full h-full text-secondary ascii-shader drop-shadow-[0_0_5px_rgba(var(--secondary),0.5)]" />
+                    <div className="flex flex-col items-center gap-3 p-4 bg-black border-2 border-accent/20 shadow-[0_0_15px_rgba(var(--accent),0.1)] overflow-hidden">
+                        <div className="h-12 w-12 flex items-center justify-center">
+                             <div className="h-10 w-10 text-[#94A3B8] animate-anvil-impact">
+                                <PixelAnvil className="w-full h-full ascii-shader" />
+                             </div>
                         </div>
                         <div className="text-center">
                             <p className="text-[0.55rem] text-accent font-bold uppercase">Killstreaks</p>
@@ -173,9 +181,9 @@ export function BetaWelcomeDialog({ isOpen, onOpenChange }: BetaWelcomeDialogPro
                 </div>
 
                 <div className="space-y-3 bg-muted/5 p-4 border border-border/20">
-                    <p className="text-[0.55rem] uppercase leading-tight"><span className="text-foreground font-bold">Evolution:</span> When your piece captures a foe, it gains Levels and new abilities.</p>
-                    <p className="text-[0.55rem] uppercase leading-tight"><span className="text-foreground font-bold">Equipment:</span> Units can carry Items found in the Dungeon or bought from players.</p>
-                    <p className="text-[0.55rem] uppercase leading-tight"><span className="text-foreground font-bold">Killstreaks:</span> consecutive turns of combat allow you to alter the board state globally.</p>
+                    <div className="text-[0.55rem] uppercase leading-tight"><span className="text-foreground font-bold">Evolution:</span> When your piece captures a foe, it gains Levels and new abilities.</div>
+                    <div className="text-[0.55rem] uppercase leading-tight"><span className="text-foreground font-bold">Equipment:</span> Units can carry Items found in the Dungeon or bought from players.</div>
+                    <div className="text-[0.55rem] uppercase leading-tight"><span className="text-foreground font-bold">Killstreaks:</span> consecutive turns of combat allow you to alter the board state globally.</div>
                 </div>
             </section>
 
