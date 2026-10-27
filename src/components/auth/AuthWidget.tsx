@@ -17,24 +17,34 @@ import { useToast } from '@/hooks/use-toast';
 import { LogIn } from 'lucide-react';
 import Link from 'next/link';
 
+// Module-level variable to track the last user we showed a login toast for.
+// This prevents multiple instances of AuthWidget (e.g. mobile and desktop versions)
+// from triggering the same toast simultaneously on the same page.
+let lastToastedUserId: string | null = null;
+
 export function AuthWidget() {
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
   const { toast } = useToast();
   
   React.useEffect(() => {
-    // If user logs in successfully, close the sheet
-    if (user) {
+    // If user logs in successfully, show toast only once per user session/ID
+    if (user && lastToastedUserId !== user.uid) {
+      lastToastedUserId = user.uid;
       toast({
         title: "Signed In Successfully!",
         description: `Welcome back, ${user.displayName || user.email}`,
         duration: 5000,
       });
+    } else if (!user) {
+      // Reset tracking when logged out so the next login can trigger a toast
+      lastToastedUserId = null;
     }
   }, [user, toast]);
 
   const handleSignOut = () => {
     auth.signOut().then(() => {
+      lastToastedUserId = null;
       toast({
         title: 'Signed Out',
         description: 'You have been successfully signed out.',
