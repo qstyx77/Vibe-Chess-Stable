@@ -10,6 +10,7 @@ import { GameSummaryDialog } from '@/components/evolving-chess/GameSummaryDialog
 import { InventoryWindow } from '@/components/evolving-chess/InventoryWindow';
 import { MycoSpellMenu, type MycoSpell } from '@/components/evolving-chess/MycoSpellMenu';
 import { RoyalStore } from '@/components/evolving-chess/RoyalStore';
+import { BetaWelcomeDialog } from '@/components/evolving-chess/BetaWelcomeDialog';
 import {
   initializeBoard,
   createEmptyBoard,
@@ -183,6 +184,7 @@ export default function EvolvingChessPage() {
   const [promotionTargetLevel, setPromotionTargetLevel] = useState<number>(1);
   const [isRulesDialogOpen, setIsRulesDialogOpen] = useState(false);
   const [isRoyalStoreOpen, setIsRoyalStoreOpen] = useState(false);
+  const [isBetaWelcomeOpen, setIsBetaWelcomeOpen] = useState(false);
   const [killStreaks, setKillStreaks] = useState<{ white: number, black: number }>({ white: 0, black: 0 });
   const [historyStack, setHistoryStack] = useState<GameSnapshot[]>([]);
   const [isWhiteAI, setIsWhiteAI] = useState(false);
@@ -413,7 +415,12 @@ export default function EvolvingChessPage() {
         });
     }
     prevUnlockedRef.current = currentUnlocked;
-  }, [userData, isUserLoading, attunementSlots, toast, addLog]);
+
+    // Trigger Beta Welcome Dialog
+    if (!userData?.hideBetaWelcome && gameMoveCounter === 0 && onlineStatus === 'disconnected') {
+      setIsBetaWelcomeOpen(true);
+    }
+  }, [userData, isUserLoading, attunementSlots, toast, addLog, gameMoveCounter, onlineStatus]);
 
   const usedSlots = useMemo(() => {
     return board.flat().filter(sq => sq.piece?.heldItem).length;
@@ -2052,7 +2059,7 @@ export default function EvolvingChessPage() {
         <Card className="w-full mt-1 bg-black/40 border-none shadow-none"> <CardContent className="p-1 flex flex-col gap-1"> {onlineStatus === 'disconnected' ? ( <div className="flex flex-col gap-1 items-center"> <Button variant="outline" size="sm" onClick={() => setIsArenaConfirmOpen(true)} disabled={!user} className="h-6 px-1.5 text-[0.65rem] w-full"><PixelTrophy className="mr-1 h-3 w-3 ascii-shader" />Arena <span className="text-yellow-500 ml-1">100g</span> <Coins className="h-3 w-3 text-yellow-500" /> ({tournamentQueueCount}/8)</Button> <Button variant="outline" size="sm" onClick={handleRankedPlay} disabled={!user} className="h-6 px-1.5 text-[0.65rem] w-full"><PixelTrophy className="mr-1 h-3 w-3 ascii-shader" />Ranked Match</Button> <Button variant="outline" size="sm" onClick={() => handleOnlinePlay('create')} disabled={!user} className="h-6 px-1.5 text-[0.65rem] w-full"><Globe className="mr-1 h-3 w-3" /> Create Online Game</Button> <div className="flex gap-1 items-center w-full"> <Input type="text" placeholder="Room ID" value={inputRoomId} onChange={(e) => setInputRoomId(e.target.value)} className="h-6 px-1.5 text-[0.65rem] flex-grow" /> <Button variant="outline" size="sm" onClick={() => handleOnlinePlay('join')} disabled={!inputRoomId} className="h-6 px-1.5 text-[0.65rem]">Join</Button> </div> </div> ) : ( <div className="flex flex-col gap-1 items-center"> <div className="flex items-center gap-2 text-[0.65rem] font-pixel text-primary uppercase"> <span>Room: {roomId || inputRoomId}</span> <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => { navigator.clipboard.writeText(roomId || inputRoomId); addLog("Room ID Copied!"); }}> <Copy className="h-3 w-3" /> </Button> </div> <Button variant="destructive" size="sm" onClick={() => wsRef.current?.close()} className="h-6 px-1.5 text-[0.65rem] w-full"><Link2Off className="mr-1 h-3 w-3" /> Disconnect</Button> </div> )} <div className="w-full text-center h-3 text-[0.65rem] text-muted-foreground uppercase font-pixel tracking-tighter">{onlineStatus}</div> </CardContent> </Card>
       </div>
     </div>
-  ), [statusMessage, board, selectedSquare, possibleMoves, enemySelectedSquare, enemyPossibleMoves, handleSquareClick, boardOrientation, currentPlayer, isMoveProcessing, gameInfo.gameOver, isAiThinking, localPlayerColor, enPassantTargetSquare, handlePieceHover, effects, promotionSquare, isAwaitingAnvilDrop, playerToDropAnvil, isInventoryOpen, selectedInventoryItemType, isAwaitingHolyShield, isAwaitingArcherSnipe, grappledPieceSubject, isAwaitingEarthquakeScrollTarget, isSelectingMycoSpell, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, isAwaitingCommanderPromotion, playerWhoGotFirstBlood, isAwaitingWindScrollTarget, isAwaitingAnvilScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget, isAwaitingOilSlickTarget, isAwaitingRayTarget, lastMoveWhite, lastMoveBlack, lastMoveGlobal, capturedPieces, killStreaks, pieceForInfoDisplay, getPlayerDisplayName, onlineStatus, turnTimer, isRulesDialogOpen, userData, user, volume, aiDifficulty, isWhiteAI, isBlackAI, viewMode, tournamentQueueCount, handleOnlinePlay, handleRankedPlay, inputRoomId, roomId, socialOnlineStatus, handleUsePortalScroll, gameMoveCounter, isLootBagDisabled, isTournamentIntermission, headerIconsActive, headerIconsOpacity, router, attunementSlots]);
+  ), [statusMessage, board, selectedSquare, possibleMoves, enemySelectedSquare, enemyPossibleMoves, handleSquareClick, boardOrientation, currentPlayer, isMoveProcessing, gameInfo.gameOver, isAiThinking, localPlayerColor, enPassantTargetSquare, handlePieceHover, effects, promotionSquare, isAwaitingAnvilDrop, playerToDropAnvil, isInventoryOpen, selectedInventoryItemType, isAwaitingHolyShield, isAwaitingArcherSnipe, grappledPieceSubject, isAwaitingEarthquakeScrollTarget, isSelectingMycoSpell, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, isAwaitingCommanderPromotion, playerWhoGotFirstBlood, isAwaitingWindScrollTarget, isAwaitingAnvilScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget, isAwaitingOilSlickTarget, isAwaitingRayTarget, lastMoveWhite, lastMoveBlack, lastMoveGlobal, capturedPieces, killStreaks, pieceForInfoDisplay, getPlayerDisplayName, onlineStatus, turnTimer, isRulesDialogOpen, userData, user, volume, aiDifficulty, isWhiteAI, isBlackAI, viewMode, tournamentQueueCount, handleOnlinePlay, handleRankedPlay, inputRoomId, roomId, socialOnlineStatus, handleUsePortalScroll, gameMoveCounter, isLootBagDisabled, isTournamentIntermission, headerIconsActive, headerIconsOpacity, turnTimer, capturedPieces, killStreaks, pieceForInfoDisplay, getPlayerDisplayName, onlineStatus, isAnySpecialModeActive, dancerToDance, isAwaitingRayTarget, gameInfo.gameOver, gameInfo.isCheck, lastMoveWhite, lastMoveBlack, lastMoveGlobal, router, initialSnapshot, userData, attunementSlots]);
 
   const desktopLayout = useMemo(() => (
     <div className="relative z-20 hidden lg:flex flex-row items-start justify-center gap-4 w-full h-full p-4">
@@ -2210,6 +2217,7 @@ export default function EvolvingChessPage() {
       <RulesDialog isOpen={isRulesDialogOpen} onOpenChange={setIsRulesDialogOpen} />
       <RoyalStore isOpen={isRoyalStoreOpen} onOpenChange={setIsRoyalStoreOpen} />
       <GameSummaryDialog isOpen={isGameSummaryOpen} onClose={() => setIsGameSummaryOpen(false)} winner={gameInfo.winner} winnerName={getPlayerDisplayName(gameInfo.winner === 'white' ? 'white' : 'black')} loserName={getPlayerDisplayName(gameInfo.winner === 'white' ? 'black' : 'white')} eloInfo={eloInfo} moveCount={gameMoveCounter} onReset={fullGameReset} />
+      <BetaWelcomeDialog isOpen={isBetaWelcomeOpen} onOpenChange={setIsBetaWelcomeOpen} />
     </div>
   );
 }
