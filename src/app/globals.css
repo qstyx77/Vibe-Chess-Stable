@@ -344,6 +344,15 @@ body {
   animation: void-particle 2.5s ease-out infinite;
 }
 
+@keyframes omen-cyan-flicker {
+  0%, 100% { filter: hue-rotate(0deg) brightness(1); }
+  50% { filter: hue-rotate(180deg) brightness(1.5) drop-shadow(0 0 10px #22D3EE); }
+}
+
+.animate-omen-flicker {
+  animation: omen-cyan-flicker 0.2s linear infinite;
+}
+
 .animate-void-ripple {
   animation: void-ripple 2s ease-in-out infinite;
 }

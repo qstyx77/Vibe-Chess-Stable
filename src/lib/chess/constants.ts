@@ -1,4 +1,3 @@
-
 import type { PieceType } from '@/types';
 
 export const VAL_MAP: Record<string, number> = {
@@ -17,7 +16,8 @@ export const VAL_MAP: Record<string, number> = {
   queen: 9,
   king: 0,
   hero: 4,
-  archer: 3
+  archer: 3,
+  wraith: 0
 };
 
 export const FRONTLINE_TYPES: PieceType[] = ['pawn', 'dancer', 'mimic', 'grappler', 'commander', 'myco_mage', 'infiltrator'];

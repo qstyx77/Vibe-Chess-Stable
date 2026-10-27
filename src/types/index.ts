@@ -1,5 +1,5 @@
-export type PlayerColor = 'white' | 'black';
-export type PieceType = 'pawn' | 'knight' | 'bishop' | 'rook' | 'queen' | 'king' | 'commander' | 'hero' | 'infiltrator' | 'archbishop' | 'palace' | 'archer' | 'dancer' | 'mimic' | 'grappler' | 'myco_mage';
+export type PlayerColor = 'white' | 'black' | 'neutral';
+export type PieceType = 'pawn' | 'knight' | 'bishop' | 'rook' | 'queen' | 'king' | 'commander' | 'hero' | 'infiltrator' | 'archbishop' | 'palace' | 'archer' | 'dancer' | 'mimic' | 'grappler' | 'myco_mage' | 'wraith';
 export type ItemType = 'anvil' | 'shroom';
 export type Rarity = 'common' | 'uncommon' | 'rare';
 

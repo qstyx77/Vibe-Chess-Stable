@@ -199,6 +199,18 @@ export const PixelPalace = ({ className }: IconProps) => (
   </svg>
 );
 
+export const PixelWraith = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <rect x="9" y="4" width="6" height="2" />
+    <rect x="7" y="6" width="10" height="8" />
+    <rect x="7" y="14" width="2" height="4" />
+    <rect x="11" y="14" width="2" height="3" />
+    <rect x="15" y="14" width="2" height="4" />
+    <rect x="9" y="8" width="2" height="2" fill="black" fillOpacity="0.5" />
+    <rect x="13" y="8" width="2" height="2" fill="black" fillOpacity="0.5" />
+  </svg>
+);
+
 /** BOSS ICONS **/
 
 export const PixelHydra = ({ className }: IconProps) => (

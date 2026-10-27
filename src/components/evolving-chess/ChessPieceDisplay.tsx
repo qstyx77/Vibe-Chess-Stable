@@ -23,6 +23,7 @@ import {
   PixelColossus,
   PixelMirage,
   PixelVoidEntity,
+  PixelWraith,
   ShroomIcon
 } from './IconLibrary';
 import { ItemSprite } from './ItemSprite';
@@ -61,6 +62,7 @@ const PieceIconMap: Record<string, React.FC<{ className?: string }>> = {
   palace: PixelPalace,
   queen: PixelQueen,
   king: PixelKing,
+  wraith: PixelWraith,
 };
 
 const FrozenOverlay = () => (
@@ -102,7 +104,9 @@ export const ChessPieceDisplay = memo(({
   let bossStyle: React.CSSProperties = {};
   let animationClass = '';
 
-  if (piece.id?.startsWith('boss-hydra')) {
+  if (piece.type === 'wraith') {
+    pieceColorClass = "text-[#22D3EE] animate-pulse";
+  } else if (piece.id?.startsWith('boss-hydra')) {
     IconComponent = PixelHydra;
     pieceColorClass = ""; bossStyle = { color: '#10B981' };
     animationClass = "animate-hydra-idle";
@@ -190,8 +194,8 @@ export const ChessPieceDisplay = memo(({
             "w-[95%] h-[95%] relative z-[1] flex items-center justify-center origin-center",
             piece.id === 'boss-entity' && "animate-void-spin animate-void-color-cycle",
             isMini 
-                ? ((['pawn', 'dancer', 'mimic', 'grappler', 'myco_mage', 'commander', 'infiltrator'].includes(piece.type)) ? "scale-[180%]" : "scale-[200%]")
-                : ((['pawn', 'dancer', 'mimic', 'grappler', 'myco_mage', 'commander', 'infiltrator'].includes(piece.type)) ? "scale-90" : "scale-100")
+                ? ((['pawn', 'dancer', 'mimic', 'grappler', 'myco_mage', 'commander', 'infiltrator', 'wraith'].includes(piece.type)) ? "scale-[180%]" : "scale-[200%]")
+                : ((['pawn', 'dancer', 'mimic', 'grappler', 'myco_mage', 'commander', 'infiltrator', 'wraith'].includes(piece.type)) ? "scale-90" : "scale-100")
             )}>
                 <IconComponent className="w-full h-full drop-shadow-md" />
             </div>
@@ -220,7 +224,7 @@ export const ChessPieceDisplay = memo(({
             </div>
         )}
 
-        {displayLevelValue > 1 && (
+        {displayLevelValue > 1 && piece.type !== 'wraith' && (
           <span
             className={cn(
               "absolute inset-0 flex items-center justify-center font-pixel pointer-events-none z-[20]",
