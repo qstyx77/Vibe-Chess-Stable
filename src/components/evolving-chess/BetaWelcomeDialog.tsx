@@ -75,7 +75,7 @@ export function BetaWelcomeDialog({ isOpen, onOpenChange }: BetaWelcomeDialogPro
 
         {/* 1:1 Lobby Header Recreation - Centered and Spaced */}
         <div className="pt-16 pb-14 px-6 border-b border-border/50 bg-black sticky top-0 z-20 overflow-visible">
-            <div className="w-full flex items-center justify-center gap-6 overflow-visible"> 
+            <div className="w-full flex items-center justify-center gap-3 overflow-visible"> 
                <div className={cn(headerIconsOpacity ? "opacity-100" : "opacity-0 transition-opacity duration-1000")}>
                   {headerIconsActive && (
                     <div className="h-10 w-10 shrink-0 animate-anvil-impact">
@@ -129,7 +129,7 @@ export function BetaWelcomeDialog({ isOpen, onOpenChange }: BetaWelcomeDialogPro
                 </div>
                 <div className="p-3 bg-muted/10 border border-border/30 rounded-sm">
                     <p className="text-[0.55rem] text-muted-foreground uppercase leading-relaxed text-center italic">
-                        Note that an account reset will occur before we move into Open Beta.
+                        Note that an account reset will occur before we move into Open Beta, at which point the full store functionality and permanent progression will be restored.
                     </p>
                 </div>
             </section>
@@ -193,7 +193,7 @@ export function BetaWelcomeDialog({ isOpen, onOpenChange }: BetaWelcomeDialogPro
 
                 <div className="space-y-3 bg-muted/5 p-4 border border-border/20">
                     <div className="text-[0.55rem] uppercase leading-tight"><span className="text-foreground font-bold">Evolution:</span> When your piece captures a foe, it gains Levels and new abilities.</div>
-                    <div className="text-[0.55rem] uppercase leading-tight"><span className="text-foreground font-bold">Equipment:</span> Units can carry Items found in the Dungeon or bought from players.</div>
+                    <div className="text-[0.55rem] uppercase leading-tight"><span className="text-foreground font-bold">Equipment:</span> Units can carry Items found in the Dungeon or bought from other players.</div>
                     <div className="text-[0.55rem] uppercase leading-tight"><span className="text-foreground font-bold">Killstreaks:</span> Consecutive turns of combat allow you to alter the board state globally.</div>
                 </div>
             </section>
