@@ -184,27 +184,27 @@ export function BetaWelcomeDialog({ isOpen, onOpenChange }: BetaWelcomeDialogPro
                 <h2 className="text-[#C084FC] text-[0.75rem] uppercase tracking-tighter">Tactical Deployments</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1">
-                        <p className="text-[0.65rem] text-primary font-bold uppercase flex items-center gap-2">
+                        <div className="text-[0.65rem] text-primary font-bold uppercase flex items-center gap-2">
                            <div className="w-1.5 h-1.5 bg-primary" /> Local Lobby
-                        </p>
+                        </div>
                         <p className="text-[0.45rem] text-muted-foreground uppercase pl-3.5">Play against A.I. or a friend on the same device.</p>
                     </div>
                     <div className="space-y-1">
-                        <p className="text-[0.65rem] text-accent font-bold uppercase flex items-center gap-2">
+                        <div className="text-[0.65rem] text-accent font-bold uppercase flex items-center gap-2">
                            <div className="w-1.5 h-1.5 bg-accent" /> Online Play
-                        </p>
+                        </div>
                         <p className="text-[0.45rem] text-muted-foreground uppercase pl-3.5">Duel friends or climb the Ranked Leaderboard for Attunement.</p>
                     </div>
                     <div className="space-y-1">
-                        <p className="text-[0.65rem] text-yellow-500 font-bold uppercase flex items-center gap-2">
+                        <div className="text-[0.65rem] text-yellow-500 font-bold uppercase flex items-center gap-2">
                            <div className="w-1.5 h-1.5 bg-yellow-500" /> Arena
-                        </p>
+                        </div>
                         <p className="text-[0.45rem] text-muted-foreground uppercase pl-3.5">8-player elimination tournament. 100g buy-in / 500g prize.</p>
                     </div>
                     <div className="space-y-1">
-                        <p className="text-[0.65rem] text-[#4ADE80] font-bold uppercase flex items-center gap-2">
+                        <div className="text-[0.65rem] text-[#4ADE80] font-bold uppercase flex items-center gap-2">
                            <div className="w-1.5 h-1.5 bg-[#4ADE80]" /> The Dungeon
-                        </p>
+                        </div>
                         <p className="text-[0.45rem] text-muted-foreground uppercase pl-3.5">Massive 50-floor PvE crawl against boss entities and item drops.</p>
                     </div>
                 </div>
