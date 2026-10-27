@@ -74,7 +74,7 @@ export function BetaWelcomeDialog({ isOpen, onOpenChange }: BetaWelcomeDialogPro
         </DialogHeader>
 
         {/* 1:1 Lobby Header Recreation - Centered and Spaced */}
-        <div className="pt-16 pb-8 px-6 border-b border-border/50 bg-black sticky top-0 z-20 overflow-visible">
+        <div className="pt-16 pb-14 px-6 border-b border-border/50 bg-black sticky top-0 z-20 overflow-visible">
             <div className="w-full flex items-center justify-center gap-6 overflow-visible"> 
                <div className={cn(headerIconsOpacity ? "opacity-100" : "opacity-0 transition-opacity duration-1000")}>
                   {headerIconsActive && (
@@ -200,19 +200,19 @@ export function BetaWelcomeDialog({ isOpen, onOpenChange }: BetaWelcomeDialogPro
 
             {/* GAME MODES SECTION */}
             <section className="space-y-4">
-                <h2 className="text-[#C084FC] text-[0.75rem] uppercase tracking-tighter">Tactical Deployments</h2>
+                <h2 className="text-[#C084FC] text-[0.75rem] uppercase tracking-tighter">Game Modes</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1">
                         <div className="text-[0.65rem] text-primary font-bold uppercase flex items-center gap-2">
                            <div className="w-1.5 h-1.5 bg-primary" /> Local Lobby
                         </div>
-                        <p className="text-[0.45rem] text-muted-foreground uppercase pl-3.5">Play against A.I. or a friend on the same device.</p>
+                        <p className="text-[0.45rem] text-muted-foreground uppercase pl-3.5">Play against an A.I. or a friend on the same device.</p>
                     </div>
                     <div className="space-y-1">
                         <div className="text-[0.65rem] text-accent font-bold uppercase flex items-center gap-2">
                            <div className="w-1.5 h-1.5 bg-accent" /> Online Play
                         </div>
-                        <p className="text-[0.45rem] text-muted-foreground uppercase pl-3.5">Duel friends or climb the Ranked Leaderboard for Attunement.</p>
+                        <p className="text-[0.45rem] text-muted-foreground uppercase pl-3.5">Duel friends or climb the Ranked Leaderboard to increase your ELO and "Attunement". Attunement determines your army's total item limit; higher ranks unlock more slots for powerful equipment builds.</p>
                     </div>
                     <div className="space-y-1">
                         <div className="text-[0.65rem] text-yellow-500 font-bold uppercase flex items-center gap-2">
