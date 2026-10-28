@@ -6,6 +6,7 @@ import { PromotionDialog } from '@/components/evolving-chess/PromotionDialog';
 import { RulesDialog } from '@/components/evolving-chess/RulesDialog';
 import { InventoryWindow } from '@/components/evolving-chess/InventoryWindow';
 import { LootWinningsWindow } from '@/components/evolving-chess/LootWinningsWindow';
+import { DungeonWelcomeDialog } from '@/components/evolving-chess/DungeonWelcomeDialog';
 import { MycoSpellMenu, type MycoSpell } from '@/components/evolving-chess/MycoSpellMenu';
 import {
   initializeBoard,
@@ -276,6 +277,7 @@ export default function DungeonPage() {
   const [playerToSacrificePawn, setPlayerToSacrificePawn] = useState<PlayerColor | null>(null);
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
   const [isRulesDialogOpen, setIsRulesDialogOpen] = useState(false);
+  const [isDungeonWelcomeOpen, setIsDungeonWelcomeOpen] = useState(false);
   const [promotionQueue, setPromotionQueue] = useState<{ square: AlgebraicSquare, targetLevel: number }[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [isInventoryOpen, setIsInventoryOpen] = useState(false);
@@ -320,6 +322,7 @@ export default function DungeonPage() {
   const isInitialized = useRef(false);
   const aiInstance = useRef<VibeChessAI | null>(null);
   const clickGuard = useRef(false);
+  const hasTriggeredWelcomeRef = useRef(false);
 
   // --- MEMOS & BASIC HELPERS (INITIALIZED FIRST) ---
 
@@ -330,8 +333,8 @@ export default function DungeonPage() {
     isAwaitingWindScrollTarget || isAwaitingShieldScrollTarget || 
     isAwaitingSwapScrollTarget || isAwaitingSwapTarget || isAwaitingDecreeTarget || 
     isAwaitingEarthquakeScrollTarget || isAwaitingOilSlickTarget || !!isAwaitingRayTarget || isSelectingTeleportAlly || 
-    isSelectingTeleportShroom || isSelectingSporeBombShroom || isLootWindowOpen, 
-  [isInventoryOpen, isPromotingPawn, isAwaitingAnvilDrop, isAwaitingAnvilScrollTarget, isAwaitingHolyShield, isAwaitingArcherSnipe, isAwaitingPawnSacrifice, isAwaitingCommanderPromotion, isSelectingMycoSpell, isAwaitingGrappleThrow, isAwaitingDanceTarget, isAwaitingEarthquakeScrollTarget, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, isAwaitingOilSlickTarget, isAwaitingRayTarget, isLootWindowOpen, isAwaitingWindScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingSwapTarget, isAwaitingDecreeTarget]);
+    isSelectingTeleportShroom || isSelectingSporeBombShroom || isLootWindowOpen || isDungeonWelcomeOpen, 
+  [isInventoryOpen, isPromotingPawn, isAwaitingAnvilDrop, isAwaitingAnvilScrollTarget, isAwaitingHolyShield, isAwaitingArcherSnipe, isAwaitingPawnSacrifice, isAwaitingCommanderPromotion, isSelectingMycoSpell, isAwaitingGrappleThrow, isAwaitingDanceTarget, isAwaitingEarthquakeScrollTarget, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, isAwaitingOilSlickTarget, isAwaitingRayTarget, isLootWindowOpen, isAwaitingWindScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingSwapTarget, isAwaitingDecreeTarget, isDungeonWelcomeOpen]);
 
   const attunementSlots = useMemo(() => {
     const elo = userData?.eloRating || 1200; return 3 + Math.floor((Math.max(0, elo - 1200)) / 400);
@@ -1567,6 +1570,11 @@ export default function DungeonPage() {
       saveDungeonState(1, newB, 'white', { white: 0, black: 0 }, { white: [], black: [] }, 0, 5, null, 0, userData.inventory || []);
     }
     aiInstance.current = new VibeChessAI(4); audioManager.playStart();
+    
+    if (!userData?.hideDungeonWelcome && !hasTriggeredWelcomeRef.current) {
+        setIsDungeonWelcomeOpen(true);
+        hasTriggeredWelcomeRef.current = true;
+    }
   }, [userData, isUserLoading, user, saveDungeonState]);
 
   const performAiMove = useCallback(async () => {
@@ -1903,6 +1911,7 @@ export default function DungeonPage() {
       <PromotionDialog isOpen={isPromotingPawn} onSelectPiece={handlePromotionSelect} pawnColor="white" />
       <MycoSpellMenu isOpen={isSelectingMycoSpell} mana={selectedSquare ? (board[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece?.shroomMana || 0) : 0} onSelectSpell={handleMycoSpellSelect} onOpenChange={setIsSelectingMycoSpell} />
       <RulesDialog isOpen={isRulesDialogOpen} onOpenChange={setIsRulesDialogOpen} />
+      <DungeonWelcomeDialog isOpen={isDungeonWelcomeOpen} onOpenChange={setIsDungeonWelcomeOpen} />
       <AlertDialog open={isResetConfirmOpen} onOpenChange={setIsResetConfirmOpen}>
         <AlertDialogContent className="font-pixel bg-black border-2 border-primary">
           <AlertDialogHeader> <AlertDialogTitle className="text-primary uppercase">Reset Dungeon Run?</AlertDialogTitle> </AlertDialogHeader>

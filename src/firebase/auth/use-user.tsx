@@ -46,6 +46,7 @@ interface UserData {
   lootSyncV18?: boolean;
   suggaRestoreV2?: boolean;
   hideBetaWelcome?: boolean;
+  hideDungeonWelcome?: boolean;
 }
 
 const ITEM_TYPES = Object.keys(ITEM_METADATA) as InventoryItemType[];

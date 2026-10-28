@@ -425,6 +425,77 @@ export const VibeChessTitle = ({ className, suffix = "" }: IconProps) => (
   </svg>
 );
 
+export const DungeonTitle = ({ className, suffix = "" }: IconProps) => (
+  <svg viewBox="0 0 160 40" className={cn(className, "animate-title-shimmer")} xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <pattern id={`ascii-shader-dungeon${suffix}`} x="0" y="0" width="2" height="2" patternUnits="userSpaceOnUse">
+        <rect x="0" y="0" width="1" height="1" fill="white" />
+      </pattern>
+      <mask id={`ascii-mask-dungeon${suffix}`}>
+        <rect x="0" y="0" width="160" height="40" fill={`url(#ascii-shader-dungeon${suffix})`} />
+      </mask>
+    </defs>
+    <g mask={`url(#ascii-mask-dungeon${suffix})`}>
+       {/* DUN */}
+       <g fill="hsl(var(--primary))">
+          {/* D */}
+          <g className="animate-title-ripple" style={{ animationDelay: '0s' }}>
+            <rect x="10" y="5" width="4" height="24" />
+            <rect x="14" y="5" width="8" height="4" />
+            <rect x="22" y="9" width="4" height="16" />
+            <rect x="14" y="25" width="8" height="4" />
+          </g>
+          {/* U */}
+          <g className="animate-title-ripple" style={{ animationDelay: '0.1s' }}>
+            <rect x="32" y="5" width="4" height="20" />
+            <rect x="44" y="5" width="4" height="20" />
+            <rect x="36" y="25" width="8" height="4" />
+          </g>
+          {/* N */}
+          <g className="animate-title-ripple" style={{ animationDelay: '0.2s' }}>
+            <rect x="54" y="5" width="4" height="24" />
+            <rect x="66" y="5" width="4" height="24" />
+            <rect x="58" y="9" width="4" height="4" />
+            <rect x="62" y="13" width="4" height="4" />
+          </g>
+       </g>
+       
+       {/* GEON */}
+       <g fill="hsl(var(--accent))">
+          {/* G */}
+          <g className="animate-title-ripple" style={{ animationDelay: '0.3s' }}>
+            <rect x="80" y="5" width="16" height="4" />
+            <rect x="80" y="9" width="4" height="16" />
+            <rect x="80" y="25" width="16" height="4" />
+            <rect x="92" y="15" width="4" height="10" />
+            <rect x="88" y="15" width="4" height="4" />
+          </g>
+          {/* E */}
+          <g className="animate-title-ripple" style={{ animationDelay: '0.4s' }}>
+            <rect x="102" y="5" width="4" height="24" />
+            <rect x="106" y="5" width="12" height="4" />
+            <rect x="106" y="15" width="8" height="4" />
+            <rect x="106" y="25" width="12" height="4" />
+          </g>
+          {/* O */}
+          <g className="animate-title-ripple" style={{ animationDelay: '0.5s' }}>
+            <rect x="120" y="9" width="4" height="16" />
+            <rect x="132" y="9" width="4" height="16" />
+            <rect x="124" y="5" width="8" height="4" />
+            <rect x="124" y="25" width="8" height="4" />
+          </g>
+          {/* N */}
+          <g className="animate-title-ripple" style={{ animationDelay: '0.6s' }}>
+            <rect x="142" y="5" width="4" height="24" />
+            <rect x="154" y="5" width="4" height="24" />
+            <rect x="146" y="9" width="4" height="4" />
+            <rect x="150" y="13" width="4" height="4" />
+          </g>
+       </g>
+    </g>
+  </svg>
+);
+
 /** UTILITY ICONS **/
 
 export const PrayerHandsIcon = ({ className = "w-full h-full" }: IconProps) => (
