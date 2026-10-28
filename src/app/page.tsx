@@ -884,7 +884,7 @@ export default function EvolvingChessPage() {
             }
             triggerSpecialsChain(nextBoard, nextGraveyard, currentKs, oldStreak, newStreak, isExtraTurn, nextEp, actingPlayer, [...completedMilestones, 'anvil'], capturingPieceId, wasCaptureThisTurn, movedPieceType, effWhite, effBlack, effGlobal); return;
         } else if (!localPlayerColor || actingPlayer === localPlayerColor) {
-            setSpecialActionContext({ boardForNextStep: boardToChain, playerWhoseTurnCompleted: actingPlayer, isExtraTurn: isExtraTurn, newEnPassantTarget: nextEp, oldStreak: oldStreak, newStreak: newStreak, completedMilestones: [...completedMilestones, 'anvil'], currentGraveyard: nextGraveyard, currentKs: currentKs, capturingPieceId: capturingPieceId, trackWhite: effWhite, trackBlack: effBlack, trackGlobal: effGlobal });
+            setSpecialActionContext({ boardForNextStep: boardToChain, playerWhoseTurnCompleted: actingPlayer, isExtraTurn: isExtraTurn, newEnPassantTarget: nextEp, oldStreak: oldStreak, newStreak: newStreak, completedMilestones: [...completedMilestones, 'anvil'], currentGraveyard: nextGraveyard, currentKs, capturingPieceId, trackWhite: effWhite, trackBlack: effBlack, trackGlobal: effGlobal });
             setPlayerToDropAnvil(actingPlayer); setIsAwaitingAnvilDrop(true); addLog("Anvil Drop ready!"); return;
         }
     }
@@ -1196,7 +1196,11 @@ export default function EvolvingChessPage() {
         else {
             pushHistory(); const movingP = board[algebraicToCoords(selectedSquare!).row][algebraicToCoords(selectedSquare!).col].piece!;
             const newMoveInfo: LastMoveInfo = { type: movingP.type, level: movingP.level, item: movingP.heldItem || null };
-            const nextTracks = { white: currentPlayer === 'white' ? newMoveInfo : lastMoveWhite, black: currentPlayer === 'black' ? newMoveInfo : lastMoveBlack, global: newMoveInfo };
+            const nextTracks = { 
+                white: currentPlayer === 'white' ? newMoveInfo : lastMoveWhite, 
+                black: currentPlayer === 'black' ? newMoveInfo : lastMoveBlack, 
+                global: newMoveInfo 
+            };
             if (currentPlayer === 'white') setLastMoveWhite(newMoveInfo); else setLastMoveBlack(newMoveInfo);
             setLastMoveGlobal(newMoveInfo);
             setIsMoveProcessing(true); setAnimatedSquareTo(algebraic);
@@ -1213,7 +1217,11 @@ export default function EvolvingChessPage() {
         else {
             pushHistory(); const movingP = board[algebraicToCoords(selectedSquare!).row][algebraicToCoords(selectedSquare!).col].piece!;
             const newMoveInfo: LastMoveInfo = { type: movingP.type, level: movingP.level, item: movingP.heldItem || null };
-            const nextTracks = { white: currentPlayer === 'white' ? newMoveInfo : lastMoveWhite, black: currentPlayer === 'black' ? newMoveInfo : lastMoveBlack, global: newMoveInfo };
+            const nextTracks = { 
+                white: currentPlayer === 'white' ? newMoveInfo : lastMoveWhite, 
+                black: currentPlayer === 'black' ? newMoveInfo : lastMoveBlack, 
+                global: newMoveInfo 
+            };
             if (currentPlayer === 'white') setLastMoveWhite(newMoveInfo); else setLastMoveBlack(newMoveInfo);
             setLastMoveGlobal(newMoveInfo);
             setIsMoveProcessing(true); setAnimatedSquareTo(algebraic);
@@ -1230,7 +1238,11 @@ export default function EvolvingChessPage() {
         else {
             pushHistory(); const movingP = board[algebraicToCoords(selectedSquare!).row][algebraicToCoords(selectedSquare!).col].piece!;
             const newMoveInfo: LastMoveInfo = { type: movingP.type, level: movingP.level, item: movingP.heldItem || null };
-            const nextTracks = { white: currentPlayer === 'white' ? newMoveInfo : lastMoveWhite, black: currentPlayer === 'black' ? newMoveInfo : lastMoveBlack, global: newMoveInfo };
+            const nextTracks = { 
+                white: currentPlayer === 'white' ? newMoveInfo : lastMoveWhite, 
+                black: currentPlayer === 'black' ? newMoveInfo : lastMoveBlack, 
+                global: newMoveInfo 
+            };
             if (currentPlayer === 'white') setLastMoveWhite(newMoveInfo); else setLastMoveBlack(newMoveInfo);
             setLastMoveGlobal(newMoveInfo);
             setIsMoveProcessing(true); setAnimatedSquareTo(algebraic);
@@ -1243,12 +1255,16 @@ export default function EvolvingChessPage() {
     }
 
     if (isAwaitingGrappleThrow) {
-        const {row: fr, col: fc} = algebraicToCoords(selectedSquare!); const range = getEffectiveLevel(board, fr, fc);
-        const movingP = board[fr][fc].piece!;
+        const {row: fr, col: fC} = algebraicToCoords(selectedSquare!); const range = getEffectiveLevel(board, fr, fC);
+        const movingP = board[fr][fC].piece!;
         const newMoveInfo: LastMoveInfo = { type: movingP.type, level: movingP.level, item: movingP.heldItem || null };
-        const nextTracks = { white: currentPlayer === 'white' ? newMoveInfo : lastMoveWhite, black: currentPlayer === 'black' ? newMoveInfo : lastMoveBlack, global: newMoveInfo };
+        const nextTracks = { 
+            white: currentPlayer === 'white' ? newMoveInfo : lastMoveWhite, 
+            black: currentPlayer === 'black' ? newMoveInfo : lastMoveBlack, 
+            global: newMoveInfo 
+        };
 
-        const dist = Math.max(Math.abs(fr - row), Math.abs(fc - col));
+        const dist = Math.max(Math.abs(fr - row), Math.abs(fC - col));
         if (algebraic === (grappledPieceSubject?.from || grappledItemSubject?.from) && grappledPieceSubject?.piece.color !== currentPlayer) {
             const move: Move = { from: selectedSquare!, to: algebraic, type: 'capture' };
             if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: move })); setSelectedSquare(null); setPossibleMoves([]); }
@@ -1289,7 +1305,7 @@ export default function EvolvingChessPage() {
             }
             return;
         }
-        if (((fr === row || fc === col) || Math.abs(fr - row) === Math.abs(fc - col)) && dist <= range && dist > 0) {
+        if (((fr === row || fC === col) || Math.abs(fr - row) === Math.abs(fC - col)) && dist <= range && dist > 0) {
           if (!sq?.piece && !sq?.item) {
             pushHistory(); clickGuardRef.current = true; setIsMoveProcessing(true); setAnimatedSquareTo(algebraic);
             if (currentPlayer === 'white') setLastMoveWhite(newMoveInfo); else setLastMoveBlack(newMoveInfo);
@@ -1358,7 +1374,11 @@ export default function EvolvingChessPage() {
         const { row: fR, col: fC } = algebraicToCoords(selectedSquare);
         const movingP = board[fR][fC].piece!;
         const newMoveInfo: LastMoveInfo = { type: movingP.type, level: movingP.level, item: movingP.heldItem || null };
-        const nextTracks = { white: currentPlayer === 'white' ? newMoveInfo : lastMoveWhite, black: currentPlayer === 'black' ? newMoveInfo : lastMoveBlack, global: newMoveInfo };
+        const nextTracks = { 
+            white: currentPlayer === 'white' ? newMoveInfo : lastMoveWhite, 
+            black: currentPlayer === 'black' ? newMoveInfo : lastMoveBlack, 
+            global: newMoveInfo 
+        };
 
         if ((row === fR || col === fC) && algebraic !== selectedSquare) {
             const type = isAwaitingRayTarget === 'glacial' ? 'glacial-ray' : 'burning-ray';
@@ -1379,7 +1399,11 @@ export default function EvolvingChessPage() {
     if (isSelectingTeleportShroom && sq?.item?.type === 'shroom') {
         const mage = board[algebraicToCoords(selectedSquare!).row][algebraicToCoords(selectedSquare!).col].piece!;
         const newMoveInfo: LastMoveInfo = { type: mage.type, level: mage.level, item: mage.heldItem || null };
-        const nextTracks = { white: currentPlayer === 'white' ? newMoveInfo : lastMoveWhite, black: currentPlayer === 'black' ? newMoveInfo : lastMoveBlack, global: newMoveInfo };
+        const nextTracks = { 
+            white: currentPlayer === 'white' ? newMoveInfo : lastMoveWhite, 
+            black: currentPlayer === 'black' ? newMoveInfo : lastMoveBlack, 
+            global: newMoveInfo 
+        };
 
         const move: Move = { from: selectedSquare!, to: algebraic, type: 'tele-portobello', teleportPieceId: teleportAllyPieceId! };
         if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: move })); setSelectedSquare(null); setPossibleMoves([]); }
@@ -1392,7 +1416,11 @@ export default function EvolvingChessPage() {
     if (isSelectingSporeBombShroom && sq?.item?.type === 'shroom') {
         const mage = board[algebraicToCoords(selectedSquare!).row][algebraicToCoords(selectedSquare!).col].piece!;
         const newMoveInfo: LastMoveInfo = { type: mage.type, level: mage.level, item: mage.heldItem || null };
-        const nextTracks = { white: currentPlayer === 'white' ? newMoveInfo : lastMoveWhite, black: currentPlayer === 'black' ? newMoveInfo : lastMoveBlack, global: newMoveInfo };
+        const nextTracks = { 
+            white: currentPlayer === 'white' ? newMoveInfo : lastMoveWhite, 
+            black: currentPlayer === 'black' ? newMoveInfo : lastMoveBlack, 
+            global: newMoveInfo 
+        };
 
         const move: Move = { from: selectedSquare!, to: algebraic, type: 'spore-bomb' };
         if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: move })); setSelectedSquare(null); setPossibleMoves([]); }
@@ -1409,20 +1437,20 @@ export default function EvolvingChessPage() {
           return; 
         }
         if (algebraic === dancerToDance) { setIsAwaitingDanceTarget(false); setDancerToDance(null); if (specialActionContext) triggerSpecialsChain(board, specialActionContext.currentGraveyard, specialActionContext.currentKs, specialActionContext.oldStreak, specialActionContext.newStreak, specialActionContext.isExtraTurn, specialActionContext.newEnPassantTarget, currentPlayer, specialActionContext.completedMilestones, specialActionContext.capturingPieceId, false, lastMoveGlobal?.type, specialActionContext.trackWhite, specialActionContext.trackBlack, specialActionContext.trackGlobal); return; }
-        const {row: fr, col: fc} = algebraicToCoords(dancerToDance); const isAdjacent = Math.abs(row - fr) <= 1 && Math.abs(col - fc) <= 1;
+        const {row: fr, col: fC} = algebraicToCoords(dancerToDance); const isAdjacent = Math.abs(row - fr) <= 1 && Math.abs(col - fC) <= 1;
         const targetP = board[row][col].piece;
         const targetItem = board[row][col].item;
-        const activeD = board[fr][fc].piece!;
+        const activeD = board[fr][fC].piece!;
         
         const dancerMoveInfo: LastMoveInfo = { type: activeD.type, level: activeD.level, item: activeD.heldItem || null };
         const nextTracks = {
-            white: currentPlayer === 'white' ? dancerMoveInfo : specialActionContext!.trackWhite,
-            black: currentPlayer === 'black' ? dancerMoveInfo : specialActionContext!.trackBlack,
+            white: currentPlayer === 'white' ? dancerMoveInfo : (specialActionContext?.trackWhite || lastMoveWhite),
+            black: currentPlayer === 'black' ? dancerMoveInfo : (specialActionContext?.trackBlack || lastMoveBlack),
             global: dancerMoveInfo
         };
 
         const dir = currentPlayer === 'white' ? -1 : 1;
-        const isForward = (row === fr + dir) && (col === fc);
+        const isForward = (row === fr + dir) && (col === fC);
         if (isAdjacent && (targetP || (targetItem?.type === 'anvil' && dp?.heldItem === 'dancers_ribbon') || ((!targetItem || targetItem.type === 'shroom') && isForward))) {
             if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: { from: dancerToDance, to: algebraic, type: 'dance-swap' } })); setIsAwaitingDanceTarget(false); setDancerToDance(null); }
             else {
@@ -1431,16 +1459,16 @@ export default function EvolvingChessPage() {
                 setLastMoveGlobal(dancerMoveInfo);
 
                 let nextBoard = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null})));
-                const activeD_next = nextBoard[fr][fc].piece!; const tP = nextBoard[row][col].piece; const targetItem = nextBoard[row][col].item;
+                const activeD_next = nextBoard[fr][fC].piece!; const tP = nextBoard[row][col].piece; const targetItem = nextBoard[row][col].item;
                 if (targetItem?.type === 'shroom') { 
-                    const oldL = activeD_next.level;
+                    const oldDancerL = activeD_next.level;
                     activeD_next.level = Math.min(activeD_next.type === 'queen' ? 7 : 99, (activeD_next.level || 1) + 1); 
                     nextBoard[row][col].item = null;
-                    if (activeD_next.level > oldL) addEffectCallback('level-change', algebraic, currentPlayer, 1, undefined);
+                    if (activeD_next.level > oldDancerL) addEffectCallback('level-change', algebraic, currentPlayer, 1, undefined);
                 }
                 nextBoard[row][col].piece = { ...activeD_next, isShielded: false }; 
-                nextBoard[fr][fc].piece = tP ? { ...tP, hasMoved: true, isShielded: false } : null; 
-                nextBoard[fr][fc].item = targetItem?.type === 'shroom' ? null : targetItem;
+                nextBoard[fr][fC].piece = tP ? { ...tP, hasMoved: true, isShielded: false } : null; 
+                nextBoard[fr][fC].item = targetItem?.type === 'shroom' ? null : targetItem;
                 
                 const backRank = currentPlayer === 'white' ? 0 : 7;
                 let q = [];
@@ -1488,7 +1516,11 @@ export default function EvolvingChessPage() {
           if (isAwaitingAnvilScrollTarget || isAwaitingWindScrollTarget || isAwaitingEarthquakeScrollTarget || isAwaitingOilSlickTarget) {
               const movingP = board[algebraicToCoords(selectedSquare!).row][algebraicToCoords(selectedSquare!).col].piece!;
               const newMoveInfo: LastMoveInfo = { type: movingP.type, level: movingP.level, item: movingP.heldItem || null };
-              nextTracks = { white: currentPlayer === 'white' ? newMoveInfo : lastMoveWhite, black: currentPlayer === 'black' ? newMoveInfo : lastMoveBlack, global: newMoveInfo };
+              nextTracks = { 
+                  white: currentPlayer === 'white' ? newMoveInfo : lastMoveWhite, 
+                  black: currentPlayer === 'black' ? newMoveInfo : lastMoveBlack, 
+                  global: newMoveInfo 
+              };
               if (currentPlayer === 'white') setLastMoveWhite(newMoveInfo); else setLastMoveBlack(newMoveInfo);
               setLastMoveGlobal(newMoveInfo);
               movedType = movingP.type;
@@ -1555,8 +1587,8 @@ export default function EvolvingChessPage() {
            else if (pt.heldItem === 'mimic_blade') lastInfo = currentPlayer === 'white' ? lastMoveWhite : lastMoveBlack;
            if (lastInfo?.type === 'archer') return true;
         }
-        const coords = board.flat().find(sq => sq.piece?.id === pt.id); 
-        if ((pt.type === 'knight' || pt.type === 'mimic') && pt.heldItem === 'shortbow' && coords && getEffectiveLevel(board, coords.rowIndex, coords.colIndex) >= 3) return true; 
+        const crds = board.flat().find(sq => sq.piece?.id === pt.id); 
+        if ((pt.type === 'knight' || pt.type === 'mimic') && pt.heldItem === 'shortbow' && crds && getEffectiveLevel(board, crds.rowIndex, crds.colIndex) >= 3) return true; 
         return false; 
       });
       if (piece && piece.color !== currentPlayer && piece.type !== 'king' && piece.type !== 'queen' && piece.heldItem !== 'weighted_helm') {
@@ -1611,7 +1643,11 @@ export default function EvolvingChessPage() {
                    
                    const move: Move = { from: selectedSquare, to: selectedSquare, type };
                    const newMoveInfo: LastMoveInfo = { type: moving.type, level: moving.level, item: moving.heldItem || null };
-                   const nextTracks = { white: currentPlayer === 'white' ? newMoveInfo : lastMoveWhite, black: currentPlayer === 'black' ? newMoveInfo : lastMoveBlack, global: newMoveInfo };
+                   const nextTracks = { 
+                       white: currentPlayer === 'white' ? newMoveInfo : lastMoveWhite, 
+                       black: currentPlayer === 'black' ? newMoveInfo : lastMoveBlack, 
+                       global: newMoveInfo 
+                   };
 
                    if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: move })); setSelectedSquare(null); setPossibleMoves([]); }
                    else {
@@ -1629,7 +1665,11 @@ export default function EvolvingChessPage() {
                if (item === 'detonation_scroll') {
                    const move: Move = { from: selectedSquare, to: selectedSquare, type: 'self-destruct' };
                    const newMoveInfo: LastMoveInfo = { type: moving.type, level: moving.level, item: moving.heldItem || null };
-                   const nextTracks = { white: currentPlayer === 'white' ? newMoveInfo : lastMoveWhite, black: currentPlayer === 'black' ? newMoveInfo : lastMoveBlack, global: newMoveInfo };
+                   const nextTracks = { 
+                       white: currentPlayer === 'white' ? newMoveInfo : lastMoveWhite, 
+                       black: currentPlayer === 'black' ? newMoveInfo : lastMoveBlack, 
+                       global: newMoveInfo 
+                   };
 
                    if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: move })); setSelectedSquare(null); setPossibleMoves([]); }
                    else {
@@ -1661,7 +1701,11 @@ export default function EvolvingChessPage() {
            if (!silencedUnit && (moving.type === 'knight' || moving.type === 'hero' || moving.type === 'archer') && getEffectiveLevel(board, fR, fC) >= 5) {
                const move: Move = { from: selectedSquare, to: selectedSquare, type: 'self-destruct' };
                const newMoveInfo: LastMoveInfo = { type: moving.type, level: moving.level, item: moving.heldItem || null };
-               const nextTracks = { white: currentPlayer === 'white' ? newMoveInfo : lastMoveWhite, black: currentPlayer === 'black' ? newMoveInfo : lastMoveBlack, global: newMoveInfo };
+               const nextTracks = { 
+                   white: currentPlayer === 'white' ? newMoveInfo : lastMoveWhite, 
+                   black: currentPlayer === 'black' ? newMoveInfo : lastMoveBlack, 
+                   global: newMoveInfo 
+               };
 
                if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: move })); setSelectedSquare(null); setPossibleMoves([]); }
                else {
@@ -1710,7 +1754,11 @@ export default function EvolvingChessPage() {
           }
 
           const newMoveInfo: LastMoveInfo = { type: moving.type, level: moving.level, item: moving.heldItem || null };
-          const nextTracks = { white: currentPlayer === 'white' ? newMoveInfo : lastMoveWhite, black: currentPlayer === 'black' ? newMoveInfo : lastMoveBlack, global: newMoveInfo };
+          const nextTracks = { 
+              white: currentPlayer === 'white' ? newMoveInfo : lastMoveWhite, 
+              black: currentPlayer === 'black' ? newMoveInfo : lastMoveBlack, 
+              global: newMoveInfo 
+          };
           if (onlineStatus === 'connected') { 
               wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: { from: selectedSquare, to: algebraic, type: mType } })); 
               setSelectedSquare(null); setPossibleMoves([]); 
@@ -2062,7 +2110,7 @@ export default function EvolvingChessPage() {
         <Card className="w-full mt-1 bg-black/40 border-none shadow-none"> <CardContent className="p-1 flex flex-col gap-1"> {onlineStatus === 'disconnected' ? ( <div className="flex flex-col gap-1 items-center"> <Button variant="outline" size="sm" onClick={() => setIsArenaConfirmOpen(true)} disabled={!user} className="h-6 px-1.5 text-[0.65rem] w-full"><PixelTrophy className="mr-1 h-3 w-3 ascii-shader" />Arena <span className="text-yellow-500 ml-1">100g</span> <Coins className="h-3 w-3 text-yellow-500" /> ({tournamentQueueCount}/8)</Button> <Button variant="outline" size="sm" onClick={handleRankedPlay} disabled={!user} className="h-6 px-1.5 text-[0.65rem] w-full"><PixelTrophy className="mr-1 h-3 w-3 ascii-shader" />Ranked Match</Button> <Button variant="outline" size="sm" onClick={() => handleOnlinePlay('create')} disabled={!user} className="h-6 px-1.5 text-[0.65rem] w-full"><Globe className="mr-1 h-3 w-3" /> Create Online Game</Button> <div className="flex gap-1 items-center w-full"> <Input type="text" placeholder="Room ID" value={inputRoomId} onChange={(e) => setInputRoomId(e.target.value)} className="h-6 px-1.5 text-[0.65rem] flex-grow" /> <Button variant="outline" size="sm" onClick={() => handleOnlinePlay('join')} disabled={!inputRoomId} className="h-6 px-1.5 text-[0.65rem]">Join</Button> </div> </div> ) : ( <div className="flex flex-col gap-1 items-center"> <div className="flex items-center gap-2 text-[0.65rem] font-pixel text-primary uppercase"> <span>Room: {roomId || inputRoomId}</span> <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => { navigator.clipboard.writeText(roomId || inputRoomId); addLog("Room ID Copied!"); }}> <Copy className="h-3 w-3" /> </Button> </div> <Button variant="destructive" size="sm" onClick={() => wsRef.current?.close()} className="h-6 px-1.5 text-[0.65rem] w-full"><Link2Off className="mr-1 h-3 w-3" /> Disconnect</Button> </div> )} <div className="w-full text-center h-3 text-[0.65rem] text-muted-foreground uppercase font-pixel tracking-tighter">{onlineStatus}</div> </CardContent> </Card>
       </div>
     </div>
-  ), [statusMessage, board, selectedSquare, possibleMoves, enemySelectedSquare, enemyPossibleMoves, handleSquareClick, boardOrientation, currentPlayer, isMoveProcessing, gameInfo.gameOver, isAiThinking, localPlayerColor, enPassantTargetSquare, handlePieceHover, effects, promotionSquare, isAwaitingAnvilDrop, playerToDropAnvil, isInventoryOpen, selectedInventoryItemType, isAwaitingHolyShield, isAwaitingArcherSnipe, grappledPieceSubject, isAwaitingEarthquakeScrollTarget, isSelectingMycoSpell, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, isAwaitingCommanderPromotion, playerWhoGotFirstBlood, isAwaitingWindScrollTarget, isAwaitingAnvilScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget, isAwaitingOilSlickTarget, isAwaitingRayTarget, lastMoveWhite, lastMoveBlack, lastMoveGlobal, capturedPieces, killStreaks, pieceForInfoDisplay, getPlayerDisplayName, onlineStatus, turnTimer, isRulesDialogOpen, userData, user, volume, aiDifficulty, isWhiteAI, isBlackAI, viewMode, tournamentQueueCount, handleOnlinePlay, handleRankedPlay, inputRoomId, roomId, socialOnlineStatus, handleUsePortalScroll, gameMoveCounter, isLootBagDisabled, isTournamentIntermission, headerIconsActive, headerIconsOpacity, turnTimer, capturedPieces, killStreaks, pieceForInfoDisplay, getPlayerDisplayName, onlineStatus, isAnySpecialModeActive, dancerToDance, isAwaitingRayTarget, gameInfo.gameOver, gameInfo.isCheck, lastMoveWhite, lastMoveBlack, lastMoveGlobal, router, initialSnapshot, userData, attunementSlots]);
+  ), [statusMessage, board, selectedSquare, possibleMoves, enemySelectedSquare, enemyPossibleMoves, handleSquareClick, boardOrientation, currentPlayer, isMoveProcessing, gameInfo.gameOver, isAiThinking, localPlayerColor, enPassantTargetSquare, handlePieceHover, effects, promotionSquare, isAwaitingAnvilDrop, playerToDropAnvil, isInventoryOpen, selectedInventoryItemType, isAwaitingHolyShield, isAwaitingArcherSnipe, grappledPieceSubject, isAwaitingEarthquakeScrollTarget, isSelectingMycoSpell, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, isAwaitingCommanderPromotion, playerWhoGotFirstBlood, isAwaitingWindScrollTarget, isAwaitingAnvilScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget, isAwaitingOilSlickTarget, isAwaitingRayTarget, lastMoveWhite, lastMoveBlack, lastMoveGlobal, capturedPieces, killStreaks, pieceForInfoDisplay, getPlayerDisplayName, onlineStatus, turnTimer, isRulesDialogOpen, userData, user, volume, aiDifficulty, isWhiteAI, isBlackAI, viewMode, tournamentQueueCount, handleOnlinePlay, handleRankedPlay, inputRoomId, roomId, socialOnlineStatus, handleUsePortalScroll, gameMoveCounter, isLootBagDisabled, isTournamentIntermission, headerIconsActive, headerIconsOpacity, gameInfo.isCheck, router, initialSnapshot, attunementSlots]);
 
   const desktopLayout = useMemo(() => (
     <div className="relative z-20 hidden lg:flex flex-row items-start justify-center gap-4 w-full h-full p-4">
@@ -2206,12 +2254,6 @@ export default function EvolvingChessPage() {
             <AlertDialogDescription className="text-white text-[0.65rem] uppercase leading-relaxed"> Joining the Arena battle queue costs <span className="text-yellow-500">100 Gold</span>. Are you sure you want to proceed? </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="mt-4 gap-2">
-            <Accordion type="single" collapsible className="w-full mb-2">
-              <AccordionItem value="entry-fee" className="border-border/30">
-                <AccordionTrigger className="text-[0.6rem] uppercase py-2">View Queue Details</AccordionTrigger>
-                <AccordionContent className="text-[0.55rem] text-muted-foreground uppercase leading-tight"> Arena battles use your current Elo and Equipment. Matches are 8-player bracketed tournaments. </AccordionContent>
-              </AccordionItem>
-            </Accordion>
             <Accordion type="single" collapsible className="w-full mb-2">
               <AccordionItem value="entry-fee" className="border-border/30">
                 <AccordionTrigger className="text-[0.6rem] uppercase py-2">View Queue Details</AccordionTrigger>
