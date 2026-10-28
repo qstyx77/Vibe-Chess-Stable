@@ -135,6 +135,9 @@ export function DungeonWelcomeDialog({ isOpen, onOpenChange }: DungeonWelcomeDia
                                         <li>Depth Bonus: +1% Drop Rate per 10 floors reached</li>
                                         <li>Luck Bonus: +1% Drop Rate per equipped 'Clover'</li>
                                     </ul>
+                                    <p className="text-[0.45rem] text-primary font-bold uppercase mt-2 pt-2 border-t border-[#4ADE80]/20 leading-tight">
+                                        Note: You can access your loot bag and equip pieces before the first turn of every floor.
+                                    </p>
                                 </div>
                             </div>
                             <div className="h-10 w-10 shrink-0 flex items-center justify-center">
