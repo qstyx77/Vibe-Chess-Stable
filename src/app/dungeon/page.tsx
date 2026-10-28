@@ -1620,22 +1620,35 @@ export default function DungeonPage() {
     setIsAwaitingDanceTarget(false); setDancerToDance(null); setIsAwaitingCommanderPromotion(false); setIsAwaitingAnvilDrop(false); setPlayerToDropAnvil(null); setIsAwaitingHolyShield(false); setIsAwaitingArcherSnipe(false); setIsAwaitingPawnSacrifice(false); setIsAwaitingGrappleThrow(false); setGrappledPieceSubject(null); setGrappledItemSubject(null); setIsInventoryOpen(false); setIsSelectingMycoSpell(false); setIsAiThinking(false); setPromotionQueue([]); setDidCaptureLastTurn({ white: false, black: false }); setNecroResurrectionCounter(0); setAiNoMoveCounter(0); setIsLootWindowOpen(false); setLootFound([]); setPendingProgression(null);
     setWraithSpawnTimer(5); setIsOmenActive(false);
     setClickedEnemySquare(null); setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
+    
     const saved = userData.dungeonState;
-    if (!reset && saved && saved.board && saved.board.length > 0) {
-      setLevel(saved.level); const loadedB: BoardState = []; const savedB1D = saved.board as SquareState[];
-      for (let i = 0; i < 8; i++) loadedB.push(savedB1D.slice(i * 8, i * 8 + 8)); 
-      setBoard(loadedB); setCurrentPlayer(saved.currentPlayer); setKillStreaks(saved.killStreaks); 
-      
-      const restoredWhite = (Array.isArray(saved.capturedPieces?.white) ? saved.capturedPieces.white : [])
-        .map((p: Piece) => ({ ...p, isPoisoned: false, isExhausted: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 }));
-      const restoredBlack = (Array.isArray(saved.capturedPieces?.black) ? saved.capturedPieces.black : [])
-        .map((p: Piece) => ({ ...p, isPoisoned: false, isExhausted: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 }));
-      setCapturedPieces({ white: restoredWhite, black: restoredBlack });
-      
-      setEnPassantTargetSquare(saved.enPassantTargetSquare);
-      setShroomSpawnCounter(saved.shroomSpawnCounter || 0);
-      setNextShroomSpawnTurn(saved.nextShroomSpawnTurn || 5);
-      setNecroResurrectionCounter(saved.necroResurrectionCounter || 0);
+    let targetLevel = 1;
+
+    if (!reset && saved) {
+      targetLevel = saved.level || 1;
+      if (saved.board && saved.board.length > 0) {
+        setLevel(targetLevel); const loadedB: BoardState = []; const savedB1D = saved.board as SquareState[];
+        for (let i = 0; i < 8; i++) loadedB.push(savedB1D.slice(i * 8, i * 8 + 8)); 
+        setBoard(loadedB); setCurrentPlayer(saved.currentPlayer); setKillStreaks(saved.killStreaks); 
+        
+        const restoredWhite = (Array.isArray(saved.capturedPieces?.white) ? saved.capturedPieces.white : [])
+          .map((p: Piece) => ({ ...p, isPoisoned: false, isExhausted: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 }));
+        const restoredBlack = (Array.isArray(saved.capturedPieces?.black) ? saved.capturedPieces.black : [])
+          .map((p: Piece) => ({ ...p, isPoisoned: false, isExhausted: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 }));
+        setCapturedPieces({ white: restoredWhite, black: restoredBlack });
+        
+        setEnPassantTargetSquare(saved.enPassantTargetSquare);
+        setShroomSpawnCounter(saved.shroomSpawnCounter || 0);
+        setNextShroomSpawnTurn(saved.nextShroomSpawnTurn || 5);
+        setNecroResurrectionCounter(saved.necroResurrectionCounter || 0);
+      } else {
+        // Warped from lobby (saved level but no board)
+        let army: Piece[] = []; const elo = userData.eloRating || 1200; let initial = initializeBoard(elo, 1200, userData.unlockedPieces || []);
+        initial.flat().forEach(sq => { if (sq.piece && sq.piece.color === 'white') army.push(sq.piece); });
+        setPlayerArmy(army); setLevel(targetLevel); const newB = generateDungeonFloor(targetLevel, army); setBoard(newB);
+        setCapturedPieces({ white: [], black: [] }); setCurrentPlayer('white'); setKillStreaks({ white: 0, black: 0 });
+        saveDungeonState(targetLevel, newB, 'white', { white: 0, black: 0 }, { white: [], black: [] }, 0, 5, null, 0, userData.inventory || []);
+      }
     } else {
       let army: Piece[] = []; const elo = userData.eloRating || 1200; let initial = initializeBoard(elo, 1200, userData.unlockedPieces || []);
       initial.flat().forEach(sq => { if (sq.piece && sq.piece.color === 'white') army.push(sq.piece); });
@@ -1645,6 +1658,12 @@ export default function DungeonPage() {
     }
     aiInstance.current = new VibeChessAI(4); audioManager.playStart();
     
+    // Trigger Boss battle dialog on load if arriving on a boss floor
+    if (targetLevel % 10 === 0) {
+        const isHidden = (userData as any)?.[`hideBossDialog_${targetLevel}`];
+        if (!isHidden) setIsBossBattleOpen(true);
+    }
+
     if (!userData?.hideDungeonWelcome && !hasTriggeredWelcomeRef.current) {
         setIsDungeonWelcomeOpen(true);
         hasTriggeredWelcomeRef.current = true;
@@ -1890,7 +1909,13 @@ export default function DungeonPage() {
     addLog(`Warped to Floor ${targetFloor}!`);
     setIsInventoryOpen(false);
     setSelectedInventoryItemType(null);
-  }, [inventory, board, saveDungeonState, addLog]);
+
+    // Trigger Boss battle dialog if warping to a boss floor
+    if (targetFloor % 10 === 0) {
+        const isHidden = (userData as any)?.[`hideBossDialog_${targetFloor}`];
+        if (!isHidden) setIsBossBattleOpen(true);
+    }
+  }, [inventory, board, saveDungeonState, addLog, userData]);
 
   const cPanel = (
     <Card className="w-full shadow-lg h-full flex flex-col relative overflow-hidden bg-black">
