@@ -86,8 +86,8 @@ export function DungeonWelcomeDialog({ isOpen, onOpenChange }: DungeonWelcomeDia
                                 <p className="text-[#38BDF8] text-[0.65rem] mb-2 font-bold uppercase">Unit Unlocks</p>
                                 <p className="text-[0.5rem] text-muted-foreground uppercase leading-tight">Defeating major bosses every 10 floors permanently unlocks elite units (Myco Mage, Grappler, Mimic, Dancer) for your army.</p>
                             </div>
-                            <div className="h-8 w-8 shrink-0 flex items-center justify-center">
-                                <ChessPieceDisplay piece={{ id: 'welcome-myco', type: 'myco_mage', color: 'white', level: 1, hasMoved: false }} isMini />
+                            <div className="h-10 w-10 shrink-0 flex items-center justify-center">
+                                <ChessPieceDisplay piece={{ id: 'welcome-myco', type: 'myco_mage', color: 'white', level: 1, hasMoved: false }} />
                             </div>
                         </div>
                     </div>
