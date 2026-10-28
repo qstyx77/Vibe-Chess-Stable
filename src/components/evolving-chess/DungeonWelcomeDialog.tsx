@@ -17,10 +17,14 @@ import {
     DungeonTitle,
     PixelHydra,
     PixelNecromancer,
-    PixelWraith
+    PixelWraith,
+    PixelPawn,
+    ExplosionIcon
 } from './IconLibrary';
 import { useUser, updateDocumentNonBlocking } from '@/firebase';
 import { doc, getFirestore } from 'firebase/firestore';
+import { ChessPieceDisplay } from './ChessPieceDisplay';
+import { ItemSprite } from './ItemSprite';
 
 interface DungeonWelcomeDialogProps {
   isOpen: boolean;
@@ -75,14 +79,38 @@ export function DungeonWelcomeDialog({ isOpen, onOpenChange }: DungeonWelcomeDia
             <section className="space-y-4">
                 <h2 className="text-[#38BDF8] text-[0.75rem] uppercase tracking-tighter">Dungeon Protocols</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* UNIT UNLOCKS */}
                     <div className="p-4 border-2 border-[#38BDF8]/40 bg-[#38BDF8]/5">
-                        <p className="text-[#38BDF8] text-[0.65rem] mb-2 font-bold uppercase">Unit Unlocks</p>
-                        <p className="text-[0.5rem] text-muted-foreground uppercase leading-tight">Defeating major bosses every 10 floors permanently unlocks elite units (Myco Mage, Grappler, Mimic, Dancer) for your army.</p>
+                        <div className="flex justify-between items-start gap-2">
+                            <div className="flex-1">
+                                <p className="text-[#38BDF8] text-[0.65rem] mb-2 font-bold uppercase">Unit Unlocks</p>
+                                <p className="text-[0.5rem] text-muted-foreground uppercase leading-tight">Defeating major bosses every 10 floors permanently unlocks elite units (Myco Mage, Grappler, Mimic, Dancer) for your army.</p>
+                            </div>
+                            <div className="h-10 w-10 shrink-0">
+                                <ChessPieceDisplay piece={{ id: 'welcome-myco', type: 'myco_mage', color: 'white', level: 1, hasMoved: false }} isMini />
+                            </div>
+                        </div>
                     </div>
+
+                    {/* FLOOR COLLAPSE */}
                     <div className="p-4 border-2 border-[#C084FC]/40 bg-[#C084FC]/5">
-                        <p className="text-[#C084FC] text-[0.65rem] mb-2 font-bold uppercase">Floor Collapse</p>
-                        <p className="text-[0.5rem] text-muted-foreground uppercase leading-tight">If the Dungeon AI cannot make a legal move for 3 turns, the floor collapses. Foes self-destruct, and you advance automatically.</p>
+                        <div className="flex justify-between items-start gap-2">
+                            <div className="flex-1">
+                                <p className="text-[#C084FC] text-[0.65rem] mb-2 font-bold uppercase">Floor Collapse</p>
+                                <p className="text-[0.5rem] text-muted-foreground uppercase leading-tight">If the Dungeon AI cannot make a legal move for 3 turns, the floor collapses. Foes self-destruct, and you advance automatically.</p>
+                            </div>
+                            <div className="relative h-10 w-10 shrink-0">
+                                <div className="absolute inset-0 text-secondary opacity-50">
+                                    <PixelPawn className="w-full h-full" />
+                                </div>
+                                <div className="absolute inset-0 text-destructive animate-pulse">
+                                    <ExplosionIcon className="w-full h-full" />
+                                </div>
+                            </div>
+                        </div>
                     </div>
+
+                    {/* SPECTRAL BALANCE */}
                     <div className="p-4 border-2 border-destructive/40 bg-destructive/5 relative overflow-hidden">
                         <div className="flex justify-between items-start">
                             <div>
@@ -94,15 +122,24 @@ export function DungeonWelcomeDialog({ isOpen, onOpenChange }: DungeonWelcomeDia
                             </div>
                         </div>
                     </div>
+
+                    {/* PERSISTENCE & LOOT */}
                     <div className="p-4 border-2 border-[#4ADE80]/40 bg-[#4ADE80]/5">
-                        <p className="text-[#4ADE80] text-[0.65rem] mb-2 font-bold uppercase">Persistence & Loot</p>
-                        <div className="space-y-2">
-                            <p className="text-[0.5rem] text-muted-foreground uppercase leading-tight">Items drop from defeated Bosses. Your odds scale with technical mastery:</p>
-                            <ul className="text-[0.45rem] text-foreground/70 list-disc pl-4 uppercase space-y-1">
-                                <li>Base Rates: 12% Common | 6% Uncommon | 3% Rare</li>
-                                <li>Depth Bonus: +1% Drop Rate per 10 floors reached</li>
-                                <li>Luck Bonus: +1% Drop Rate per equipped 'Clover' item</li>
-                            </ul>
+                        <div className="flex justify-between items-start gap-2">
+                            <div className="flex-1">
+                                <p className="text-[#4ADE80] text-[0.65rem] mb-2 font-bold uppercase">Persistence & Loot</p>
+                                <div className="space-y-2">
+                                    <p className="text-[0.5rem] text-muted-foreground uppercase leading-tight">Items drop from defeated Bosses. Your odds scale with technical mastery:</p>
+                                    <ul className="text-[0.45rem] text-foreground/70 list-disc pl-4 uppercase space-y-1">
+                                        <li>Base Rates: 12% Common | 6% Uncommon | 3% Rare</li>
+                                        <li>Depth Bonus: +1% Drop Rate per 10 floors reached</li>
+                                        <li>Luck Bonus: +1% Drop Rate per equipped 'Clover'</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div className="h-10 w-10 shrink-0 flex items-center justify-center">
+                                <ItemSprite type="obsidian_blade" size={32} />
+                            </div>
                         </div>
                     </div>
                 </div>
