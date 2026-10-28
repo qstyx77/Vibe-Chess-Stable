@@ -23,7 +23,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useUser, updateDocumentNonBlocking } from '@/firebase';
 import { doc, getFirestore } from 'firebase/firestore';
-import { ChessPieceDisplay } from './ChessPieceDisplay';
+import { ITEM_METADATA } from '@/types';
 
 interface BossMetadata {
     name: string;
@@ -133,14 +133,22 @@ export function BossBattleDialog({ isOpen, onOpenChange, floor }: BossBattleDial
   const data = BOSS_DATA[floor];
 
   const dropRates = useMemo(() => {
-    const survivors = document.querySelectorAll('.chess-piece-white').length || 16; // Approximate
-    const cloverCount = userData?.inventory?.find(i => i.type === 'clover')?.count || 0; // Simplified check
-    const depthBonus = (Math.floor(floor / 10) - 1);
+    // Calculate clover bonus from persistent dungeon state
+    let cloverCount = 0;
+    if (userData?.dungeonState?.board) {
+        cloverCount = (userData.dungeonState.board as any[]).filter(sq => sq.piece?.color === 'white' && sq.piece?.heldItem === 'clover').length;
+    }
+    
+    // Depth bonus: +1% per 10 floors
+    const depthBonus = Math.floor(floor / 10) - 1;
+    const totalBonus = depthBonus + cloverCount;
     
     return {
-        common: 12 + depthBonus + cloverCount,
-        uncommon: 6 + depthBonus + cloverCount,
-        rare: 3 + depthBonus + cloverCount
+        common: 12 + totalBonus,
+        uncommon: 6 + totalBonus,
+        rare: 3 + totalBonus,
+        cloverCount,
+        depthBonus
     };
   }, [floor, userData]);
 
@@ -211,9 +219,14 @@ export function BossBattleDialog({ isOpen, onOpenChange, floor }: BossBattleDial
                         <p className="text-sm text-white font-bold">{dropRates.rare}%</p>
                     </div>
                 </div>
-                <p className="text-[0.4rem] text-muted-foreground text-center uppercase">
-                    Includes: +{Math.floor(floor/10)-1}% Depth Bonus | Luck Bonus Active
-                </p>
+                <div className="p-2 bg-muted/10 border border-border/20 text-center space-y-1">
+                    <p className="text-[0.45rem] text-muted-foreground uppercase">
+                        Current Bonuses: +{dropRates.depthBonus}% Depth | +{dropRates.cloverCount}% Luck
+                    </p>
+                    <p className="text-[0.4rem] text-muted-foreground/70 uppercase leading-tight">
+                        Depth Bonus: +1% per 10 floors | Luck Bonus: +1% per equipped Clover 🍀
+                    </p>
+                </div>
             </section>
           </div>
         </ScrollArea>
