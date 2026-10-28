@@ -24,6 +24,7 @@ import { cn } from '@/lib/utils';
 import { useUser, updateDocumentNonBlocking } from '@/firebase';
 import { doc, getFirestore } from 'firebase/firestore';
 import { ITEM_METADATA } from '@/types';
+import { ItemSprite } from './ItemSprite';
 
 interface BossMetadata {
     name: string;
@@ -83,7 +84,7 @@ const BOSS_DATA: Record<number, BossMetadata> = {
     50: {
         name: "THE VOID ENTITY",
         floor: 50,
-        icon: <div className="h-24 w-24 text-[#4338CA] animate-void-vibe"><PixelVoidEntity className="w-full h-full animate-void-spin animate-void-color-cycle" /></div>,
+        icon: <div className="h-24 w-24 text-[#4338CA] animate-void-vibe"><PixelVoidEntity className="w-full h-full animate-void-spin animate-void-color-cycle ascii-shader" /></div>,
         rarityColor: "#4338CA",
         abilities: [
             { title: "Void Shield", desc: "Protected by a permanent Holy Shield that regenerates instantly." },
@@ -96,7 +97,7 @@ const BOSS_DATA: Record<number, BossMetadata> = {
 };
 
 const BossTitle = ({ text, suffix }: { text: string, suffix: string }) => (
-    <svg viewBox="0 0 280 40" className="h-10 md:h-12 w-auto animate-title-shimmer" xmlns="http://www.w3.org/2000/svg">
+    <svg viewBox="0 0 280 40" className="h-10 md:h-12 w-auto animate-title-shimmer ascii-shader" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <pattern id={`boss-shader-${suffix}`} x="0" y="0" width="2" height="2" patternUnits="userSpaceOnUse">
           <rect x="0" y="0" width="1" height="1" fill="white" />
@@ -140,7 +141,7 @@ export function BossBattleDialog({ isOpen, onOpenChange, floor }: BossBattleDial
     }
     
     // Depth bonus: +1% per 10 floors
-    const depthBonus = Math.floor(floor / 10) - 1;
+    const depthBonus = Math.max(0, Math.floor(floor / 10) - 1);
     const totalBonus = depthBonus + cloverCount;
     
     return {
@@ -223,9 +224,10 @@ export function BossBattleDialog({ isOpen, onOpenChange, floor }: BossBattleDial
                     <p className="text-[0.45rem] text-muted-foreground uppercase">
                         Current Bonuses: +{dropRates.depthBonus}% Depth | +{dropRates.cloverCount}% Luck
                     </p>
-                    <p className="text-[0.4rem] text-muted-foreground/70 uppercase leading-tight">
-                        Depth Bonus: +1% per 10 floors | Luck Bonus: +1% per equipped Clover 🍀
-                    </p>
+                    <div className="flex items-center justify-center gap-1.5 text-[0.4rem] text-muted-foreground/70 uppercase leading-tight">
+                        <span>Depth Bonus: +1% per 10 floors | Luck Bonus: +1% per equipped Clover</span>
+                        <ItemSprite type="clover" size={10} className="align-middle" />
+                    </div>
                 </div>
             </section>
           </div>
