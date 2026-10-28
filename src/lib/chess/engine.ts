@@ -661,6 +661,12 @@ export function applyMove(
       return { newBoard, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered: null, originalPieceLevel: originalLevelValue, originalPieceType: originalTypeIdentifier, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn, specialCaptureSquare, resurrectionScrollEvent, anvilDroppedSquares, levelChanges, obliteratedPieces: [] };
   }
 
+  if (move.type === 'faith-scroll') {
+      triggerConversion(newBoard, toRow, toCol, movingPiece.color, movingPiece, conversionEvents);
+      newBoard[fromRow][fromCol].piece!.heldItem = null;
+      return { newBoard, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered: null, originalPieceLevel: originalLevelValue, originalPieceType: originalTypeIdentifier, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn, specialCaptureSquare, resurrectionScrollEvent, anvilDroppedSquares, levelChanges, obliteratedPieces: [] };
+  }
+
   if (move.type === 'swap-scroll') {
       const p1Obj = newBoard[fromRow][fromCol].piece;
       const p2Obj = newBoard[toRow][toCol].piece;
@@ -1036,6 +1042,10 @@ export function applyMove(
       const { levelChanges: landingPushDeltas, obliterated: landingObliterated } = triggerPushBack(newBoard, toRow, toCol, pieceLanded.color, pieceLanded);
       levelChanges.push(...landingPushDeltas);
       if (landingObliterated.length > 0) obliteratedPieces.push(...landingObliterated);
+
+      if ((pieceLanded.type === 'bishop' || pieceLanded.type === 'archbishop') && pieceLanded.level >= 5) {
+          triggerConversion(newBoard, toRow, toCol, pieceLanded.color, pieceLanded, conversionEvents);
+      }
   }
 
   triggerToxicCloud(newBoard, toRow, toCol, pieceLanded.color);

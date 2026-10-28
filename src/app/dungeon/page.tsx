@@ -311,6 +311,7 @@ export default function DungeonPage() {
   const [isAwaitingSwapTarget, setIsAwaitingSwapTarget] = useState(false);
   const [isAwaitingSwapClergyTarget, setIsAwaitingSwapClergyTarget] = useState(false);
   const [isAwaitingSwapCavalryTarget, setIsAwaitingSwapCavalryTarget] = useState(false);
+  const [isAwaitingSwapTargetScrollSelection, setIsAwaitingSwapTargetScrollSelection] = useState(false);
   const [isAwaitingDecreeTarget, setIsAwaitingDecreeTarget] = useState(false);
   const [isAwaitingEarthquakeScrollTarget, setIsAwaitingEarthquakeScrollTarget] = useState(false);
 
@@ -1388,6 +1389,15 @@ export default function DungeonPage() {
                    if (currentPlayer === 'white') setLastMoveWhite(newMoveInfo); else setLastMoveBlack(newMoveInfo);
                    setLastMoveGlobal(newMoveInfo);
                    const res = applyMove(board, move, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, false);
+                   
+                   if (res.conversionEvents && res.conversionEvents.length > 0) {
+                       audioManager.playConversion();
+                       res.conversionEvents.forEach((e: ConversionEvent) => {
+                           addEffect('conversion', e.at);
+                           addLog(`Faith! ${e.originalPiece.type} has been converted.`);
+                       });
+                   }
+
                    setBoard(res.newBoard);
                    setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; setSelectedSquare(null); processMoveEnd(res.newBoard, capturedPieces, killStreaks, currentPlayer, false, null, false, moving.type, nextTracks.white, nextTracks.black, nextTracks.global); }, 800);
                    return;
@@ -1465,6 +1475,15 @@ export default function DungeonPage() {
           const nextTracks = { white: newMoveInfo, black: lastMoveBlack, global: newMoveInfo };
           setLastMoveWhite(newMoveInfo); setLastMoveGlobal(newMoveInfo);
           const res = applyMove(board, { from: selectedSquare, to: alg, type: mType }, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, false);
+          
+          if (res.conversionEvents && res.conversionEvents.length > 0) {
+              audioManager.playConversion();
+              res.conversionEvents.forEach((e: ConversionEvent) => {
+                  addEffect('conversion', e.at);
+                  addLog(`Faith! ${e.originalPiece.type} has been converted.`);
+              });
+          }
+
           res.levelChanges?.forEach(lc => {
               addEffect('level-change', lc.square, 'white', lc.delta);
               if (lc.reason) addLog(`${getPlayerDisplayName('white')}: ${lc.reason} (${lc.delta > 0 ? '+' : ''}${lc.delta})`);
@@ -1627,6 +1646,14 @@ export default function DungeonPage() {
           promoteTo: move.promoteTo
         }, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, didCaptureLastTurn.white);
         
+        if (appRes.conversionEvents && appRes.conversionEvents.length > 0) {
+            audioManager.playConversion();
+            appRes.conversionEvents.forEach((e: ConversionEvent) => {
+                addEffect('conversion', e.at);
+                addLog(`Dungeon: Conversion! One of your units was turned!`);
+            });
+        }
+
         appRes.levelChanges?.forEach(lc => {
             addEffect('level-change', lc.square, 'black', lc.delta);
             if (lc.reason) addLog(`${getPlayerDisplayName('black')}: ${lc.reason} (${lc.delta > 0 ? '+' : ''}${lc.delta})`);
