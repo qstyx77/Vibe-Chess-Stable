@@ -560,7 +560,7 @@ export default function EvolvingChessPage() {
                   if (wasOpponentOriginal) {
                       const itemIdx = currentInv.findIndex(i => i.type === sq.piece!.heldItem);
                       if (itemIdx > -1) currentInv[itemIdx].count++;
-                      else currentInv.push({ type: sq.piece.heldItem, count: 1 });
+                      else currentInv.push({ type: f.piece.heldItem, count: 1 });
                       addLog(`CONVERTED LOOT: Captured ${ITEM_METADATA[sq.piece.heldItem].name}!`);
                   }
               }
@@ -1042,7 +1042,11 @@ export default function EvolvingChessPage() {
       const oldL = p.level, oldT = p.type, oldH = p.heldItem;
       setIsMoveProcessing(true); clickGuardRef.current = true; setAnimatedSquareTo(toAlg); setLastMoveFrom(fromAlg); setLastMoveTo(toAlg);
       const newMoveInfo: LastMoveInfo = { type: oldT, level: oldL, item: oldH || null };
-      const nextTracks = { white: currentPlayer === 'white' ? newMoveInfo : lastMoveWhite, black: currentPlayer === 'black' ? newMoveInfo : lastMoveBlack, global: newMoveInfo };
+      const nextTracks = { 
+          white: currentPlayer === 'white' ? newMoveInfo : lastMoveWhite, 
+          black: currentPlayer === 'black' ? newMoveInfo : lastMoveBlack, 
+          global: newMoveInfo 
+      };
       if (currentPlayer === 'white') setLastMoveWhite(newMoveInfo); else setLastMoveBlack(newMoveInfo);
       setLastMoveGlobal(newMoveInfo);
       pushHistory();
