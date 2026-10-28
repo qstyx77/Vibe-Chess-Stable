@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -17,14 +17,10 @@ import {
     DungeonTitle,
     PixelHydra,
     PixelNecromancer,
-    PixelAnvil,
-    ShroomIcon
+    PixelWraith
 } from './IconLibrary';
-import { cn } from '@/lib/utils';
 import { useUser, updateDocumentNonBlocking } from '@/firebase';
 import { doc, getFirestore } from 'firebase/firestore';
-import { ChessPieceDisplay } from './ChessPieceDisplay';
-import { ItemSprite } from './ItemSprite';
 
 interface DungeonWelcomeDialogProps {
   isOpen: boolean;
@@ -32,7 +28,7 @@ interface DungeonWelcomeDialogProps {
 }
 
 export function DungeonWelcomeDialog({ isOpen, onOpenChange }: DungeonWelcomeDialogProps) {
-  const { user, userData } = useUser();
+  const { user } = useUser();
   const [dontShowAgain, setDontShowAgain] = useState(false);
   const firestore = getFirestore();
 
@@ -75,79 +71,39 @@ export function DungeonWelcomeDialog({ isOpen, onOpenChange }: DungeonWelcomeDia
                 </div>
             </section>
 
-            {/* VISUAL SHOWCASE GRID */}
-            <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 py-2">
-                {/* Level Up */}
-                <div className="flex flex-col items-center gap-3 p-4 bg-black border-2 border-primary/20 shadow-[0_0_15px_rgba(var(--primary),0.1)]">
-                    <div className="h-10 w-10 relative flex items-center justify-center">
-                         <ChessPieceDisplay piece={{ id: 'show-hero', type: 'hero', color: 'white', level: 1, hasMoved: false }} isMini />
-                         <span className="absolute font-pixel text-[#4ade80] text-sm animate-[level-float_2s_infinite] drop-shadow-[0_0_2px_black]">+1</span>
-                    </div>
-                    <div className="text-center">
-                        <p className="text-[0.55rem] text-primary font-bold uppercase">Evolution</p>
-                        <p className="text-[0.4rem] text-muted-foreground mt-1 uppercase">Persistence through combat.</p>
-                    </div>
-                </div>
-                {/* Bosses */}
-                <div className="flex flex-col items-center gap-3 p-4 bg-black border-2 border-destructive/20 shadow-[0_0_15px_rgba(var(--destructive),0.1)]">
-                    <div className="h-10 w-full flex items-center justify-center gap-2">
-                         <div className="h-8 w-8 text-[#10B981] animate-hydra-idle">
-                            <PixelHydra className="w-full h-full ascii-shader" />
-                         </div>
-                         <div className="h-8 w-8 text-[#8B5CF6] animate-necro-hover">
-                            <PixelNecromancer className="w-full h-full ascii-shader" />
-                         </div>
-                    </div>
-                    <div className="text-center">
-                        <p className="text-[0.55rem] text-destructive font-bold uppercase">Floor Bosses</p>
-                        <p className="text-[0.4rem] text-muted-foreground mt-1 uppercase">Defeat Bosses every 10 floors.</p>
-                    </div>
-                </div>
-                {/* Floor Collapse */}
-                <div className="flex flex-col items-center gap-3 p-4 bg-black border-2 border-accent/20 shadow-[0_0_15px_rgba(var(--accent),0.1)] overflow-hidden">
-                    <div className="h-7 w-7 flex items-center justify-center">
-                         <div className="h-full w-full text-[#94A3B8] animate-[anvil-impact_2s_infinite]">
-                            <PixelAnvil className="w-full h-full ascii-shader" />
-                         </div>
-                    </div>
-                    <div className="text-center">
-                        <p className="text-[0.55rem] text-accent font-bold uppercase">Collapse</p>
-                        <p className="text-[0.4rem] text-muted-foreground mt-1 uppercase">3 turns stuck = Floor Reset.</p>
-                    </div>
-                </div>
-                {/* Loot Showcase */}
-                <div className="flex flex-col items-center gap-3 p-4 bg-black border-2 border-yellow-500/20 shadow-[0_0_15px_rgba(234,179,8,0.1)]">
-                    <div className="h-10 w-full flex items-center justify-center gap-2">
-                         <ItemSprite type="wind_sword" size={20} />
-                         <ItemSprite type="crossbow" size={20} />
-                         <ItemSprite type="obsidian_blade" size={20} />
-                    </div>
-                    <div className="text-center">
-                        <p className="text-[0.55rem] text-yellow-500 font-bold uppercase">Loot Drops</p>
-                        <p className="text-[0.4rem] text-muted-foreground mt-1 uppercase">Drops scale with depth & luck.</p>
-                    </div>
-                </div>
-            </section>
-
             {/* MECHANICS LIST - Gemstone Palette */}
             <section className="space-y-4">
                 <h2 className="text-[#38BDF8] text-[0.75rem] uppercase tracking-tighter">Dungeon Protocols</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="p-4 border-2 border-[#38BDF8]/40 bg-[#38BDF8]/5">
                         <p className="text-[#38BDF8] text-[0.65rem] mb-2 font-bold uppercase">Unit Unlocks</p>
-                        <p className="text-[0.5rem] text-muted-foreground uppercase leading-tight">Defeating major bosses permanently unlocks elite units (Myco Mage, Grappler, Mimic, Dancer) for your army.</p>
+                        <p className="text-[0.5rem] text-muted-foreground uppercase leading-tight">Defeating major bosses every 10 floors permanently unlocks elite units (Myco Mage, Grappler, Mimic, Dancer) for your army.</p>
                     </div>
                     <div className="p-4 border-2 border-[#C084FC]/40 bg-[#C084FC]/5">
                         <p className="text-[#C084FC] text-[0.65rem] mb-2 font-bold uppercase">Floor Collapse</p>
-                        <p className="text-[0.5rem] text-muted-foreground uppercase leading-tight">If the Dungeon AI cannot make a legal move for 3 turns, the floor trembles and enemies self-destruct. You advance automatically.</p>
+                        <p className="text-[0.5rem] text-muted-foreground uppercase leading-tight">If the Dungeon AI cannot make a legal move for 3 turns, the floor collapses. Foes self-destruct, and you advance automatically.</p>
                     </div>
-                    <div className="p-4 border-2 border-destructive/40 bg-destructive/5">
-                        <p className="text-destructive text-[0.65rem] mb-2 font-bold uppercase">Spectral Balance</p>
-                        <p className="text-[0.5rem] text-muted-foreground uppercase leading-tight">Beware the Wraiths. Overpowered Royals (Level 5+) draw them from the veil to drain your soul and steal levels.</p>
+                    <div className="p-4 border-2 border-destructive/40 bg-destructive/5 relative overflow-hidden">
+                        <div className="flex justify-between items-start">
+                            <div>
+                                <p className="text-destructive text-[0.65rem] mb-2 font-bold uppercase">Spectral Balance</p>
+                                <p className="text-[0.5rem] text-muted-foreground uppercase leading-tight">Beware the Wraiths. Overpowered Royals (Level 5+) draw them from the veil to drain your soul and steal levels.</p>
+                            </div>
+                            <div className="h-10 w-10 text-[#22D3EE] animate-pulse shrink-0">
+                                <PixelWraith className="w-full h-full ascii-shader" />
+                            </div>
+                        </div>
                     </div>
                     <div className="p-4 border-2 border-[#4ADE80]/40 bg-[#4ADE80]/5">
-                        <p className="text-[#4ADE80] text-[0.65rem] mb-2 font-bold uppercase">Persistence</p>
-                        <p className="text-[0.5rem] text-muted-foreground uppercase leading-tight">Survivors carry their levels and gear to the next floor. Protect your veterans!</p>
+                        <p className="text-[#4ADE80] text-[0.65rem] mb-2 font-bold uppercase">Persistence & Loot</p>
+                        <div className="space-y-2">
+                            <p className="text-[0.5rem] text-muted-foreground uppercase leading-tight">Items drop from defeated Bosses. Your odds scale with technical mastery:</p>
+                            <ul className="text-[0.45rem] text-foreground/70 list-disc pl-4 uppercase space-y-1">
+                                <li>Base Rates: 12% Common | 6% Uncommon | 3% Rare</li>
+                                <li>Depth Bonus: +1% Drop Rate per 10 floors reached</li>
+                                <li>Luck Bonus: +1% Drop Rate per equipped 'Clover' item</li>
+                            </ul>
+                        </div>
                     </div>
                 </div>
             </section>
