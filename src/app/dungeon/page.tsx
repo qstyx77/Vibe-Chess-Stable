@@ -7,6 +7,7 @@ import { RulesDialog } from '@/components/evolving-chess/RulesDialog';
 import { InventoryWindow } from '@/components/evolving-chess/InventoryWindow';
 import { LootWinningsWindow } from '@/components/evolving-chess/LootWinningsWindow';
 import { DungeonWelcomeDialog } from '@/components/evolving-chess/DungeonWelcomeDialog';
+import { BossBattleDialog } from '@/components/evolving-chess/BossBattleDialog';
 import { MycoSpellMenu, type MycoSpell } from '@/components/evolving-chess/MycoSpellMenu';
 import {
   initializeBoard,
@@ -277,6 +278,7 @@ export default function DungeonPage() {
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
   const [isRulesDialogOpen, setIsRulesDialogOpen] = useState(false);
   const [isDungeonWelcomeOpen, setIsDungeonWelcomeOpen] = useState(false);
+  const [isBossBattleOpen, setIsBossBattleOpen] = useState(false);
   const [promotionQueue, setPromotionQueue] = useState<{ square: AlgebraicSquare, targetLevel: number }[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [isInventoryOpen, setIsInventoryOpen] = useState(false);
@@ -333,8 +335,8 @@ export default function DungeonPage() {
     isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || 
     isAwaitingSwapScrollTarget || isAwaitingSwapTarget || isAwaitingDecreeTarget || 
     isAwaitingEarthquakeScrollTarget || isAwaitingOilSlickTarget || !!isAwaitingRayTarget || isSelectingTeleportAlly || 
-    isSelectingTeleportShroom || isSelectingSporeBombShroom || isLootWindowOpen || isDungeonWelcomeOpen, 
-  [isInventoryOpen, isPromotingPawn, isAwaitingAnvilDrop, isAwaitingAnvilScrollTarget, isAwaitingHolyShield, isAwaitingArcherSnipe, isAwaitingPawnSacrifice, isAwaitingCommanderPromotion, isSelectingMycoSpell, isAwaitingGrappleThrow, isAwaitingDanceTarget, isAwaitingEarthquakeScrollTarget, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, isAwaitingOilSlickTarget, isAwaitingRayTarget, isLootWindowOpen, isAwaitingWindScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingSwapTarget, isAwaitingDecreeTarget, isDungeonWelcomeOpen]);
+    isSelectingTeleportShroom || isSelectingSporeBombShroom || isLootWindowOpen || isDungeonWelcomeOpen || isBossBattleOpen, 
+  [isInventoryOpen, isPromotingPawn, isAwaitingAnvilDrop, isAwaitingAnvilScrollTarget, isAwaitingHolyShield, isAwaitingArcherSnipe, isAwaitingPawnSacrifice, isAwaitingCommanderPromotion, isSelectingMycoSpell, isAwaitingGrappleThrow, isAwaitingDanceTarget, isAwaitingEarthquakeScrollTarget, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, isAwaitingOilSlickTarget, isAwaitingRayTarget, isLootWindowOpen, isAwaitingWindScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingSwapTarget, isAwaitingDecreeTarget, isDungeonWelcomeOpen, isBossBattleOpen]);
 
   const attunementSlots = useMemo(() => {
     const elo = userData?.eloRating || 1200; return 3 + Math.floor((Math.max(0, elo - 1200)) / 400);
@@ -382,7 +384,12 @@ export default function DungeonPage() {
     setClickedEnemySquare(null); setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
     saveDungeonState(nextL, generateDungeonFloor(nextL, survivors), 'white', { white: 0, black: 0 }, { white: graveyard.white, black: [] }, 0, 5, null, 0, finalInv);
     audioManager.playStart(); addLog(`Descending to Floor ${nextL}...`);
-  }, [inventory, saveDungeonState, addLog]);
+
+    if (nextL % 10 === 0) {
+        const isHidden = (userData as any)?.[`hideBossDialog_${nextL}`];
+        if (!isHidden) setIsBossBattleOpen(true);
+    }
+  }, [inventory, saveDungeonState, addLog, userData]);
 
   const advanceLevel = useCallback((survivors: Piece[], graveyard: any) => {
     if (level % 10 === 0) {
@@ -772,7 +779,7 @@ export default function DungeonPage() {
         if (hasA) {
             if (isAI) {
                 const nxtB = bCh.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null})));
-                const targs = nxtB.flat().filter(sq => sq.piece && sq.piece.color === actP && sq.piece.type !== 'king' && sq.piece.type !== 'queen' && !sq.piece.isShielded && sq.piece.id !== capId).sort((a, b) => (b.piece?.level || 0) - (a.piece?.level || 0));
+                const targs = nxtB.flat().filter(sq => sq.piece && sq.piece.color === actP && sq.piece.type !== ' king' && sq.piece.type !== 'queen' && !sq.piece.isShielded && sq.piece.id !== capId).sort((a, b) => (b.piece?.level || 0) - (a.piece?.level || 0));
                 if (targs.length > 0) { 
                     const ally = targs[0].piece!;
                     ally.isShielded = true; 
@@ -1087,7 +1094,7 @@ export default function DungeonPage() {
             setTeleportAllyPieceId(piece.id);
             setIsSelectingTeleportAlly(false);
             setIsSelectingTeleportShroom(true);
-            addLog("Select a shroom to teleport to!");
+            addLog("Select an ally to teleport!");
         }
         return;
     }
@@ -1990,6 +1997,7 @@ export default function DungeonPage() {
       <MycoSpellMenu isOpen={isSelectingMycoSpell} mana={selectedSquare ? (board[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece?.shroomMana || 0) : 0} onSelectSpell={handleMycoSpellSelect} onOpenChange={setIsSelectingMycoSpell} />
       <RulesDialog isOpen={isRulesDialogOpen} onOpenChange={setIsRulesDialogOpen} />
       <DungeonWelcomeDialog isOpen={isDungeonWelcomeOpen} onOpenChange={setIsDungeonWelcomeOpen} />
+      <BossBattleDialog isOpen={isBossBattleOpen} onOpenChange={setIsBossBattleOpen} floor={level} />
       <AlertDialog open={isResetConfirmOpen} onOpenChange={setIsResetConfirmOpen}>
         <AlertDialogContent className="font-pixel bg-black border-2 border-primary">
           <AlertDialogHeader> <AlertDialogTitle className="text-primary uppercase">Reset Dungeon Run?</AlertDialogTitle> </AlertDialogHeader>
