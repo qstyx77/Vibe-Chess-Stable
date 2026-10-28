@@ -101,10 +101,10 @@ export function DungeonWelcomeDialog({ isOpen, onOpenChange }: DungeonWelcomeDia
                             </div>
                             <div className="relative h-10 w-10 shrink-0 flex items-center justify-center">
                                 <div className="absolute animate-[pawn-suicide-loop_3s_infinite] text-secondary">
-                                    <PixelPawn className="w-8 h-8" />
+                                    <PixelPawn className="w-8 h-8 ascii-shader" />
                                 </div>
                                 <div className="absolute animate-[explosion-suicide-loop_3s_infinite] text-destructive opacity-0">
-                                    <ExplosionIcon className="w-10 h-10" />
+                                    <ExplosionIcon className="w-10 h-10 ascii-shader" />
                                 </div>
                             </div>
                         </div>

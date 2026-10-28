@@ -277,12 +277,6 @@ body {
   50% { transform: translateY(-4px); }
 }
 
-@keyframes title-shimmer {
-  0% { filter: hue-rotate(0deg) brightness(2.5) contrast(1.2); }
-  50% { filter: hue-rotate(180deg) brightness(4.0) contrast(1.4); }
-  100% { filter: hue-rotate(360deg) brightness(2.5) contrast(1.2); }
-}
-
 @keyframes gemstone-shimmer {
   0% { filter: hue-rotate(0deg) brightness(1.2); }
   50% { filter: hue-rotate(20deg) brightness(1.8); }
@@ -460,7 +454,7 @@ body {
 /* --- WELCOME DIALOG SPECIAL ANIMATIONS --- */
 @keyframes pawn-suicide-loop {
   0%, 45% { opacity: 1; }
-  50%, 95% { opacity: 0; }
+  50%, 80% { opacity: 0; }
   100% { opacity: 1; }
 }
 
