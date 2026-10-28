@@ -456,3 +456,19 @@ body {
   animation: title-shimmer 8s linear infinite;
   filter: drop-shadow(0 0 15px hsl(var(--primary))) drop-shadow(0 0 30px hsl(var(--primary)));
 }
+
+/* --- WELCOME DIALOG SPECIAL ANIMATIONS --- */
+@keyframes pawn-suicide-loop {
+  0%, 45% { opacity: 1; }
+  50%, 95% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+@keyframes explosion-suicide-loop {
+  0%, 45% { opacity: 0; transform: scale(0.1); }
+  50% { opacity: 1; transform: scale(1.2); filter: brightness(1.5); }
+  55% { opacity: 0.7; transform: scale(0.9); }
+  60% { opacity: 1; transform: scale(1.1); }
+  70% { opacity: 0; transform: scale(3.5); }
+  100% { opacity: 0; }
+}

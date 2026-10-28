@@ -86,7 +86,7 @@ export function DungeonWelcomeDialog({ isOpen, onOpenChange }: DungeonWelcomeDia
                                 <p className="text-[#38BDF8] text-[0.65rem] mb-2 font-bold uppercase">Unit Unlocks</p>
                                 <p className="text-[0.5rem] text-muted-foreground uppercase leading-tight">Defeating major bosses every 10 floors permanently unlocks elite units (Myco Mage, Grappler, Mimic, Dancer) for your army.</p>
                             </div>
-                            <div className="h-10 w-10 shrink-0">
+                            <div className="h-8 w-8 shrink-0 flex items-center justify-center">
                                 <ChessPieceDisplay piece={{ id: 'welcome-myco', type: 'myco_mage', color: 'white', level: 1, hasMoved: false }} isMini />
                             </div>
                         </div>
@@ -99,12 +99,12 @@ export function DungeonWelcomeDialog({ isOpen, onOpenChange }: DungeonWelcomeDia
                                 <p className="text-[#C084FC] text-[0.65rem] mb-2 font-bold uppercase">Floor Collapse</p>
                                 <p className="text-[0.5rem] text-muted-foreground uppercase leading-tight">If the Dungeon AI cannot make a legal move for 3 turns, the floor collapses. Foes self-destruct, and you advance automatically.</p>
                             </div>
-                            <div className="relative h-10 w-10 shrink-0">
-                                <div className="absolute inset-0 text-secondary opacity-50">
-                                    <PixelPawn className="w-full h-full" />
+                            <div className="relative h-10 w-10 shrink-0 flex items-center justify-center">
+                                <div className="absolute animate-[pawn-suicide-loop_3s_infinite] text-secondary">
+                                    <PixelPawn className="w-8 h-8" />
                                 </div>
-                                <div className="absolute inset-0 text-destructive animate-pulse">
-                                    <ExplosionIcon className="w-full h-full" />
+                                <div className="absolute animate-[explosion-suicide-loop_3s_infinite] text-destructive opacity-0">
+                                    <ExplosionIcon className="w-10 h-10" />
                                 </div>
                             </div>
                         </div>
