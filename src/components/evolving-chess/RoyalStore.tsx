@@ -26,7 +26,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { Coins, Crown, Sparkles, Sword, Package, Zap, Landmark, CreditCard } from 'lucide-react';
+import { Coins, Sparkles, Sword, Zap, Landmark, CreditCard } from 'lucide-react';
 import { useUser, updateDocumentNonBlocking } from '@/firebase';
 import { doc, getFirestore, runTransaction } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -35,6 +35,7 @@ import { ChessPieceDisplay } from './ChessPieceDisplay';
 import { ItemSprite } from './ItemSprite';
 import { cn } from '@/lib/utils';
 import { createSquarePayment, initiateSquarePayout } from '@/app/actions/square';
+import { PixelStall, PixelSack } from './IconLibrary';
 
 interface RoyalStoreProps {
   isOpen: boolean;
@@ -199,12 +200,12 @@ export function RoyalStore({ isOpen, onOpenChange }: RoyalStoreProps) {
   return (
     <>
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-3xl md:max-w-4xl bg-black border-2 border-primary font-pixel max-h-[90vh] flex flex-col p-0 overflow-hidden">
+      <DialogContent className="sm:max-w-3xl md:max-w-4xl bg-black border-2 border-primary font-pixel max-h-[90vh] flex flex-col p-0 overflow-hidden shadow-[0_0_50px_rgba(var(--primary),0.3)] rounded-none">
         <DialogHeader className="p-6 pb-2 border-b border-border/50">
            <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                 <Crown className="h-8 w-8 text-yellow-500 animate-pulse" />
-                 <DialogTitle className="text-xl text-primary uppercase tracking-tighter">Store</DialogTitle>
+                 <PixelStall className="h-12 w-12 text-yellow-500 ascii-shader" />
+                 <DialogTitle className="text-xl text-primary uppercase tracking-tighter">Royal Store</DialogTitle>
               </div>
               <div className="flex items-center gap-2 bg-muted/20 px-3 py-1.5 border border-primary/30">
                  <Coins className="h-4 w-4 text-yellow-500" />
@@ -219,11 +220,11 @@ export function RoyalStore({ isOpen, onOpenChange }: RoyalStoreProps) {
             <section>
                 <h2 className="text-[0.7rem] text-primary uppercase mb-3 flex items-center gap-2"><Zap className="h-3 w-3" /> Gold Mint</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <Button variant="outline" className="h-20 flex flex-col border-2 border-slate-700 hover:border-primary bg-black/40" onClick={() => buyGold(1, 100)} disabled={!!loading}>
+                    <Button variant="outline" className="h-20 flex flex-col border-2 border-slate-700 hover:border-primary bg-black/40 rounded-none" onClick={() => buyGold(1, 100)} disabled={!!loading}>
                         <span className="text-[0.8rem] text-white">100 GOLD</span>
                         <span className="text-[0.5rem] text-muted-foreground mt-1">$1.00 USD</span>
                     </Button>
-                    <Button variant="outline" className="h-20 flex flex-col border-2 border-yellow-700 hover:border-yellow-400 bg-black/40" onClick={() => buyGold(5, 600)} disabled={!!loading}>
+                    <Button variant="outline" className="h-20 flex flex-col border-2 border-yellow-700 hover:border-yellow-400 bg-black/40 rounded-none" onClick={() => buyGold(5, 600)} disabled={!!loading}>
                         <span className="text-[0.8rem] text-yellow-400">600 GOLD</span>
                         <span className="text-[0.5rem] text-muted-foreground mt-1">$5.00 USD (BONUS!)</span>
                     </Button>
@@ -233,7 +234,7 @@ export function RoyalStore({ isOpen, onOpenChange }: RoyalStoreProps) {
             {/* EXCHANGE */}
             <section>
                <h2 className="text-[0.7rem] text-primary uppercase mb-3 flex items-center gap-2"><Landmark className="h-3 w-3" /> Exchange</h2>
-               <Card className="border-2 border-primary/40 bg-primary/5">
+               <Card className="border-2 border-primary/40 bg-primary/5 rounded-none">
                   <CardContent className="p-4 space-y-4">
                      <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                         <div className="w-full sm:w-1/2">
@@ -257,7 +258,7 @@ export function RoyalStore({ isOpen, onOpenChange }: RoyalStoreProps) {
                         </div>
                      </div>
                      <Button 
-                        className="w-full h-10 text-[0.55rem] uppercase px-6" 
+                        className="w-full h-10 text-[0.55rem] uppercase px-6 rounded-none" 
                         onClick={requestCashOut} 
                         variant="outline"
                         disabled={exchangeAmount < 2000 || exchangeAmount > (userData?.goldBalance || 0) || !!loading}
@@ -271,10 +272,10 @@ export function RoyalStore({ isOpen, onOpenChange }: RoyalStoreProps) {
             {/* DAILY DEAL */}
             <section>
                 <h2 className="text-[0.7rem] text-accent uppercase mb-3 flex items-center gap-2"><Sparkles className="h-3 w-3" /> Daily Deal</h2>
-                <div className="w-full border-2 border-accent bg-accent/5 p-4 sm:p-6 flex flex-col sm:flex-row items-center justify-between gap-6">
+                <div className="w-full border-2 border-accent bg-accent/5 p-4 sm:p-6 flex flex-col sm:flex-row items-center justify-between gap-6 rounded-none">
                     <div className="flex items-center gap-4 w-full">
                         <div className="bg-black p-3 border border-accent shrink-0">
-                            <Package className="h-8 w-8 text-accent" />
+                            <PixelSack className="h-10 w-10 text-accent ascii-shader" />
                         </div>
                         <div className="flex-grow space-y-4">
                             <div className="grid grid-cols-6 gap-2">
@@ -292,7 +293,7 @@ export function RoyalStore({ isOpen, onOpenChange }: RoyalStoreProps) {
                                                 </button>
                                             </PopoverTrigger>
                                             <PopoverContent 
-                                                className="bg-black border-2 border-accent font-pixel p-3 max-w-[200px] z-[150]"
+                                                className="bg-black border-2 border-accent font-pixel p-3 max-w-[200px] z-[150] rounded-none"
                                                 side="top"
                                                 align="center"
                                             >
@@ -313,7 +314,7 @@ export function RoyalStore({ isOpen, onOpenChange }: RoyalStoreProps) {
                     <div className="shrink-0 flex flex-col items-center sm:items-end gap-2 w-full sm:w-auto">
                         <Button 
                             variant="outline" 
-                            className="w-full sm:w-32 h-12 border-2 border-accent hover:bg-accent/10" 
+                            className="w-full sm:w-32 h-12 border-2 border-accent hover:bg-accent/10 rounded-none" 
                             onClick={handleDailyDeal} 
                             disabled={!!loading}
                         >
@@ -337,7 +338,7 @@ export function RoyalStore({ isOpen, onOpenChange }: RoyalStoreProps) {
                             (p.type === 'archer' && elo >= 2100);
 
                         return (
-                            <Card key={p.type} className="border-2 border-border/50 bg-black/40 overflow-hidden w-full">
+                            <Card key={p.type} className="border-2 border-border/50 bg-black/40 overflow-hidden w-full rounded-none">
                                 <CardContent className="p-3 flex items-center justify-between gap-4">
                                     <div className="w-12 h-12 bg-muted/10 shrink-0 flex items-center justify-center border border-border/30">
                                         <div className="w-full h-full scale-[1.25] flex items-center justify-center relative">
@@ -358,7 +359,7 @@ export function RoyalStore({ isOpen, onOpenChange }: RoyalStoreProps) {
                                         ) : p.isElo ? (
                                             <span className="text-[0.45rem] text-muted-foreground uppercase border border-border px-2 py-1">LOCKED</span>
                                         ) : (
-                                            <Button variant="secondary" size="sm" className="h-8 text-[0.5rem] uppercase px-2" onClick={() => buyPiece(p.type)} disabled={!!loading}>
+                                            <Button variant="secondary" size="sm" className="h-8 text-[0.5rem] uppercase px-2 rounded-none" onClick={() => buyPiece(p.type)} disabled={!!loading}>
                                                 {loading === p.type ? '...' : 'Hire ($1.00)'}
                                             </Button>
                                         )}
@@ -375,7 +376,7 @@ export function RoyalStore({ isOpen, onOpenChange }: RoyalStoreProps) {
     </Dialog>
 
     <AlertDialog open={confirmDialog.isOpen} onOpenChange={(open) => setConfirmDialog(prev => ({ ...prev, isOpen: open }))}>
-        <AlertDialogContent className="font-pixel border-2 border-primary bg-black">
+        <AlertDialogContent className="font-pixel border-2 border-primary bg-black rounded-none">
             <AlertDialogHeader>
                 <AlertDialogTitle className="text-primary uppercase text-sm">{confirmDialog.title}</AlertDialogTitle>
                 <AlertDialogDescription className="text-white text-[0.65rem] uppercase leading-relaxed">
@@ -383,9 +384,9 @@ export function RoyalStore({ isOpen, onOpenChange }: RoyalStoreProps) {
                 </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter className="mt-4 gap-2">
-                <AlertDialogCancel className="h-9 text-[0.6rem] uppercase">Cancel</AlertDialogCancel>
+                <AlertDialogCancel className="h-9 text-[0.6rem] uppercase rounded-none">Cancel</AlertDialogCancel>
                 <AlertDialogAction 
-                    className="h-9 text-[0.6rem] uppercase bg-primary text-primary-foreground"
+                    className="h-9 text-[0.6rem] uppercase bg-primary text-primary-foreground rounded-none"
                     onClick={() => {
                         confirmDialog.action();
                         setConfirmDialog(prev => ({ ...prev, isOpen: false }));

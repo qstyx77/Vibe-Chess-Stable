@@ -20,13 +20,14 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { ShoppingCart, Coins, Package } from 'lucide-react';
+import { ShoppingCart, Coins } from 'lucide-react';
 import { useDoc, useMemoFirebase, useUser } from '@/firebase';
 import { doc, getFirestore } from 'firebase/firestore';
 import { ITEM_METADATA } from '@/types';
 import { ItemSprite } from './ItemSprite';
 import { useSocial } from '../social/SocialContext';
 import { cn } from '@/lib/utils';
+import { PixelSack } from './IconLibrary';
 
 interface BioMarketDialogProps {
   isOpen: boolean;
@@ -65,7 +66,7 @@ export function BioMarketDialog({ isOpen, onOpenChange, sellerId, username }: Bi
   return (
     <>
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md bg-black border-2 border-yellow-500 font-pixel">
+      <DialogContent className="sm:max-w-md bg-black border-2 border-yellow-500 font-pixel rounded-none shadow-[0_0_50px_rgba(234,179,8,0.2)]">
         <DialogHeader>
           <div className="flex items-center justify-center gap-3">
              <ShoppingCart className="h-6 w-6 text-yellow-500" />
@@ -82,7 +83,7 @@ export function BioMarketDialog({ isOpen, onOpenChange, sellerId, username }: Bi
                  <p className="text-center text-[0.5rem] uppercase animate-pulse">Consulting the Merchant...</p>
              ) : marketSlots.length === 0 ? (
                  <div className="flex flex-col items-center justify-center py-6 opacity-40">
-                    <Package className="h-10 w-10 mb-2" />
+                    <PixelSack className="h-14 w-14 mb-2 ascii-shader" />
                     <p className="text-[0.6rem] uppercase">Merchant has no stock.</p>
                  </div>
              ) : (
@@ -90,7 +91,7 @@ export function BioMarketDialog({ isOpen, onOpenChange, sellerId, username }: Bi
                      const meta = ITEM_METADATA[slot.itemId];
                      const canAfford = (buyerData?.goldBalance || 0) >= slot.price;
                      return (
-                        <Card key={slot.slot} className="border-2 border-border/50 bg-muted/5">
+                        <Card key={slot.slot} className="border-2 border-border/50 bg-muted/5 rounded-none">
                             <CardContent className="p-3 flex items-center gap-4">
                                 <div className="bg-black p-2 border border-border/30 relative">
                                     <ItemSprite type={slot.itemId} size={32} />
@@ -112,7 +113,7 @@ export function BioMarketDialog({ isOpen, onOpenChange, sellerId, username }: Bi
                                 <Button 
                                     size="sm" 
                                     variant={canAfford ? "default" : "outline"} 
-                                    className="h-8 text-[0.5rem] uppercase"
+                                    className="h-8 text-[0.5rem] uppercase rounded-none"
                                     onClick={() => handleBuyClick(slot.slot, slot.price, meta.name, slot.quantity, slot.listingType)}
                                     disabled={!canAfford}
                                 >
@@ -137,7 +138,7 @@ export function BioMarketDialog({ isOpen, onOpenChange, sellerId, username }: Bi
     </Dialog>
 
     <AlertDialog open={!!confirmBuy} onOpenChange={(open) => !open && setConfirmBuy(null)}>
-        <AlertDialogContent className="font-pixel border-2 border-yellow-500 bg-black">
+        <AlertDialogContent className="font-pixel border-2 border-yellow-500 bg-black rounded-none">
             <AlertDialogHeader>
                 <AlertDialogTitle className="text-yellow-500 uppercase text-sm">Confirm Purchase?</AlertDialogTitle>
                 <AlertDialogDescription className="text-white text-[0.65rem] uppercase leading-relaxed">
@@ -149,9 +150,9 @@ export function BioMarketDialog({ isOpen, onOpenChange, sellerId, username }: Bi
                 </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter className="mt-4 gap-2">
-                <AlertDialogCancel className="h-9 text-[0.6rem] uppercase">Cancel</AlertDialogCancel>
+                <AlertDialogCancel className="h-9 text-[0.6rem] uppercase rounded-none">Cancel</AlertDialogCancel>
                 <AlertDialogAction 
-                    className="h-9 text-[0.6rem] uppercase bg-yellow-500 text-black"
+                    className="h-9 text-[0.6rem] uppercase bg-yellow-500 text-black rounded-none"
                     onClick={confirmPurchase}
                 >
                     Confirm Purchase

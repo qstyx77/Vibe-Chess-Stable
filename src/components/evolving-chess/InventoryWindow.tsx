@@ -6,10 +6,11 @@ import { ITEM_METADATA } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { X, Package, Sparkles, Coins } from 'lucide-react';
+import { X, Sparkles, Coins } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ItemSprite } from './ItemSprite';
 import { useUser } from '@/firebase';
+import { PixelSack } from './IconLibrary';
 
 interface InventoryWindowProps {
   isOpen: boolean;
@@ -81,7 +82,7 @@ export const InventoryWindow = memo(({
       onTouchMove={handleTouchMove}
       onTouchEnd={handleMouseUp}
     >
-      <Card className="w-72 border-2 border-primary/50 shadow-2xl bg-black backdrop-blur-none">
+      <Card className="w-72 border-2 border-primary/50 shadow-2xl bg-black backdrop-blur-none rounded-none">
         <CardHeader 
           className="p-2 border-b cursor-move bg-[#1a1a1a] touch-none"
           onMouseDown={handleMouseDown}
@@ -89,10 +90,10 @@ export const InventoryWindow = memo(({
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1 text-primary">
-              <Package className="h-4 w-4" />
+              <PixelSack className="h-5 w-5 ascii-shader" />
               <CardTitle className="text-[0.75rem] font-pixel uppercase">Loot Bag</CardTitle>
             </div>
-            <div className="flex items-center gap-1 bg-yellow-500/10 px-2 py-0.5 border border-yellow-500/30 rounded-sm">
+            <div className="flex items-center gap-1 bg-yellow-500/10 px-2 py-0.5 border border-yellow-500/30 rounded-none">
                 <Coins className="h-3 w-3 text-yellow-500" />
                 <span className="text-[0.6rem] font-pixel text-yellow-500">{userData?.goldBalance || 0}G</span>
             </div>

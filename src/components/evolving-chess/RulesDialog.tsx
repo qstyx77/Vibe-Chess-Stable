@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -18,6 +17,7 @@ import {
 } from '@/components/ui/accordion';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
+import { PixelTome } from './IconLibrary';
 
 interface RulesDialogProps {
   isOpen: boolean;
@@ -32,7 +32,7 @@ const RuleSection = ({ title, children }: { title: string, children: React.React
 );
 
 const RuleText = ({ children }: { children: React.ReactNode }) => (
-  <p className="text-[0.8rem] font-medium text-foreground/90 leading-relaxed pl-2 border-l-2 border-border/50">
+  <p className="text-[0.8rem] font-medium text-foreground/90 leading-relaxed pl-2 border-l-2 border-primary/30">
     {children}
   </p>
 );
@@ -47,24 +47,28 @@ const SubRule = ({ title, children }: { title: string, children: React.ReactNode
 export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg md:max-w-xl lg:max-w-2xl bg-card border-border text-foreground max-h-[90vh] font-sans overflow-hidden flex flex-col p-0">
-        <DialogHeader className="p-6 pb-2 shrink-0">
-          <DialogTitle className="text-primary text-center text-xl font-medium uppercase font-pixel tracking-tighter">
-            VIBE CHESS - RULEBOOK 
-          </DialogTitle>
+      <DialogContent className="sm:max-w-lg md:max-w-xl lg:max-w-2xl bg-black border-2 border-primary text-foreground max-h-[95vh] font-sans overflow-hidden flex flex-col p-0 shadow-[0_0_50px_rgba(var(--primary),0.3)] rounded-none">
+        <DialogHeader className="p-8 pb-4 shrink-0 border-b border-border/50 flex flex-col items-center">
+          <div className="flex items-center justify-center gap-4 mb-2">
+             <PixelTome className="h-10 w-10 ascii-shader" />
+             <DialogTitle className="text-primary text-center text-2xl font-medium uppercase font-pixel tracking-tighter">
+                Rulebook 
+             </DialogTitle>
+             <PixelTome className="h-10 w-10 ascii-shader" />
+          </div>
           <DialogTitle className="sr-only">
             Comprehensive Game Rules
           </DialogTitle>
-          <DialogDescription className="sr-only">
-            Learn about leveling, units, items, and dungeon hazards.
+          <DialogDescription className="text-center text-[10px] font-pixel text-muted-foreground uppercase">
+            Master the mechanics of tactical evolution.
           </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 overflow-y-auto px-6">
-          <Accordion type="single" collapsible className="w-full pb-6">
+        <ScrollArea className="flex-1 overflow-y-auto px-6 font-pixel uppercase">
+          <Accordion type="single" collapsible className="w-full pb-10">
             
-            <AccordionItem value="overview">
-              <AccordionTrigger className="text-[0.85rem] font-bold uppercase hover:text-accent">I. Overview & Game Modes</AccordionTrigger>
+            <AccordionItem value="overview" className="border-primary/20">
+              <AccordionTrigger className="text-[0.65rem] font-bold uppercase hover:text-accent">I. Overview & Modes</AccordionTrigger>
               <AccordionContent>
                 <RuleSection title="The Game">
                   <RuleText>Vibe Chess is a high-stakes, 8-bit tactical strategy game where every unit levels up through combat, unlocking powerful skills and global effects.</RuleText>
@@ -78,8 +82,8 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               </AccordionContent>
             </AccordionItem>
 
-            <AccordionItem value="leveling">
-              <AccordionTrigger className="text-[0.85rem] font-bold uppercase hover:text-accent">II. Leveling & Experience</AccordionTrigger>
+            <AccordionItem value="leveling" className="border-primary/20">
+              <AccordionTrigger className="text-[0.65rem] font-bold uppercase hover:text-accent">II. Leveling & Experience</AccordionTrigger>
               <AccordionContent>
                 <RuleSection title="Experience Values">
                   <RuleText>Units gain levels immediately upon capturing an opponent:</RuleText>
@@ -91,8 +95,8 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               </AccordionContent>
             </AccordionItem>
 
-            <AccordionItem value="specialized">
-              <AccordionTrigger className="text-[0.85rem] font-bold uppercase hover:text-accent">III. Specialized Units</AccordionTrigger>
+            <AccordionItem value="specialized" className="border-primary/20">
+              <AccordionTrigger className="text-[0.65rem] font-bold uppercase hover:text-accent">III. Specialized Units</AccordionTrigger>
               <AccordionContent>
                 <RuleSection title="Combat Specialists">
                   <SubRule title="First Blood">
@@ -114,8 +118,8 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               </AccordionContent>
             </AccordionItem>
 
-            <AccordionItem value="pieces">
-              <AccordionTrigger className="text-[0.85rem] font-bold uppercase hover:text-accent">IV. Piece Index & Skill Tree</AccordionTrigger>
+            <AccordionItem value="pieces" className="border-primary/20">
+              <AccordionTrigger className="text-[0.65rem] font-bold uppercase hover:text-accent">IV. Skill Tree</AccordionTrigger>
               <AccordionContent>
                 <SubRule title="The Front Line (Pawn, Dancer, Mimic, Grappler, Commander, Myco Mage, Infiltrator)">
                   <RuleText>L2: Can move 1 square backward.</RuleText>
@@ -131,7 +135,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                 </SubRule>
                 <SubRule title="The Clergy (Bishop, Archbishop)">
                   <RuleText>L2: Phasing: Can move through friendly units.</RuleText>
-                  <RuleText>L3: Immunity: Cannot be captured by any Frontline units (Pawn, Dancer, Mimic, Grappler, Commander, Myco Mage, Infiltrator).</RuleText>
+                  <RuleText>L3: Immunity: Cannot be captured by any Frontline units.</RuleText>
                   <RuleText>L4: Swap: Can trade places with an allied Knight/Hero/Archer.</RuleText>
                   <RuleText>L5: Faith: 50% chance to convert adjacent enemies to your side after moving.</RuleText>
                 </SubRule>
@@ -141,11 +145,11 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               </AccordionContent>
             </AccordionItem>
 
-            <AccordionItem value="unique">
-              <AccordionTrigger className="text-[0.85rem] font-bold uppercase hover:text-accent">V. Elite & Unique Units</AccordionTrigger>
+            <AccordionItem value="unique" className="border-primary/20">
+              <AccordionTrigger className="text-[0.65rem] font-bold uppercase hover:text-accent">V. Elite Unlocks</AccordionTrigger>
               <AccordionContent>
                 <RuleSection title="Ranked Unlocks">
-                  <RuleText>• Archbishop (1500 Elo): Elite Clergy. Achieving KS 2 grants a Holy Shield to an ally. (Cannot target the piece that captured this turn).</RuleText>
+                  <RuleText>• Archbishop (1500 Elo): Elite Clergy. Achieving KS 2 grants a Holy Shield to an ally.</RuleText>
                   <RuleText>• Palace (1800 Elo): Elite Fortress. Resurrects units at their original level. Castling levels up the King.</RuleText>
                   <RuleText>• Archer (2100 Elo): Elite Cavalry. KS 5 triggers Snipe: Instantly destroy any non-royal unit Level ≤ Archer.</RuleText>
                 </RuleSection>
@@ -153,18 +157,13 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                   <RuleText>• Myco Mage: Consumes shroom mana for global spells (Teleport, Spore Bomb, Pawn Army).</RuleText>
                   <RuleText>• Mimic: Replicates the movement pattern and item of the absolute last piece that moved (if itemless).</RuleText>
                   <RuleText>• Dancer: Achieving KS 1 grants 'The Dance': A free move forward or swap with an allied or enemy piece.</RuleText>
-                  <RuleText>• Grappler: Can pick up adjacent units and launch them across the board (Range = Level). If picking up an enemy in capture range, click them again to perform a standard capture instead of a throw.</RuleText>
-                </RuleSection>
-                <RuleSection title="Mimic Specialization">
-                   <RuleText>• Mimic Blade: Mimic-only. Replicates the equipment of the last ALLIED unit that moved. Movement remains tied to the global last move.</RuleText>
-                   <RuleText>• Mirror Mask: Mimic-only. Replicates the equipment of the last ENEMY unit that moved. Movement remains tied to the global last move.</RuleText>
-                   <RuleText>• Itemless Mimic: Replicates movement and skills globally, but copies no items.</RuleText>
+                  <RuleText>• Grappler: Can pick up adjacent units and launch them across the board (Range = Level).</RuleText>
                 </RuleSection>
               </AccordionContent>
             </AccordionItem>
 
-            <AccordionItem value="royalty">
-              <AccordionTrigger className="text-[0.85rem] font-bold uppercase hover:text-accent">VI. The Royal Guard</AccordionTrigger>
+            <AccordionItem value="royalty" className="border-primary/20">
+              <AccordionTrigger className="text-[0.65rem] font-bold uppercase hover:text-accent">VI. The Royal Guard</AccordionTrigger>
               <AccordionContent>
                 <SubRule title="The Queen (Max Level 7)">
                   <RuleText>Invulnerability: At L7, the Queen cannot be captured by units below Level 8, unless they are Hero, Commander, or Infiltrator classes.</RuleText>
@@ -178,89 +177,54 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               </AccordionContent>
             </AccordionItem>
 
-            <AccordionItem value="killstreaks">
-              <AccordionTrigger className="text-[0.85rem] font-bold uppercase hover:text-accent">VII. The War Path (Kill Streaks)</AccordionTrigger>
+            <AccordionItem value="killstreaks" className="border-primary/20">
+              <AccordionTrigger className="text-[0.65rem] font-bold uppercase hover:text-accent">VII. The War Path</AccordionTrigger>
               <AccordionContent>
                 <RuleText>Streaks are earned by capturing units in consecutive turns. Streaks reset if a turn ends without a capture.</RuleText>
                 <RuleSection title="Milestones">
-                  <RuleText>KS 1: Dance (Dancers only - Allows a free move forward or swap with an allied or enemy piece).</RuleText>
-                  <RuleText>KS 2: Holy Shield (Archbishop - target ally becomes invulnerable until they move. Cannot target the piece that captured this turn).</RuleText>
+                  <RuleText>KS 1: Dance (Dancers only - Free move or swap).</RuleText>
+                  <RuleText>KS 2: Holy Shield (Archbishop - target ally becomes invulnerable until they move).</RuleText>
                   <RuleText>KS 3: Anvil Drop (Drop an impassable obstacle on any empty square).</RuleText>
-                  <RuleText>KS 4: Resurrection (Resurrects a random captured ally to a random open space on the board at L1).</RuleText>
+                  <RuleText>KS 4: Resurrection (Resurrects random captured ally at L1).</RuleText>
                   <RuleText>KS 5: Archer Snipe (Global targeting for Archers).</RuleText>
                   <RuleText>KS 6: Extra Turn (Take a second move immediately).</RuleText>
-                  <RuleText>KS 8: Conquest Victory (Requires King's Conquest item - Immediate game win).</RuleText>
+                  <RuleText>KS 8: Conquest Victory (Requires King's Conquest item).</RuleText>
                 </RuleSection>
               </AccordionContent>
             </AccordionItem>
 
-            <AccordionItem value="objects">
-              <AccordionTrigger className="text-[0.85rem] font-bold uppercase hover:text-accent">VIII. Board Objects</AccordionTrigger>
+            <AccordionItem value="objects" className="border-primary/20">
+              <AccordionTrigger className="text-[0.65rem] font-bold uppercase hover:text-accent">VIII. Board Objects</AccordionTrigger>
               <AccordionContent>
                 <RuleSection title="Entities">
                   <SubRule title="Anvils">
-                    <RuleText>Impassable blocks that occupy a square. They cannot be captured or jumped over (except with Phase Boots). They can be crushed/destroyed by self-destructs or pushed by level 4+ frontline units (or Battering Rams). Units (except Kings) crushed by a moving anvil are obliterated and removed from the game rather than entering the captured piece zone.</RuleText>
+                    <RuleText>Impassable blocks. Can be pushed by level 4+ frontline units. Units crushed by a moving anvil are obliterated.</RuleText>
                   </SubRule>
                   <SubRule title="Shrooms 🍄">
-                    <RuleText>Fungi that spawn periodically. Consuming a shroom grants +1 Level. For Myco Mages, shrooms also fuel their global Mushroomancy pool.</RuleText>
+                    <RuleText>Fungi that spawn periodically. Consuming a shroom grants +1 Level. For Myco Mages, shrooms also fuel their mana pool.</RuleText>
                   </SubRule>
                 </RuleSection>
               </AccordionContent>
             </AccordionItem>
 
-            <AccordionItem value="status">
-              <AccordionTrigger className="text-[0.85rem] font-bold uppercase hover:text-accent">IX. Status Effects</AccordionTrigger>
-              <AccordionContent>
-                <RuleSection title="Active Afflictions">
-                  <SubRule title="Poisoned">
-                    <RuleText>Loses 1 level at end of turn. Level 1 units become Exhausted. Cure: Gain a level (via capture, shrooms, or rally cries).</RuleText>
-                  </SubRule>
-                  <SubRule title="Exhausted">
-                    <RuleText>Any move, capture, or equipment use triggers a 1-turn cooldown (the piece skips its next turn). This cadence repeats until cured. Cure: Gain a level (via capture, shrooms, or rally cries).</RuleText>
-                  </SubRule>
-                  <SubRule title="Frozen">
-                    <RuleText>The unit is encased in ice and cannot move, capture, or be captured. Typically lasts 2 turns. This effect is NOT cured by level gains; you must wait out the duration.</RuleText>
-                  </SubRule>
-                </RuleSection>
-              </AccordionContent>
-            </AccordionItem>
-
-            <AccordionItem value="dungeon">
-              <AccordionTrigger className="text-[0.85rem] font-bold uppercase hover:text-accent">X. Dungeon Survival</AccordionTrigger>
+            <AccordionItem value="dungeon" className="border-primary/20">
+              <AccordionTrigger className="text-[0.65rem] font-bold uppercase hover:text-accent">IX. Dungeon Survival</AccordionTrigger>
               <AccordionContent>
                 <RuleText>• Persistence: Damage, levels, and items carry over between floors.</RuleText>
-                <RuleText>• Shrooms 🍄: Spawn every 5-10 turns. Consume for +1 Level and +1 Mana for Myco Mages.</RuleText>
-                <RuleText>• Bosses: Every 10 floors features a unique entity (Hydra, Necromancer, Colossus, etc.) with custom passive traits.</RuleText>
-                <SubRule title="The Wraith (Spectral Balance)">
-                  <RuleText>• Manifestation: Spawned by high-level Royal presence (Level 5+). A cyan 'Omen' flicker warns of their arrival.</RuleText>
-                  <RuleText>• Behavior: Persistent threats that move independently (up to 2 spaces) and phase through non-royal units.</RuleText>
-                  <RuleText>• Soul Drain: They target the highest-level Royals, stealing 1 Level and pushing them back on impact instead of capturing.</RuleText>
-                  <RuleText>• Banishment: Can be captured by any unit, but grant zero experience or items. They exist purely to balance overwhelming power.</RuleText>
+                <SubRule title="The Wraith">
+                  <RuleText>• Manifestation: Spawned by high-level Royal presence (Level 5+).</RuleText>
+                  <RuleText>• Soul Drain: They target the highest-level Royals, stealing 1 Level on impact.</RuleText>
                 </SubRule>
-                <RuleText>• Floor Collapse: If the dungeon enemy cannot move any pieces for 3 turns in a row, all of their remaining pieces self destruct, destroying your adjacent pieces and advancing you to the next floor.</RuleText>
-              </AccordionContent>
-            </AccordionItem>
-
-            <AccordionItem value="stack">
-              <AccordionTrigger className="text-[0.85rem] font-bold uppercase hover:text-accent">XI. The Stack</AccordionTrigger>
-              <AccordionContent>
-                <RuleText>Game events resolve in the following strict order:</RuleText>
-                <RuleText>1. Movement & Capture (Impact)</RuleText>
-                <RuleText>2. Level Gain & Shroom Consumption</RuleText>
-                <RuleText>3. Push-Back / Pull / Anvil Crushing</RuleText>
-                <RuleText>4. Soul Link Synchronization</RuleText>
-                <RuleText>5. Queen Sacrifice -> Rank Promotion -> KS Rewards</RuleText>
-                <RuleText>6. Poison Damage & Status Clear</RuleText>
-                <RuleText>7. Win Condition Check (Mate/Infiltration)</RuleText>
+                <RuleText>• Floor Collapse: If the enemy cannot move for 3 turns, the floor self-destructs and you advance.</RuleText>
               </AccordionContent>
             </AccordionItem>
 
           </Accordion>
         </ScrollArea>
         
-        <div className="p-4 bg-muted/20 border-t shrink-0">
+        <div className="p-6 bg-muted/10 border-t border-border/50 shrink-0">
           <DialogClose asChild>
-            <Button type="button" variant="secondary" className="w-full text-[0.65rem] font-pixel uppercase h-10">
+            <Button type="button" className="w-full h-12 text-[0.7rem] uppercase font-pixel bg-primary hover:bg-primary/80 text-primary-foreground rounded-none shadow-[4px_4px_0_rgba(var(--primary),0.3)]">
               Return to Battle
             </Button>
           </DialogClose>

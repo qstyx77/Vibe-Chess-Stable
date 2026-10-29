@@ -10,11 +10,12 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Sparkles, Package, Trophy } from 'lucide-react';
+import { Trophy } from 'lucide-react';
 import { ItemSprite } from './ItemSprite';
 import { ITEM_METADATA, type InventoryItemType } from '@/types';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { PixelSack } from './IconLibrary';
 
 interface LootWinningsWindowProps {
   isOpen: boolean;
@@ -28,7 +29,7 @@ export function LootWinningsWindow({ isOpen, onClose, loot, floor }: LootWinning
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent className="sm:max-w-md md:max-w-lg bg-black border-4 border-primary font-pixel p-0 overflow-hidden">
+      <DialogContent className="sm:max-w-md md:max-w-lg bg-black border-4 border-primary font-pixel p-0 overflow-hidden shadow-[0_0_50px_rgba(var(--primary),0.3)] rounded-none">
         <DialogHeader className="p-6 bg-primary/10 border-b-4 border-primary">
           <div className="flex items-center justify-center gap-3 mb-2">
             <Trophy className="h-8 w-8 text-yellow-500 animate-bounce" />
@@ -73,7 +74,7 @@ export function LootWinningsWindow({ isOpen, onClose, loot, floor }: LootWinning
                     </div>
                 ) : (
                     <div className="text-center space-y-2 opacity-60">
-                        <Package className="h-10 w-10 mx-auto text-muted-foreground" />
+                        <PixelSack className="h-14 w-14 mx-auto text-muted-foreground ascii-shader" />
                         <p className="text-[0.6rem] uppercase leading-relaxed">
                             The vault was empty...<br/>but your legend grows!
                         </p>
@@ -92,7 +93,7 @@ export function LootWinningsWindow({ isOpen, onClose, loot, floor }: LootWinning
         <DialogFooter className="p-4 bg-muted/5 border-t-2 border-border/50">
           <Button 
             onClick={onClose} 
-            className="w-full h-12 text-[0.7rem] uppercase font-pixel bg-primary hover:bg-primary/80 text-primary-foreground"
+            className="w-full h-12 text-[0.7rem] uppercase font-pixel bg-primary hover:bg-primary/80 text-primary-foreground rounded-none"
           >
             Claim & Continue
           </Button>
