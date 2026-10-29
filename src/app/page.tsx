@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -1209,6 +1210,7 @@ export default function EvolvingChessPage() {
             setLastMoveGlobal(newMoveInfo);
             setIsMoveProcessing(true); setAnimatedSquareTo(algebraic);
             addEffectCallback('magic-burst', selectedSquare!, undefined, undefined, movingP.heldItem as InventoryItemType);
+            audioManager.playShield();
             const res = applyMove(board, move, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, false);
             setBoard(res.newBoard);
             setTimeout(() => { setIsMoveProcessing(false); setIsAwaitingShieldScrollTarget(false); setSelectedSquare(null); processMoveEnd(res.newBoard, capturedPieces, killStreaks, currentPlayer, false, null, false, movingP.type, nextTracks.white, nextTracks.black, nextTracks.global); }, 800);
@@ -1230,6 +1232,7 @@ export default function EvolvingChessPage() {
             setLastMoveGlobal(newMoveInfo);
             setIsMoveProcessing(true); setAnimatedSquareTo(algebraic);
             addEffectCallback('magic-burst', selectedSquare!, undefined, undefined, movingP.heldItem as InventoryItemType);
+            audioManager.playMove();
             const res = applyMove(board, move, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, false);
             setBoard(res.newBoard);
             setTimeout(() => { setIsMoveProcessing(false); setIsAwaitingSwapScrollTarget(false); setSelectedSquare(null); processMoveEnd(res.newBoard, capturedPieces, killStreaks, currentPlayer, false, null, false, movingP.type, nextTracks.white, nextTracks.black, nextTracks.global); }, 800);
@@ -1251,6 +1254,7 @@ export default function EvolvingChessPage() {
             setLastMoveGlobal(newMoveInfo);
             setIsMoveProcessing(true); setAnimatedSquareTo(algebraic);
             addEffectCallback('magic-burst', selectedSquare!, undefined, undefined, movingP.heldItem as InventoryItemType);
+            audioManager.playLevelUp();
             const res = applyMove(board, move, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, false);
             setBoard(res.newBoard);
             setTimeout(() => { setIsMoveProcessing(false); setIsAwaitingDecreeTarget(false); setSelectedSquare(null); processMoveEnd(res.newBoard, capturedPieces, killStreaks, currentPlayer, false, null, false, 'king', nextTracks.white, nextTracks.black, nextTracks.global); }, 800);
@@ -1259,8 +1263,8 @@ export default function EvolvingChessPage() {
     }
 
     if (isAwaitingGrappleThrow) {
-        const {row: fr, col: fC} = algebraicToCoords(selectedSquare!); const range = getEffectiveLevel(board, fr, fC);
-        const movingP = board[fr][fC].piece!;
+        const {row: fr, col: fC} = algebraicToCoords(selectedSquare!); const range = getEffectiveLevel(board, fr, fc);
+        const movingP = board[fr][fc].piece!;
         const newMoveInfo: LastMoveInfo = { type: movingP.type, level: movingP.level, item: movingP.heldItem || null };
         const nextTracks = { 
             white: currentPlayer === 'white' ? newMoveInfo : lastMoveWhite, 
@@ -1392,6 +1396,7 @@ export default function EvolvingChessPage() {
                 if (currentPlayer === 'white') setLastMoveWhite(newMoveInfo); else setLastMoveBlack(newMoveInfo);
                 setLastMoveGlobal(newMoveInfo);
                 addEffectCallback('magic-burst', selectedSquare!, undefined, undefined, movingP.heldItem as InventoryItemType);
+                if (isAwaitingRayTarget === 'glacial') audioManager.playFreeze(); else audioManager.playExplosion();
                 const result = applyMove(board, { from: selectedSquare!, to: algebraic, type }, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, false);
                 setBoard(result.newBoard); setSelectedSquare(null); setPossibleMoves([]);
                 setTimeout(() => { setIsMoveProcessing(false); clickGuardRef.current = false; setIsAwaitingRayTarget(null); processMoveEnd(result.newBoard, capturedPieces, killStreaks, currentPlayer, false, null, false, movingP.type, nextTracks.white, nextTracks.black, nextTracks.global); }, 800);
@@ -1399,7 +1404,7 @@ export default function EvolvingChessPage() {
         }
         return;
     }
-    if (isSelectingTeleportAlly) { if (piece && piece.color === currentPlayer && piece.type !== 'king' && piece.type !== 'queen' && piece.id !== (selectedSquare ? board[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece?.id : null)) { setTeleportAllyPieceId(piece.id); setIsSelectingTeleportAlly(false); setIsSelectingTeleportShroom(true); addLog("Select a shroom to teleport to!"); } return; }
+    if (isSelectingTeleportAlly) { if (piece && piece.color === currentPlayer && piece.type !== 'king' && piece.type !== 'queen' && piece.id !== (selectedSquare ? boardState[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece?.id : null)) { setTeleportAllyPieceId(piece.id); setIsSelectingTeleportAlly(false); setIsSelectingTeleportShroom(true); addLog("Select a shroom to teleport to!"); } return; }
     if (isSelectingTeleportShroom && sq?.item?.type === 'shroom') {
         const mage = board[algebraicToCoords(selectedSquare!).row][algebraicToCoords(selectedSquare!).col].piece!;
         const newMoveInfo: LastMoveInfo = { type: mage.type, level: mage.level, item: mage.heldItem || null };
@@ -1659,6 +1664,12 @@ export default function EvolvingChessPage() {
                        if (currentPlayer === 'white') setLastMoveWhite(newMoveInfo); else setLastMoveBlack(newMoveInfo);
                        setLastMoveGlobal(newMoveInfo);
                        addEffectCallback('magic-burst', selectedSquare, undefined, undefined, item);
+                       if (item === 'shield_scroll') audioManager.playShield();
+                       else if (item === 'resurrection_scroll') audioManager.playResurrect();
+                       else if (item === 'faith_scroll') audioManager.playConversion();
+                       else if (item === 'ice_blast' || item === 'ice_scroll') audioManager.playFreeze();
+                       else if (item === 'detonation_scroll') audioManager.playExplosion();
+
                        const res = applyMove(board, move, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, false);
                        setBoard(res.newBoard);
                        setTimeout(() => { setIsMoveProcessing(false); setSelectedSquare(null); processMoveEnd(res.newBoard, capturedPieces, killStreaks, currentPlayer, false, null, false, moving.type, nextTracks.white, nextTracks.black, nextTracks.global); }, 800);
@@ -1681,6 +1692,7 @@ export default function EvolvingChessPage() {
                        if (currentPlayer === 'white') setLastMoveWhite(newMoveInfo); else setLastMoveBlack(newMoveInfo);
                        setLastMoveGlobal(newMoveInfo);
                        addEffectCallback('magic-burst', selectedSquare, undefined, undefined, item);
+                       audioManager.playExplosion();
                        const res = applyMove(board, move, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, false);
                        setBoard(res.newBoard); 
                        const updatedG = { white: Array.isArray(capturedPieces?.white) ? [...capturedPieces.white] : [], black: Array.isArray(capturedPieces?.black) ? [...capturedPieces.black] : [] };
@@ -1717,6 +1729,7 @@ export default function EvolvingChessPage() {
                    if (currentPlayer === 'white') setLastMoveWhite(newMoveInfo); else setLastMoveBlack(newMoveInfo);
                    setLastMoveGlobal(newMoveInfo);
                    addEffectCallback('magic-burst', selectedSquare, undefined, undefined, item);
+                   audioManager.playExplosion();
                    const res = applyMove(board, move, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, false);
                    setBoard(res.newBoard);
                    const updatedG = { white: Array.isArray(capturedPieces?.white) ? [...capturedPieces.white] : [], black: Array.isArray(capturedPieces?.black) ? [...capturedPieces.black] : [] };
@@ -1802,6 +1815,14 @@ export default function EvolvingChessPage() {
                   addEffectCallback('level-change', lc.square, currentPlayer, lc.delta, undefined);
                   if (lc.reason) addLog(`${getPlayerDisplayName(currentPlayer)}: ${lc.reason} (${lc.delta > 0 ? '+' : ''}${lc.delta})`);
               });
+
+              if (applyRes.conversionEvents && applyRes.conversionEvents.length > 0) {
+                  audioManager.playConversion();
+                  applyRes.conversionEvents.forEach((e: ConversionEvent) => {
+                      addEffectCallback('conversion', e.at);
+                      addLog(`Faith! ${e.originalPiece.type} has been converted.`);
+                  });
+              }
 
               if (applyRes.shroomConsumed) addLog(`${getPlayerDisplayName(currentPlayer)} consumed a Shroom!`);
               if (applyRes.ralliedSquares) applyRes.ralliedSquares.forEach(sq => addEffectCallback('level-change', sq, currentPlayer, 1, undefined));
@@ -2192,7 +2213,7 @@ export default function EvolvingChessPage() {
                 </button>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <button className="flex flex-col items-center gap-0.5 h-auto p-0 bg-transparent border-none outline-none group">
+                    <button className="flex flex-col items-center h-auto p-0 bg-transparent border-none outline-none group">
                       <PixelGear className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
                       <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Settings</span>
                     </button>

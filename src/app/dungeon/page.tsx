@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -1040,6 +1041,7 @@ export default function DungeonPage() {
         
         deductConsumable('shield_scroll');
         addEffect('magic-burst', selectedSquare!, undefined, undefined, 'shield_scroll');
+        audioManager.playShield();
         setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(alg);
         if (currentPlayer === 'white') setLastMoveWhite(newMoveInfo); else setLastMoveBlack(newMoveInfo);
         setLastMoveGlobal(newMoveInfo);
@@ -1060,6 +1062,7 @@ export default function DungeonPage() {
         
         deductConsumable('swap_scroll');
         addEffect('magic-burst', selectedSquare!, undefined, undefined, 'swap_scroll');
+        audioManager.playMove();
         setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(alg);
         if (currentPlayer === 'white') setLastMoveWhite(newMoveInfo); else setLastMoveBlack(newMoveInfo);
         setLastMoveGlobal(newMoveInfo);
@@ -1080,6 +1083,7 @@ export default function DungeonPage() {
         
         deductConsumable('kings_decree');
         addEffect('magic-burst', selectedSquare!, undefined, undefined, 'kings_decree');
+        audioManager.playLevelUp();
         setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(alg);
         if (currentPlayer === 'white') setLastMoveWhite(newMoveInfo); else setLastMoveBlack(newMoveInfo);
         setLastMoveGlobal(newMoveInfo);
@@ -1150,6 +1154,19 @@ export default function DungeonPage() {
             const result = applyMove(board, move, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, false);
             const updatedG = { white: Array.isArray(capturedPieces?.white) ? [...capturedPieces.white] : [], black: Array.isArray(capturedPieces?.black) ? [...capturedPieces.black] : [] };
 
+            if (result.conversionEvents && result.conversionEvents.length > 0) {
+              audioManager.playConversion();
+              result.conversionEvents.forEach((e: ConversionEvent) => {
+                  addEffect('conversion', e.at);
+                  addLog(`Faith! ${e.originalPiece.type} has been converted.`);
+              });
+            }
+
+            result.levelChanges?.forEach(lc => {
+                addEffect('level-change', lc.square, currentPlayer, lc.delta);
+                if (lc.reason) addLog(`${getPlayerDisplayName(currentPlayer)}: ${lc.reason} (${lc.delta > 0 ? '+' : ''}${lc.delta})`);
+            });
+
             if (result.stolenItem) {
                 const newInv = [...inventory];
                 const existing = newInv.find(i => i.type === result.stolenItem);
@@ -1165,6 +1182,14 @@ export default function DungeonPage() {
             } else if (result.capturedPiece) {
                 updatedG[result.capturedPiece.color].push(result.capturedPiece);
             }
+
+            if (result.shroomConsumed) { audioManager.playShroom(); addLog(`${getPlayerDisplayName(currentPlayer)} consumed a Shroom!`); }
+            if (result.ralliedSquares) result.ralliedSquares.forEach(sq => addEffect('level-change', sq, currentPlayer, 1));
+            if (result.hydraSplitOccurred) { audioManager.playResurrect(); addLog("The Hydra regrows its heads!"); if (result.hydraSpawnSquares) result.hydraSpawnSquares.forEach(sq => addEffect('level-change', sq, currentPlayer, 1)); }
+            if (result.phoenixResurrection) { addEffect('light-beam', result.phoenixResurrection.square); audioManager.playResurrect(); }
+            if (result.resurrectionScrollEvent) { addEffect('light-beam', result.resurrectionScrollEvent.square); audioManager.playResurrect(); }
+            if (result.signalHornEvent) { addLog(`Signal Horn! ${result.signalHornEvent.piece.type} gains a level.`); }
+            if (result.anvilDroppedSquares) result.anvilDroppedSquares.forEach(sq => { setTimeout(() => { addEffect('focus', sq); audioManager.playAnvil(); }, 300); });
 
             setBoard(result.newBoard); setSelectedSquare(null); setPossibleMoves([]);
             setTimeout(() => { 
@@ -1246,6 +1271,7 @@ export default function DungeonPage() {
             const type = isAwaitingRayTarget === 'glacial' ? 'glacial-ray' : 'burning-ray';
             deductConsumable(isAwaitingRayTarget === 'glacial' ? 'glacial_ray' : 'burning_ray');
             addEffect('magic-burst', selectedSquare!, undefined, undefined, isAwaitingRayTarget === 'glacial' ? 'glacial_ray' : 'burning_ray');
+            if (isAwaitingRayTarget === 'glacial') audioManager.playFreeze(); else audioManager.playExplosion();
             clickGuard.current = true; setIsMoveProcessing(true); setAnimatedSquareTo(alg);
             if (currentPlayer === 'white') setLastMoveWhite(newMoveInfo); else setLastMoveBlack(newMoveInfo);
             setLastMoveGlobal(newMoveInfo);
@@ -1274,10 +1300,10 @@ export default function DungeonPage() {
                 addEffect('magic-burst', selectedSquare!, undefined, undefined, movingP.heldItem as InventoryItemType);
             }
             let moveType: Move['type'] = 'move';
-            if (isAwaitingWindScrollTarget) { moveType = 'wind-scroll'; deductConsumable('wind_scroll'); }
-            else if (isAwaitingAnvilScrollTarget) { moveType = 'summon-anvil'; deductConsumable('summon_anvil'); }
-            else if (isAwaitingEarthquakeScrollTarget) { moveType = 'earthquake-scroll'; deductConsumable('earthquake_scroll'); }
-            else if (isAwaitingOilSlickTarget) { moveType = 'oil-slick'; deductConsumable('oil_slick'); }
+            if (isAwaitingWindScrollTarget) { moveType = 'wind-scroll'; deductConsumable('wind_scroll'); audioManager.playAnvil(); }
+            else if (isAwaitingAnvilScrollTarget) { moveType = 'summon-anvil'; deductConsumable('summon_anvil'); audioManager.playAnvil(); }
+            else if (isAwaitingEarthquakeScrollTarget) { moveType = 'earthquake-scroll'; deductConsumable('earthquake_scroll'); audioManager.playExplosion(); }
+            else if (isAwaitingOilSlickTarget) { moveType = 'oil-slick'; deductConsumable('oil_slick'); audioManager.playShroom(); }
             else if (isAwaitingAnvilDrop) {
                 clickGuard.current = false; setIsMoveProcessing(false); setAnimatedSquareTo(null);
                 const nextB = specialActionContext!.boardForNextStep.map((r:any) => r.map((s:any) => ({ ...s }))); 
@@ -1431,6 +1457,12 @@ export default function DungeonPage() {
 
                    if (ITEM_METADATA[item].isConsumable) deductConsumable(item);
                    addEffect('magic-burst', selectedSquare, undefined, undefined, item);
+                   if (item === 'shield_scroll') audioManager.playShield();
+                   else if (item === 'resurrection_scroll') audioManager.playResurrect();
+                   else if (item === 'faith_scroll') audioManager.playConversion();
+                   else if (item === 'ice_blast' || item === 'ice_scroll') audioManager.playFreeze();
+                   else if (item === 'detonation_scroll') audioManager.playExplosion();
+
                    setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(selectedSquare);
                    if (currentPlayer === 'white') setLastMoveWhite(newMoveInfo); else setLastMoveBlack(newMoveInfo);
                    setLastMoveGlobal(newMoveInfo);
@@ -1460,6 +1492,7 @@ export default function DungeonPage() {
 
                    deductConsumable(item);
                    addEffect('magic-burst', selectedSquare, undefined, undefined, item);
+                   audioManager.playExplosion();
                    setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(selectedSquare);
                    if (currentPlayer === 'white') setLastMoveWhite(newMoveInfo); else setLastMoveBlack(newMoveInfo);
                    setLastMoveGlobal(newMoveInfo);
