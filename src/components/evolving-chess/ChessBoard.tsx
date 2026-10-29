@@ -235,9 +235,6 @@ export const ChessBoard = memo(({
 
   return (
     <div className={cn( "grid grid-cols-8 w-full aspect-square group shadow-lg mx-auto relative", applyBoardOpacityEffect && "opacity-70", viewMode === 'tabletop' && "rotate-90 will-change-transform backface-hidden transform-style-preserve-3d", "lg:max-h-[75vh]", hasTremble && "animate-tremble" )} onMouseLeave={() => onPieceHover(null)} >
-      {/* FULL BOARD PATTERN OVERLAYS */}
-      <div className={cn("absolute inset-0 z-0 pointer-events-none opacity-0", !!playerInCheck && "animate-check-pattern-flash")} />
-      
       {displayBoard.map((row, displayedRowIndex) =>
         row.map((squareDataFromDisplay, displayedColIndex) => {
           const actualRowIndex = visuallyFlipBoardForLogic ? 7 - displayedRowIndex : displayedRowIndex;
