@@ -59,9 +59,6 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
           <DialogTitle className="sr-only">
             Comprehensive Game Rules
           </DialogTitle>
-          <DialogDescription className="text-center text-[10px] font-pixel text-muted-foreground uppercase">
-            Master the mechanics of tactical evolution.
-          </DialogDescription>
         </DialogHeader>
 
         <ScrollArea className="flex-1 overflow-y-auto px-6 font-pixel uppercase">
