@@ -57,6 +57,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
   const wsRef = useRef<WebSocket | null>(null);
   const userDataRef = useRef(userData);
   const ignoredUserIdsRef = useRef(ignoredUserIds);
+  const messageIdsRef = useRef<Set<string>>(new Set());
 
   const [isMessengerOpen, setIsMessengerOpen] = useState(false);
   const [visibleCategories, setVisibleCategories] = useState<Set<MessageCategory>>(new Set(['battle', 'social', 'log', 'market']));
@@ -101,13 +102,18 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
 
   const addLog = useCallback((text: string) => {
     const entropy = Math.random().toString(36).substr(2, 9);
+    const logId = `log_${Date.now()}_${entropy}`;
     const log: ChatMessage = {
-        id: `log_${Date.now()}_${entropy}`,
+        id: logId,
         sender: 'SYSTEM',
         text,
         timestamp: Date.now(),
         category: 'log'
     };
+    
+    if (messageIdsRef.current.has(logId)) return;
+    messageIdsRef.current.add(logId);
+
     setMessages(prev => {
         const next = [...prev, log];
         return next.slice(-100);
@@ -135,6 +141,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
     if (!user) {
         if (wsRef.current) wsRef.current.close();
         setMessages([]);
+        messageIdsRef.current.clear();
         setOnlineUserIds(new Set());
         setOnlineUsers([]);
         setOnlineStatus('disconnected');
@@ -170,14 +177,21 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
         };
         socket.onmessage = (event) => {
             const data = JSON.parse(event.data);
+            console.log(`[SOCIAL]: INCOMING packet received:`, data.type);
             
             if (data.type === 'chat-message') {
                 const senderId = data.message.senderId;
                 const text = data.message.text || '';
                 const cat = data.message.category as MessageCategory;
+                const msgId = data.message.id;
                 
-                console.log(`[SOCIAL]: RECEIVED chat-message. Sender: ${data.message.sender}, Cat: ${cat}, Text: "${text}"`);
+                console.log(`[SOCIAL]: RECEIVED chat-message. ID: ${msgId}, Sender: ${data.message.sender}, Text: "${text}"`);
                 
+                if (messageIdsRef.current.has(msgId)) {
+                    console.log(`[SOCIAL]: Duplicate message detected (ID: ${msgId}). Skipping.`);
+                    return;
+                }
+
                 if (ignoredUserIdsRef.current.has(senderId)) {
                     console.log(`[SOCIAL]: Filtering ignored message from ${senderId}`);
                     return;
@@ -185,10 +199,10 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
                 
                 const isWhisper = text.includes('[WHISPER]') || text.includes('[TO ');
 
+                messageIdsRef.current.add(msgId);
                 setMessages(prev => {
-                    if (prev.some(m => m.id === data.message.id)) return prev;
                     const next = [...prev, data.message];
-                    return next.slice(-100); // Prevent array growth lag
+                    return next.slice(-100); 
                 });
 
                 if (isWhisper) {
@@ -291,6 +305,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
 
         if (cmd === '/clear') {
             setMessages([]);
+            messageIdsRef.current.clear();
             addLog("Session history cleared.");
             return;
         }
@@ -360,6 +375,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
                 category: 'social'
             };
 
+            messageIdsRef.current.add(msgId);
             setMessages(prev => {
                 const next = [...prev, localMsg];
                 return next.slice(-100);
@@ -400,6 +416,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
         category: category
     };
     
+    messageIdsRef.current.add(msgId);
     setMessages(prev => {
         const next = [...prev, broadcastMsg];
         return next.slice(-100);
