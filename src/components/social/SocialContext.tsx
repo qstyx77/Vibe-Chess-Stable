@@ -117,6 +117,17 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  // Sync Identification when username becomes available or changes
+  useEffect(() => {
+    if (ws && ws.readyState === WebSocket.OPEN && user?.uid) {
+        ws.send(JSON.stringify({ 
+            type: 'identify', 
+            userId: user.uid, 
+            username: userData?.username || user.displayName || 'Player' 
+        }));
+    }
+  }, [ws, user?.uid, userData?.username]);
+
   useEffect(() => {
     if (!user) {
         if (wsRef.current) wsRef.current.close();
@@ -214,7 +225,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
         if (wsRef.current) wsRef.current.close();
         clearTimeout(reconnectTimeout);
     };
-  }, [user?.uid, toast]); // Removed UI state dependencies to stabilize connection
+  }, [user?.uid, toast]);
 
   const clearUnread = useCallback((category: MessageCategory) => {
       setHasUnread(prev => ({ ...prev, [category]: false }));
@@ -303,28 +314,15 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
         }
     }
 
-    // Improved Handle @ Mentions / Whispers
+    // Handle @ Mentions / Whispers
     if (text.startsWith('@')) {
-        const sortedOnlineUsers = [...onlineUsers].sort((a, b) => b.username.length - a.username.length);
-        let foundUser = null;
-        let prefixUsed = '';
-        
-        for (const u of sortedOnlineUsers) {
-            const name = u.username.toLowerCase();
-            const prefixes = [`@${name} `, `@${name}: `];
-            for (const p of prefixes) {
-                if (text.toLowerCase().startsWith(p)) {
-                    foundUser = u;
-                    prefixUsed = p;
-                    break;
-                }
-            }
-            if (foundUser) break;
-        }
+        const match = text.match(/^@([a-zA-Z0-9_-]+)([:\s].*|$)/);
+        if (match) {
+            const targetName = match[1];
+            const msgBody = (match[2] || '').replace(/^[:\s]+/, '').trim();
+            const foundUser = onlineUsers.find(u => u.username.toLowerCase() === targetName.toLowerCase());
 
-        if (foundUser) {
-            const msgBody = text.substring(prefixUsed.length).trim();
-            if (msgBody) {
+            if (foundUser && msgBody) {
                 const msgId = `opt_w_${Date.now()}_${entropy}`;
                 
                 setMessages(prev => [...prev, {
@@ -347,6 +345,9 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
                     sender: myUsername, 
                     senderId: myId 
                 }));
+                return;
+            } else if (!foundUser) {
+                addLog(`User ${targetName} is not online.`);
                 return;
             }
         }
