@@ -51,20 +51,36 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
   const [isTournamentIntermission, setIsTournamentIntermission] = useState(false);
   const [tournamentRound, setTournamentRound] = useState(0);
   
-  // Ignore List (Session-based soft block)
   const [ignoredUserIds, setIgnoredUserIds] = useState<Set<string>>(new Set());
   
   const wsRef = useRef<WebSocket | null>(null);
   const userDataRef = useRef(userData);
+  const ignoredUserIdsRef = useRef(ignoredUserIds);
 
   const [isMessengerOpen, setIsMessengerOpen] = useState(false);
   const [visibleCategories, setVisibleCategories] = useState<Set<MessageCategory>>(new Set(['battle', 'social', 'log', 'market']));
   const [hasUnread, setHasUnread] = useState({ battle: false, social: false, log: false, market: false });
   const [chatInput, setChatInput] = useState('');
 
+  // Refs for current UI state to use inside the WebSocket listener without triggering re-connects
+  const isMessengerOpenRef = useRef(isMessengerOpen);
+  const visibleCategoriesRef = useRef(visibleCategories);
+
   useEffect(() => {
     userDataRef.current = userData;
   }, [userData]);
+
+  useEffect(() => {
+    ignoredUserIdsRef.current = ignoredUserIds;
+  }, [ignoredUserIds]);
+
+  useEffect(() => {
+    isMessengerOpenRef.current = isMessengerOpen;
+  }, [isMessengerOpen]);
+
+  useEffect(() => {
+    visibleCategoriesRef.current = visibleCategories;
+  }, [visibleCategories]);
 
   useEffect(() => {
     if (!user || !firestore) return;
@@ -94,12 +110,12 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
     };
     setMessages(prev => [...prev, log]);
     setHasUnread(prev => {
-        if (!isMessengerOpen || !visibleCategories.has('log')) {
+        if (!isMessengerOpenRef.current || !visibleCategoriesRef.current.has('log')) {
             return { ...prev, log: true };
         }
         return prev;
     });
-  }, [isMessengerOpen, visibleCategories]);
+  }, []);
 
   useEffect(() => {
     if (!user) {
@@ -138,33 +154,32 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
             const data = JSON.parse(event.data);
             if (data.type === 'chat-message') {
                 const senderId = data.message.senderId;
-                if (ignoredUserIds.has(senderId)) return;
+                if (ignoredUserIdsRef.current.has(senderId)) return;
                 
                 const cat = data.message.category as MessageCategory;
-                const isWhisper = data.message.text.includes('[WHISPER]') || data.message.text.includes('[TO ');
+                const text = data.message.text || '';
+                const isWhisper = text.includes('[WHISPER]') || text.includes('[TO ');
 
                 setMessages(prev => {
                     if (prev.some(m => m.id === data.message.id)) return prev;
                     return [...prev, data.message];
                 });
 
-                // Auto-switch categories for whispers or personal messages
-                if (isWhisper || senderId === user?.uid) {
+                if (isWhisper) {
                     setVisibleCategories(prev => {
-                        if (!prev.has(cat)) {
+                        if (!prev.has('social')) {
                             const next = new Set(prev);
-                            next.add(cat);
+                            next.add('social');
                             return next;
                         }
                         return prev;
                     });
                 }
 
-                // Prevent notification for self
                 if (senderId === user?.uid) return;
 
                 setHasUnread(prev => {
-                    if (!isMessengerOpen || !visibleCategories.has(cat)) {
+                    if (!isMessengerOpenRef.current || !visibleCategoriesRef.current.has(cat)) {
                         return { ...prev, [cat]: true };
                     }
                     return prev;
@@ -199,7 +214,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
         if (wsRef.current) wsRef.current.close();
         clearTimeout(reconnectTimeout);
     };
-  }, [user?.uid, toast, ignoredUserIds, isMessengerOpen, visibleCategories]);
+  }, [user?.uid, toast]); // Removed UI state dependencies to stabilize connection
 
   const clearUnread = useCallback((category: MessageCategory) => {
       setHasUnread(prev => ({ ...prev, [category]: false }));
@@ -219,7 +234,6 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
         const parts = text.trim().split(' ');
         const cmd = parts[0].toLowerCase();
         
-        // ADMIN COMMANDS
         const adminCmds = ['/gold', '/elo', '/unlock', '/clear_inv', '/mute', '/unmute', '/ban', '/unban', '/delete_acc', '/who', '/adminhelp'];
         if (adminCmds.includes(cmd)) {
             addLog(`Executing: ${cmd}...`);
@@ -231,7 +245,6 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
             return;
         }
 
-        // PLAYER COMMANDS
         if (cmd === '/help') {
             addLog("HERO COMMAND LIST:");
             addLog("/friend <name> - Send friend request");
@@ -279,7 +292,6 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
             return;
         }
 
-        // PASS THROUGH PLAYER COMMANDS TO SERVER
         const playerForwardCmds = ['/friend', '/unfriend', '/invite', '/block', '/unblock', '/rank', '/spectate'];
         if (playerForwardCmds.includes(cmd)) {
             wsRef.current.send(JSON.stringify({
@@ -291,24 +303,30 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
         }
     }
 
-    // Handle @ Mentions / Whispers
+    // Improved Handle @ Mentions / Whispers
     if (text.startsWith('@')) {
         const sortedOnlineUsers = [...onlineUsers].sort((a, b) => b.username.length - a.username.length);
         let foundUser = null;
+        let prefixUsed = '';
+        
         for (const u of sortedOnlineUsers) {
-            const prefix = `@${u.username.toLowerCase()} `;
-            if (text.toLowerCase().startsWith(prefix)) {
-                foundUser = u;
-                break;
+            const name = u.username.toLowerCase();
+            const prefixes = [`@${name} `, `@${name}: `];
+            for (const p of prefixes) {
+                if (text.toLowerCase().startsWith(p)) {
+                    foundUser = u;
+                    prefixUsed = p;
+                    break;
+                }
             }
+            if (foundUser) break;
         }
+
         if (foundUser) {
-            const prefixLen = foundUser.username.length + 2;
-            const msgBody = text.substring(prefixLen).trim();
+            const msgBody = text.substring(prefixUsed.length).trim();
             if (msgBody) {
                 const msgId = `opt_w_${Date.now()}_${entropy}`;
                 
-                // Optimistic Local Display
                 setMessages(prev => [...prev, {
                     id: msgId,
                     sender: myUsername,
@@ -334,10 +352,8 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
         }
     }
 
-    // Standard Chat Message
     const msgId = `opt_${Date.now()}_${entropy}`;
     
-    // Optimistic Local Display
     setMessages(prev => [...prev, {
         id: msgId,
         sender: myUsername,

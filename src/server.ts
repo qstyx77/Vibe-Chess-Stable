@@ -606,7 +606,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                         if (targetWs) {
                             const chatMsg = { ...msg, text: `[WHISPER]: ${data.text}` };
                             targetWs.send(JSON.stringify({ type: 'chat-message', message: chatMsg }));
-                            // Echo back with SAME ID to satisfy client deduplication
+                            // Echo back to the sender to confirm delivery and deduplicate
                             ws.send(JSON.stringify({ type: 'chat-message', message: { ...msg, text: `[TO ${targetName || targetWs.username}]: ${data.text}` } }));
                         } else {
                             ws.send(JSON.stringify({ type: 'chat-message', message: { ...msg, id: `msg_err_${Date.now()}_${entropy}`, sender: 'SYSTEM', text: `Error: ${targetName || 'User'} is offline.`, category: 'log' } }));
