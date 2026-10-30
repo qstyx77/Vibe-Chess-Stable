@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
@@ -62,7 +63,6 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
   const [hasUnread, setHasUnread] = useState({ battle: false, social: false, log: false, market: false });
   const [chatInput, setChatInput] = useState('');
 
-  // Refs for current UI state to use inside the WebSocket listener without triggering re-connects
   const isMessengerOpenRef = useRef(isMessengerOpen);
   const visibleCategoriesRef = useRef(visibleCategories);
 
@@ -108,7 +108,10 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
         timestamp: Date.now(),
         category: 'log'
     };
-    setMessages(prev => [...prev, log]);
+    setMessages(prev => {
+        const next = [...prev, log];
+        return next.slice(-100);
+    });
     setHasUnread(prev => {
         if (!isMessengerOpenRef.current || !visibleCategoriesRef.current.has('log')) {
             return { ...prev, log: true };
@@ -117,10 +120,9 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  // Sync Identification when username becomes available or changes
   useEffect(() => {
     if (ws && ws.readyState === WebSocket.OPEN && user?.uid) {
-        console.log(`[SOCIAL]: Identifying user ${user.uid} (${userData?.username || 'Player'}) to server...`);
+        console.log(`[SOCIAL]: Identifying user ${user.uid} (${userDataRef.current?.username || 'Player'}) to server...`);
         ws.send(JSON.stringify({ 
             type: 'identify', 
             userId: user.uid, 
@@ -158,36 +160,39 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
         socket.onopen = () => {
             console.log(`[SOCIAL]: WebSocket connection established.`);
             setOnlineStatus('connected');
-            socket.send(JSON.stringify({ 
-                type: 'identify', 
-                userId: user.uid, 
-                username: userDataRef.current?.username || user.displayName || 'Player' 
-            }));
+            if (user?.uid) {
+                socket.send(JSON.stringify({ 
+                    type: 'identify', 
+                    userId: user.uid, 
+                    username: userDataRef.current?.username || user.displayName || 'Player' 
+                }));
+            }
         };
         socket.onmessage = (event) => {
             const data = JSON.parse(event.data);
-            console.log(`[SOCIAL]: Incoming WebSocket message:`, data);
             
             if (data.type === 'chat-message') {
                 const senderId = data.message.senderId;
+                const text = data.message.text || '';
+                const cat = data.message.category as MessageCategory;
+                
+                console.log(`[SOCIAL]: RECEIVED chat-message. Sender: ${data.message.sender}, Cat: ${cat}, Text: "${text}"`);
+                
                 if (ignoredUserIdsRef.current.has(senderId)) {
-                    console.log(`[SOCIAL]: Ignoring message from blocked user ${senderId}`);
+                    console.log(`[SOCIAL]: Filtering ignored message from ${senderId}`);
                     return;
                 }
                 
-                const cat = data.message.category as MessageCategory;
-                const text = data.message.text || '';
                 const isWhisper = text.includes('[WHISPER]') || text.includes('[TO ');
-
-                console.log(`[SOCIAL]: Received chat-message from ${data.message.sender} (${cat}): "${text}"`);
 
                 setMessages(prev => {
                     if (prev.some(m => m.id === data.message.id)) return prev;
-                    return [...prev, data.message];
+                    const next = [...prev, data.message];
+                    return next.slice(-100); // Prevent array growth lag
                 });
 
                 if (isWhisper) {
-                    console.log(`[SOCIAL]: Auto-enabling Social tab for incoming whisper.`);
+                    console.log(`[SOCIAL]: Whisper detected. Auto-enabling Social tab.`);
                     setVisibleCategories(prev => {
                         if (!prev.has('social')) {
                             const next = new Set(prev);
@@ -202,13 +207,11 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
 
                 setHasUnread(prev => {
                     if (!isMessengerOpenRef.current || !visibleCategoriesRef.current.has(cat)) {
-                        console.log(`[SOCIAL]: Marking ${cat} as unread.`);
                         return { ...prev, [cat]: true };
                     }
                     return prev;
                 });
             } else if (data.type === 'presence-update') {
-                console.log(`[SOCIAL]: Presence update received. ${data.users.length} users online.`);
                 setOnlineUserIds(new Set(data.users.map((u: any) => u.userId)));
                 setOnlineUsers(data.users);
             } else if (data.type === 'tournament-queue-update') {
@@ -224,7 +227,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
             }
         };
         socket.onclose = (event) => {
-            console.log(`[SOCIAL]: WebSocket closed (code: ${event.code}). Attempting reconnect in 3s...`);
+            console.log(`[SOCIAL]: WebSocket closed (code: ${event.code}). Reconnecting...`);
             setOnlineStatus('disconnected');
             setOnlineUserIds(new Set());
             setOnlineUsers([]);
@@ -246,10 +249,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const sendMessage = useCallback((text: string, category: MessageCategory, targetId?: string) => {
-    console.log(`[SOCIAL]: sendMessage triggered. Text: "${text}", Category: ${category}, Manual targetId: ${targetId || 'none'}`);
-    
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
-        console.warn(`[SOCIAL]: sendMessage failed - WebSocket not open (state: ${wsRef.current?.readyState})`);
         addLog("Not connected to server.");
         return;
     }
@@ -261,7 +261,6 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
     if (text.startsWith('/')) {
         const parts = text.trim().split(' ');
         const cmd = parts[0].toLowerCase();
-        console.log(`[SOCIAL]: Detected command: ${cmd}`);
         
         const adminCmds = ['/gold', '/elo', '/unlock', '/clear_inv', '/mute', '/unmute', '/ban', '/unban', '/delete_acc', '/who', '/adminhelp'];
         if (adminCmds.includes(cmd)) {
@@ -334,38 +333,37 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
 
     // Handle @ Mentions / Whispers
     if (text.startsWith('@')) {
-        console.log(`[SOCIAL]: Attempting whisper parsing for: "${text}"`);
-        // IMPROVED PARSING: Support names with spaces by matching longest online username prefix
         let foundUser = null;
         let msgBody = "";
         
-        // Sort online users by name length descending to catch most specific matches first
         const sortedOnlineUsers = [...onlineUsers].sort((a, b) => b.username.length - a.username.length);
-        console.log(`[SOCIAL]: Checking mention against ${sortedOnlineUsers.length} online users...`);
 
         for (const u of sortedOnlineUsers) {
             const prefix = `@${u.username}`;
             if (text.toLowerCase().startsWith(prefix.toLowerCase())) {
                 foundUser = u;
-                // Strip the mention and any leading punctuation/spaces
                 msgBody = text.substring(prefix.length).replace(/^[:\s]+/, '').trim();
-                console.log(`[SOCIAL]: Found mention match! User: ${u.username} (${u.userId}). Body: "${msgBody}"`);
                 break;
             }
         }
 
         if (foundUser && msgBody) {
             const msgId = `opt_w_${Date.now()}_${entropy}`;
-            console.log(`[SOCIAL]: Sending whisper to ${foundUser.username}. ID: ${msgId}`);
+            console.log(`[SOCIAL]: SENDING whisper to ${foundUser.username} (${foundUser.userId}). Msg: "${msgBody}"`);
             
-            setMessages(prev => [...prev, {
+            const localMsg: ChatMessage = {
                 id: msgId,
                 sender: myUsername,
                 senderId: myId,
                 text: `[TO ${foundUser.username}]: ${msgBody}`,
                 timestamp: Date.now(),
                 category: 'social'
-            }]);
+            };
+
+            setMessages(prev => {
+                const next = [...prev, localMsg];
+                return next.slice(-100);
+            });
             
             setVisibleCategories(prev => {
                 const next = new Set(prev);
@@ -383,28 +381,29 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
                 sender: myUsername, 
                 senderId: myId 
             };
-            console.log(`[SOCIAL]: Dispatching whisper payload:`, whisperPayload);
             wsRef.current.send(JSON.stringify(whisperPayload));
             return;
         } else if (text.split(' ')[0].startsWith('@')) {
             const attemptedName = text.split(' ')[0].substring(1);
-            console.warn(`[SOCIAL]: Whisper target "${attemptedName}" not found online.`);
             addLog(`User ${attemptedName} is not online.`);
             return;
         }
     }
 
     const msgId = `opt_${Date.now()}_${entropy}`;
-    console.log(`[SOCIAL]: Sending regular broadcast. ID: ${msgId}, Category: ${category}`);
-    
-    setMessages(prev => [...prev, {
+    const broadcastMsg: ChatMessage = {
         id: msgId,
         sender: myUsername,
         senderId: myId,
         text: text,
         timestamp: Date.now(),
         category: category
-    }]);
+    };
+    
+    setMessages(prev => {
+        const next = [...prev, broadcastMsg];
+        return next.slice(-100);
+    });
 
     const broadcastPayload = { 
         type: 'chat-message', 
@@ -415,7 +414,6 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
         sender: myUsername, 
         senderId: myId 
     };
-    console.log(`[SOCIAL]: Dispatching broadcast payload:`, broadcastPayload);
     wsRef.current.send(JSON.stringify(broadcastPayload));
   }, [user?.uid, addLog, onlineUsers]);
 
@@ -521,7 +519,6 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
   }, [user, firestore, addLog]);
 
   const startDm = (username: string) => {
-      console.log(`[SOCIAL]: startDm triggered for ${username}`);
       setIsMessengerOpen(true);
       const next = new Set(visibleCategories); next.add('social');
       setVisibleCategories(next); setChatInput(`@${username} `);

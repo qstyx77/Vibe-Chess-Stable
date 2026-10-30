@@ -1,3 +1,4 @@
+
 import WebSocket from 'ws';
 import http from 'http';
 import { URL } from 'url';
@@ -377,12 +378,14 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
             
             switch (data.type) {
                 case 'identify':
-                    console.log(`[SERVER]: Identifying connection for UID: ${data.userId} (${data.username})`);
-                    ws.userId = data.userId;
-                    ws.username = data.username;
-                    userConnections[data.userId] = ws;
-                    broadcastPresence();
-                    ws.send(JSON.stringify({ type: 'tournament-queue-update', count: arenaQueue.length }));
+                    if (data.userId) {
+                        console.log(`[SERVER]: Identifying connection for UID: ${data.userId} (${data.username})`);
+                        ws.userId = data.userId;
+                        ws.username = data.username;
+                        userConnections[data.userId] = ws;
+                        broadcastPresence();
+                        ws.send(JSON.stringify({ type: 'tournament-queue-update', count: arenaQueue.length }));
+                    }
                     break;
                 case 'player-command': {
                     const sendResponse = (text: string) => {
@@ -466,16 +469,9 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
 
                     try {
                         let isVerifiedAdmin = false;
-                        try {
-                            const userSnap = await admin.firestore().doc(`users/${authId}`).get();
-                            const userData = userSnap.data();
-                            if (userData?.role === 'admin') isVerifiedAdmin = true;
-                        } catch (dbError) {
-                            console.warn("[Admin] Database unreachable, performing session fallback...");
-                            if (ws.username?.toUpperCase() === 'SUGGA') {
-                                isVerifiedAdmin = true;
-                            }
-                        }
+                        const userSnap = await admin.firestore().doc(`users/${authId}`).get();
+                        const userData = userSnap.data();
+                        if (userData?.role === 'admin') isVerifiedAdmin = true;
 
                         if (!isVerifiedAdmin) {
                             sendResponse("PERMISSION DENIED: Administrative access required.", 0);
@@ -579,8 +575,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                         console.warn("[SERVER]: chat-message received without senderId.");
                         break;
                     }
-                    console.log(`[SERVER]: chat-message from ${data.sender} (${data.senderId}). Category: ${data.category}. Target: ${data.targetId || data.targetName || 'ALL'}`);
-
+                    
                     const senderSnap = await admin.firestore().doc(`users/${data.senderId}`).get();
                     const senderData = senderSnap.data();
                     if (senderData?.mutedUntil && senderData.mutedUntil > Date.now()) {
@@ -603,33 +598,27 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                     const targetName = data.targetName;
 
                     if (targetId || targetName) {
-                        console.log(`[SERVER]: Routing WHISPER. Resolved targetId: ${targetId}, targetName: ${targetName}`);
                         let targetUid = targetId;
                         if (!targetUid && targetName) {
-                            console.log(`[SERVER]: UID not provided for whisper. Attempting name lookup for "${targetName}"...`);
                             targetUid = await getUidByUsername(targetName);
                         }
                         
                         const targetWs = targetUid ? userConnections[targetUid] : null;
-                        if (targetWs) {
-                            console.log(`[SERVER]: FOUND recipient socket for UID ${targetUid}. Sending whisper...`);
-                            // Force category to social for whispers to ensure visibility
+                        if (targetWs && targetWs.readyState === WebSocket.OPEN) {
+                            console.log(`[SERVER]: Routing WHISPER to UID ${targetUid}`);
                             const chatMsg = { ...msg, text: `[WHISPER]: ${data.text}`, category: 'social' as const };
                             targetWs.send(JSON.stringify({ type: 'chat-message', message: chatMsg }));
-                            // Echo back to the sender
                             ws.send(JSON.stringify({ type: 'chat-message', message: { ...msg, text: `[TO ${targetName || targetWs.username}]: ${data.text}`, category: 'social' as const } }));
                         } else {
-                            console.warn(`[SERVER]: Recipient UID ${targetUid || 'NULL'} NOT ONLINE. Failed to route whisper.`);
+                            console.warn(`[SERVER]: Whisper recipient ${targetUid || targetName} is unreachable.`);
                             ws.send(JSON.stringify({ type: 'chat-message', message: { ...msg, id: `msg_err_${Date.now()}_${entropy}`, sender: 'SYSTEM', text: `Error: ${targetName || 'User'} is offline.`, category: 'log' as const } }));
                         }
                         break;
                     }
 
                     if (data.category === 'battle' && ws.roomId) {
-                        console.log(`[SERVER]: Broadcasting message to ROOM: ${ws.roomId}`);
                         broadcastToRoom(ws.roomId, { type: 'chat-message', message: msg });
                     } else {
-                        console.log(`[SERVER]: Global broadcast to all clients.`);
                         wss.clients.forEach(client => {
                             if (client.readyState === WebSocket.OPEN) client.send(JSON.stringify({ type: 'chat-message', message: msg }));
                         });
@@ -968,7 +957,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
     ws.on('close', () => {
         if (ws.userId) {
             console.log(`[SERVER]: Connection closed for UID: ${ws.userId} (${ws.username})`);
-            // Fix connection race condition: Only delete if this closing socket is the one actively tracked.
+            // Only delete from active tracker if this socket is the current primary connection for the user.
             if (userConnections[ws.userId] === ws) {
                 delete userConnections[ws.userId];
             }
