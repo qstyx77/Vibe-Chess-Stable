@@ -278,7 +278,7 @@ const handleTournamentGameOver = (tournamentId: string, roomId: string, winnerCo
     const eloChanges = calculateEloChange(winnerData.elo || 1200, loserElo);
     const eloInfo: any = {};
     eloInfo[winnerData.userId] = { oldElo: winnerData.elo || 1200, newElo: (winnerData.elo || 1200) + eloChanges.winnerGain };
-    eloInfo[loserData.userId] = { oldElo: loserData.elo || 1200, newElo: (loserData.elo || 1200) + eloChanges.loserLoss };
+    eloInfo[loserData.userId] = { oldElo: winnerData.elo || 1200, newElo: (winnerData.elo || 1200) + eloChanges.loserLoss };
 
     const goldEarned: Record<string, number> = {};
     if (tournament.round === 3) goldEarned[winnerData.userId] = 500; 
@@ -377,6 +377,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
             
             switch (data.type) {
                 case 'identify':
+                    console.log(`[SERVER]: Identifying connection for UID: ${data.userId} (${data.username})`);
                     ws.userId = data.userId;
                     ws.username = data.username;
                     userConnections[data.userId] = ws;
@@ -574,7 +575,12 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                     }
                     break;
                 case 'chat-message': {
-                    if (!data.senderId) break;
+                    if (!data.senderId) {
+                        console.warn("[SERVER]: chat-message received without senderId.");
+                        break;
+                    }
+                    console.log(`[SERVER]: chat-message from ${data.sender} (${data.senderId}). Category: ${data.category}. Target: ${data.targetId || data.targetName || 'ALL'}`);
+
                     const senderSnap = await admin.firestore().doc(`users/${data.senderId}`).get();
                     const senderData = senderSnap.data();
                     if (senderData?.mutedUntil && senderData.mutedUntil > Date.now()) {
@@ -597,25 +603,32 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                     const targetName = data.targetName;
 
                     if (targetId || targetName) {
+                        console.log(`[SERVER]: Routing WHISPER. Resolved targetId: ${targetId}, targetName: ${targetName}`);
                         let targetUid = targetId;
                         if (!targetUid && targetName) {
+                            console.log(`[SERVER]: UID not provided for whisper. Attempting name lookup for "${targetName}"...`);
                             targetUid = await getUidByUsername(targetName);
                         }
                         
                         const targetWs = targetUid ? userConnections[targetUid] : null;
                         if (targetWs) {
+                            console.log(`[SERVER]: FOUND recipient socket for UID ${targetUid}. Sending whisper...`);
                             const chatMsg = { ...msg, text: `[WHISPER]: ${data.text}` };
                             targetWs.send(JSON.stringify({ type: 'chat-message', message: chatMsg }));
-                            // Echo back to the sender to confirm delivery and deduplicate
+                            // Echo back to the sender
                             ws.send(JSON.stringify({ type: 'chat-message', message: { ...msg, text: `[TO ${targetName || targetWs.username}]: ${data.text}` } }));
                         } else {
+                            console.warn(`[SERVER]: Recipient UID ${targetUid || 'NULL'} NOT ONLINE. Failed to route whisper.`);
                             ws.send(JSON.stringify({ type: 'chat-message', message: { ...msg, id: `msg_err_${Date.now()}_${entropy}`, sender: 'SYSTEM', text: `Error: ${targetName || 'User'} is offline.`, category: 'log' } }));
                         }
                         break;
                     }
 
-                    if (data.category === 'battle' && ws.roomId) broadcastToRoom(ws.roomId, { type: 'chat-message', message: msg });
-                    else {
+                    if (data.category === 'battle' && ws.roomId) {
+                        console.log(`[SERVER]: Broadcasting message to ROOM: ${ws.roomId}`);
+                        broadcastToRoom(ws.roomId, { type: 'chat-message', message: msg });
+                    } else {
+                        console.log(`[SERVER]: Global broadcast to all clients.`);
                         wss.clients.forEach(client => {
                             if (client.readyState === WebSocket.OPEN) client.send(JSON.stringify({ type: 'chat-message', message: msg }));
                         });
@@ -952,7 +965,10 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
         } catch (err) { console.error('[Server] Msg Error:', err); }
     });
     ws.on('close', () => {
-        if (ws.userId) delete userConnections[ws.userId];
+        if (ws.userId) {
+            console.log(`[SERVER]: Connection closed for UID: ${ws.userId} (${ws.username})`);
+            delete userConnections[ws.userId];
+        }
         arenaQueue = arenaQueue.filter(p => p.userId !== ws.userId);
         broadcastPresence();
         wss.clients.forEach(c => c.send(JSON.stringify({ type: 'tournament-queue-update', count: arenaQueue.length })));
