@@ -32,15 +32,15 @@ const RuleSection = ({ title, children }: { title: string, children: React.React
 );
 
 const RuleText = ({ children }: { children: React.ReactNode }) => (
-  <p className="text-[0.8rem] font-medium text-foreground/90 leading-relaxed pl-2 border-l-2 border-primary/30">
+  <p className="text-[0.65rem] font-pixel uppercase text-foreground/90 leading-relaxed pl-2 border-l-2 border-primary/30">
     {children}
   </p>
 );
 
 const SubRule = ({ title, children }: { title: string, children: React.ReactNode }) => (
   <div className="ml-2 mb-2">
-    <p className="text-[0.75rem] font-bold text-accent uppercase mb-1">{title}</p>
-    <div className="text-[0.8rem] text-foreground/80 pl-2">{children}</div>
+    <p className="text-[0.65rem] font-pixel uppercase font-bold text-accent mb-1">{title}</p>
+    <div className="text-[0.65rem] font-pixel uppercase text-foreground/80 pl-2">{children}</div>
   </div>
 );
 
@@ -68,13 +68,14 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               <AccordionTrigger className="text-[0.65rem] font-bold uppercase hover:text-accent">I. Overview & Modes</AccordionTrigger>
               <AccordionContent>
                 <RuleSection title="The Game">
-                  <RuleText>Vibe Chess is a high-stakes, 8-bit tactical strategy game where every unit levels up through combat, unlocking powerful skills and global effects.</RuleText>
+                  <RuleText>Vibe Chess is a high-stakes, tactical strategy game that takes the classic foundation of Chess and injects it with RPG-style leveling, unique units, and a powerful equipment system.</RuleText>
                 </RuleSection>
                 <RuleSection title="Modes">
-                  <RuleText>• Local Play: Play against a friend on the same device or toggle the AI for practice.</RuleText>
+                  <RuleText>• Local Lobby: Play against a friend on the same device or toggle the AI for practice.</RuleText>
                   <RuleText>• Casual Online: Play with friends via Room IDs.</RuleText>
                   <RuleText>• Ranked Matchmaking: Gain Elo and unlock elite units. High Elo increases your 'Attunement Slots' for equipment.</RuleText>
                   <RuleText>• Dungeon Mode (PvE): A 50-floor crawl against boss entities and scaling armies. Progress is persistent.</RuleText>
+                  <RuleText>• Note: In Local Lobby and Casual Online rooms, all lost, stolen, or consumed items are returned to your Loot Bag at the end of the match.</RuleText>
                 </RuleSection>
               </AccordionContent>
             </AccordionItem>
@@ -107,9 +108,6 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                   </SubRule>
                   <SubRule title="Infiltrator">
                     <RuleText>A deadly assassin that moves and captures forward or diagonally. Captures by an Infiltrator 'Obliterate' the target, removing it from the game entirely (no resurrection). Reaching the back rank results in an instant win.</RuleText>
-                  </SubRule>
-                  <SubRule title="The Mimic">
-                    <RuleText>Mimics replicate the movement pattern and skills of the absolute last piece that moved globally, scaled by the Mimic's current level. Special items allow Mimics to replicate equipment from specific history tracks.</RuleText>
                   </SubRule>
                 </RuleSection>
               </AccordionContent>
