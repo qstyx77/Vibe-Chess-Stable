@@ -613,13 +613,14 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                         const targetWs = targetUid ? userConnections[targetUid] : null;
                         if (targetWs) {
                             console.log(`[SERVER]: FOUND recipient socket for UID ${targetUid}. Sending whisper...`);
-                            const chatMsg = { ...msg, text: `[WHISPER]: ${data.text}` };
+                            // Force category to social for whispers to ensure visibility
+                            const chatMsg = { ...msg, text: `[WHISPER]: ${data.text}`, category: 'social' as const };
                             targetWs.send(JSON.stringify({ type: 'chat-message', message: chatMsg }));
                             // Echo back to the sender
-                            ws.send(JSON.stringify({ type: 'chat-message', message: { ...msg, text: `[TO ${targetName || targetWs.username}]: ${data.text}` } }));
+                            ws.send(JSON.stringify({ type: 'chat-message', message: { ...msg, text: `[TO ${targetName || targetWs.username}]: ${data.text}`, category: 'social' as const } }));
                         } else {
                             console.warn(`[SERVER]: Recipient UID ${targetUid || 'NULL'} NOT ONLINE. Failed to route whisper.`);
-                            ws.send(JSON.stringify({ type: 'chat-message', message: { ...msg, id: `msg_err_${Date.now()}_${entropy}`, sender: 'SYSTEM', text: `Error: ${targetName || 'User'} is offline.`, category: 'log' } }));
+                            ws.send(JSON.stringify({ type: 'chat-message', message: { ...msg, id: `msg_err_${Date.now()}_${entropy}`, sender: 'SYSTEM', text: `Error: ${targetName || 'User'} is offline.`, category: 'log' as const } }));
                         }
                         break;
                     }
@@ -886,7 +887,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                             if (winnerData && loserData) {
                                 const changes = calculateEloChange(winnerData.elo || 1200, loserData.elo || 1200);
                                 eloInfo[winnerData.userId] = { oldElo: winnerData.elo || 1200, newElo: (winnerData.elo || 1200) + changes.winnerGain };
-                                eloInfo[loserData.userId] = { oldElo: loserData.elo || 1200, newElo: (loserData.elo || 1200) + changes.loserLoss };
+                                eloInfo[loserData.userId] = { oldElo: winnerData.elo || 1200, newElo: (winnerData.elo || 1200) + changes.loserLoss };
                             }
                             broadcastToRoom(ws.roomId!, { type: 'game-over', winner: playerColor, reason, eloInfo, goldEarned: {}, moveCount: gs.gameMoveCounter });
                         }
@@ -918,7 +919,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                             if (winnerData && loserData) {
                                 const changes = calculateEloChange(winnerData.elo || 1200, loserData.elo || 1200);
                                 eloInfo[winnerData.userId] = { oldElo: winnerData.elo || 1200, newElo: (winnerData.elo || 1200) + changes.winnerGain };
-                                eloInfo[loserData.userId] = { oldElo: loserData.elo || 1200, newElo: (loserData.elo || 1200) + changes.loserLoss };
+                                eloInfo[loserData.userId] = { oldElo: winnerData.elo || 1200, newElo: (winnerData.elo || 1200) + changes.loserLoss };
                             }
                             broadcastToRoom(ws.roomId!, { type: 'game-over', winner: playerColor, reason: 'checkmate', eloInfo, goldEarned: {}, moveCount: gs.gameMoveCounter });
                         }
@@ -967,7 +968,10 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
     ws.on('close', () => {
         if (ws.userId) {
             console.log(`[SERVER]: Connection closed for UID: ${ws.userId} (${ws.username})`);
-            delete userConnections[ws.userId];
+            // Fix connection race condition: Only delete if this closing socket is the one actively tracked.
+            if (userConnections[ws.userId] === ws) {
+                delete userConnections[ws.userId];
+            }
         }
         arenaQueue = arenaQueue.filter(p => p.userId !== ws.userId);
         broadcastPresence();
