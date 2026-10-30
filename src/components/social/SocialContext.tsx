@@ -316,40 +316,56 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
 
     // Handle @ Mentions / Whispers
     if (text.startsWith('@')) {
-        const match = text.match(/^@([a-zA-Z0-9_-]+)([:\s].*|$)/);
-        if (match) {
-            const targetName = match[1];
-            const msgBody = (match[2] || '').replace(/^[:\s]+/, '').trim();
-            const foundUser = onlineUsers.find(u => u.username.toLowerCase() === targetName.toLowerCase());
-
-            if (foundUser && msgBody) {
-                const msgId = `opt_w_${Date.now()}_${entropy}`;
-                
-                setMessages(prev => [...prev, {
-                    id: msgId,
-                    sender: myUsername,
-                    senderId: myId,
-                    text: `[TO ${foundUser.username}]: ${msgBody}`,
-                    timestamp: Date.now(),
-                    category: 'social'
-                }]);
-                setVisibleCategories(prev => new Set(prev).add('social'));
-
-                wsRef.current.send(JSON.stringify({ 
-                    type: 'chat-message', 
-                    id: msgId,
-                    category: 'social', 
-                    text: msgBody, 
-                    targetId: foundUser.userId,
-                    targetName: foundUser.username, 
-                    sender: myUsername, 
-                    senderId: myId 
-                }));
-                return;
-            } else if (!foundUser) {
-                addLog(`User ${targetName} is not online.`);
-                return;
+        // IMPROVED PARSING: Support names with spaces by matching longest online username prefix
+        let foundUser = null;
+        let msgBody = "";
+        
+        // Sort online users by name length descending to catch most specific matches first
+        const sortedOnlineUsers = [...onlineUsers].sort((a, b) => b.username.length - a.username.length);
+        
+        for (const u of sortedOnlineUsers) {
+            const prefix = `@${u.username}`;
+            if (text.toLowerCase().startsWith(prefix.toLowerCase())) {
+                foundUser = u;
+                // Strip the mention and any leading punctuation/spaces
+                msgBody = text.substring(prefix.length).replace(/^[:\s]+/, '').trim();
+                break;
             }
+        }
+
+        if (foundUser && msgBody) {
+            const msgId = `opt_w_${Date.now()}_${entropy}`;
+            
+            setMessages(prev => [...prev, {
+                id: msgId,
+                sender: myUsername,
+                senderId: myId,
+                text: `[TO ${foundUser.username}]: ${msgBody}`,
+                timestamp: Date.now(),
+                category: 'social'
+            }]);
+            
+            setVisibleCategories(prev => {
+                const next = new Set(prev);
+                next.add('social');
+                return next;
+            });
+
+            wsRef.current.send(JSON.stringify({ 
+                type: 'chat-message', 
+                id: msgId,
+                category: 'social', 
+                text: msgBody, 
+                targetId: foundUser.userId,
+                targetName: foundUser.username, 
+                sender: myUsername, 
+                senderId: myId 
+            }));
+            return;
+        } else if (text.split(' ')[0].startsWith('@')) {
+            const attemptedName = text.split(' ')[0].substring(1);
+            addLog(`User ${attemptedName} is not online.`);
+            return;
         }
     }
 
