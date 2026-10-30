@@ -387,17 +387,18 @@ wss.on('connection', (ws: UserConnection) => {
             switch (data.type) {
                 case 'identify':
                     if (data.userId) {
-                        console.log(`[SERVER]: Identifying connection for UID: ${data.userId} (${data.username})`);
                         ws.userId = data.userId;
                         ws.username = data.username;
-                        
-                        // Cache user permissions to avoid slow Firestore lookups in message loop
-                        const userSnap = await admin.firestore().doc(`users/${data.userId}`).get();
-                        const userData = userSnap.data();
-                        ws.isMuted = userData?.mutedUntil && userData.mutedUntil > Date.now();
-                        ws.isAdmin = userData?.role === 'admin';
-
                         userConnections[data.userId] = ws;
+                        
+                        // NON-BLOCKING PERMISSION CACHE
+                        // This allows users to appear online instantly while metadata loads in background
+                        admin.firestore().doc(`users/${data.userId}`).get().then(snap => {
+                            const userData = snap.data();
+                            ws.isMuted = userData?.mutedUntil && userData.mutedUntil > Date.now();
+                            ws.isAdmin = userData?.role === 'admin';
+                        }).catch(e => console.error(`[SERVER]: Error fetching user data for ${data.userId}:`, e));
+
                         broadcastPresence();
                         ws.send(JSON.stringify({ type: 'tournament-queue-update', count: arenaQueue.length }));
                     }
@@ -597,12 +598,11 @@ wss.on('connection', (ws: UserConnection) => {
                         
                         const targetWs = targetUid ? userConnections[targetUid] : null;
                         if (targetWs && targetWs.readyState === WebSocket.OPEN) {
-                            console.log(`[SERVER]: Routing WHISPER to UID ${targetUid}. Found connection: true`);
+                            // Ensure whispers are always in the social category
                             const chatMsg = { ...msg, text: `[WHISPER]: ${data.text}`, category: 'social' as const };
                             targetWs.send(JSON.stringify({ type: 'chat-message', message: chatMsg }));
                             ws.send(JSON.stringify({ type: 'chat-message', message: { ...msg, text: `[TO ${targetName || targetWs.username}]: ${data.text}`, category: 'social' as const } }));
                         } else {
-                            console.warn(`[SERVER]: Whisper recipient ${targetUid || targetName} is unreachable. Socket found: ${!!targetWs}`);
                             ws.send(JSON.stringify({ type: 'chat-message', message: { ...msg, id: `msg_err_${Date.now()}_${entropy}`, sender: 'SYSTEM', text: `Error: ${targetName || 'User'} is offline.`, category: 'log' as const } }));
                         }
                         break;
@@ -948,8 +948,9 @@ wss.on('connection', (ws: UserConnection) => {
     });
     ws.on('close', () => {
         if (ws.userId) {
-            console.log(`[SERVER]: Connection closed for UID: ${ws.userId} (${ws.username})`);
-            // Only delete from active tracker if this socket is the current primary connection for the user.
+            // SAFE DISCONNECT: Only remove from map if this exact socket is the one registered.
+            // This prevents race conditions where a new connection from a page refresh is 
+            // accidentally deleted by the closing handshake of the old connection.
             if (userConnections[ws.userId] === ws) {
                 delete userConnections[ws.userId];
             }
