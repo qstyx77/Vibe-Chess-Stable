@@ -411,7 +411,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                         sendResponse(`Removed ${targetName} from your friends.`);
                     } else if (cmd === '/invite' && targetUid) {
                         if (!ws.roomId) { sendResponse("Error: You are not in a game room."); break; }
-                        const targetWs = userConnections[targetUid];
+                        const targetWs = targetUid ? userConnections[targetUid] : null;
                         if (targetWs) {
                             targetWs.send(JSON.stringify({ type: 'chat-message', message: {
                                 id: `inv_${Date.now()}`,
@@ -593,16 +593,23 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                         category: data.category
                     };
 
-                    if (data.targetName) {
-                        const targetUid = await getUidByUsername(data.targetName);
+                    const targetId = data.targetId;
+                    const targetName = data.targetName;
+
+                    if (targetId || targetName) {
+                        let targetUid = targetId;
+                        if (!targetUid && targetName) {
+                            targetUid = await getUidByUsername(targetName);
+                        }
+                        
                         const targetWs = targetUid ? userConnections[targetUid] : null;
                         if (targetWs) {
                             const chatMsg = { ...msg, text: `[WHISPER]: ${data.text}` };
                             targetWs.send(JSON.stringify({ type: 'chat-message', message: chatMsg }));
                             // Echo back with SAME ID to satisfy client deduplication
-                            ws.send(JSON.stringify({ type: 'chat-message', message: { ...msg, text: `[TO ${data.targetName}]: ${data.text}` } }));
+                            ws.send(JSON.stringify({ type: 'chat-message', message: { ...msg, text: `[TO ${targetName || targetWs.username}]: ${data.text}` } }));
                         } else {
-                            ws.send(JSON.stringify({ type: 'chat-message', message: { ...msg, id: `msg_err_${Date.now()}_${entropy}`, sender: 'SYSTEM', text: `Error: ${data.targetName} is offline.`, category: 'log' } }));
+                            ws.send(JSON.stringify({ type: 'chat-message', message: { ...msg, id: `msg_err_${Date.now()}_${entropy}`, sender: 'SYSTEM', text: `Error: ${targetName || 'User'} is offline.`, category: 'log' } }));
                         }
                         break;
                     }

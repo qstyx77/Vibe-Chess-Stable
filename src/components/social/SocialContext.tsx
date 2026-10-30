@@ -324,6 +324,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
                     id: msgId,
                     category: 'social', 
                     text: msgBody, 
+                    targetId: foundUser.userId,
                     targetName: foundUser.username, 
                     sender: myUsername, 
                     senderId: myId 
