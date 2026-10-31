@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -142,7 +142,7 @@ export function AdminSanctum({ isOpen, onOpenChange }: AdminSanctumProps) {
            </div>
         </div>
 
-        <DialogHeader className="p-6 border-b border-border/50 relative z-10 bg-black/60 backdrop-blur-sm">
+        <DialogHeader className="p-6 border-b border-border/50 relative z-10 bg-black/60 backdrop-blur-sm shrink-0">
            <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                  <PixelGear className="h-10 w-10 text-primary animate-spin-slow ascii-shader" />
@@ -161,14 +161,14 @@ export function AdminSanctum({ isOpen, onOpenChange }: AdminSanctumProps) {
            </div>
         </DialogHeader>
 
-        <div className="flex-1 overflow-hidden flex flex-col lg:flex-row relative z-10">
+        <div className="flex-1 overflow-y-auto lg:overflow-hidden flex flex-col lg:flex-row relative z-10 scrollbar-hide">
             {/* HERO LEDGER MAIN PANEL */}
-            <div className="flex-grow flex flex-col border-r border-border/30 p-4 bg-black/20">
-                <div className="flex items-center justify-between mb-4 px-1">
+            <div className="w-full lg:flex-1 flex flex-col lg:border-r border-border/30 p-4 bg-black/20">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-3 px-1">
                     <h2 className="text-[0.65rem] text-primary uppercase font-bold flex items-center gap-2">
-                        <UserIcon className="h-4 w-4" /> Hero Ledger
+                        <UserIcon className="h-4 w-4" /> Hero Ledger ({filteredUsers.length})
                     </h2>
-                    <div className="relative w-64">
+                    <div className="relative w-full sm:w-64">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input 
                             placeholder="SEARCH HERO..." 
@@ -179,26 +179,26 @@ export function AdminSanctum({ isOpen, onOpenChange }: AdminSanctumProps) {
                     </div>
                 </div>
 
-                <ScrollArea className="flex-1 pr-4 border border-primary/10 bg-black/40">
+                <ScrollArea className="h-[50vh] lg:h-auto lg:flex-1 pr-4 border border-primary/10 bg-black/40">
                     <div className="p-2 space-y-2">
                         {filteredUsers.map(u => {
                             const isOnline = onlineUserIds.has(u.id);
                             const stats = localStats[u.id] || { gold: u.goldBalance || 0, elo: u.eloRating || 1200 };
                             return (
                                 <Card key={u.id} className="border border-border/50 bg-muted/5 rounded-none hover:bg-primary/5 transition-colors">
-                                    <CardContent className="p-3 flex items-center justify-between gap-4">
+                                    <CardContent className="p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                                         <div className="flex items-center gap-3 min-w-[140px]">
                                             <div className={cn(
-                                                "w-2 h-2 rounded-full",
+                                                "w-2 h-2 rounded-full shrink-0",
                                                 isOnline ? "bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.5)]" : "bg-slate-700"
                                             )} />
-                                            <div>
+                                            <div className="min-w-0">
                                                 <p className="text-[0.65rem] text-white uppercase truncate font-bold">{u.username}</p>
-                                                <p className="text-[0.45rem] text-muted-foreground uppercase mt-0.5">ID: {u.id.slice(0, 8)}...</p>
+                                                <p className="text-[0.45rem] text-muted-foreground uppercase mt-0.5 truncate">ID: {u.id.slice(0, 8)}...</p>
                                             </div>
                                         </div>
 
-                                        <div className="flex items-center gap-4 flex-grow justify-end">
+                                        <div className="flex items-center gap-4 flex-wrap sm:flex-nowrap justify-end">
                                             <div className="flex items-center gap-2 bg-black/40 border border-yellow-500/20 px-2 py-1">
                                                 <Coins className="h-3 w-3 text-yellow-500" />
                                                 <input 
@@ -250,7 +250,7 @@ export function AdminSanctum({ isOpen, onOpenChange }: AdminSanctumProps) {
             </div>
 
             {/* BROADCAST TOOL SIDEBAR */}
-            <div className="w-full lg:w-80 p-4 bg-muted/10 border-t lg:border-t-0 flex flex-col gap-4">
+            <div className="w-full lg:w-80 p-4 bg-muted/10 border-t lg:border-t-0 flex flex-col gap-4 shrink-0">
                 <section className="space-y-3">
                     <h2 className="text-[0.65rem] text-accent uppercase font-bold flex items-center gap-2">
                         <Megaphone className="h-4 w-4" /> Global Voice
@@ -291,7 +291,7 @@ export function AdminSanctum({ isOpen, onOpenChange }: AdminSanctumProps) {
             </div>
         </div>
 
-        <div className="p-4 bg-black border-t border-border/50 text-center relative z-10">
+        <div className="p-4 bg-black border-t border-border/50 text-center relative z-10 shrink-0">
             <p className="text-[0.5rem] text-muted-foreground uppercase tracking-widest font-bold">
                Vibe Chess Architectural Console v1.0.9-BETA
             </p>
