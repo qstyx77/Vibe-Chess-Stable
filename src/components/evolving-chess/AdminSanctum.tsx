@@ -62,6 +62,7 @@ export function AdminSanctum({ isOpen, onOpenChange }: AdminSanctumProps) {
   useEffect(() => {
     if (!ws) return;
     const handleAdminList = (event: MessageEvent) => {
+        console.log("[ADMIN SANCTUM]: Socket pulse received:", event.data.substring(0, 100));
         try {
             const data = JSON.parse(event.data);
             if (data.type === 'admin-users-list') {
@@ -69,13 +70,15 @@ export function AdminSanctum({ isOpen, onOpenChange }: AdminSanctumProps) {
                 setUsers(data.users);
                 const initialLocal: Record<string, { gold: number, elo: number }> = {};
                 data.users.forEach((u: AdminUserRecord) => {
-                    initialLocal[u.id] = { gold: u.goldBalance, elo: u.eloRating };
+                    initialLocal[u.id] = { gold: u.goldBalance || 0, elo: u.eloRating || 1200 };
                 });
                 setLocalStats(initialLocal);
-                clearLoading();
+                setLoading(false);
+                if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current);
             } else if (data.type === 'admin-error') {
                 console.error("[ADMIN SANCTUM]: Server reported error:", data.message);
-                clearLoading();
+                setLoading(false);
+                if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current);
             }
         } catch (e) {
             // Not admin data
@@ -88,14 +91,6 @@ export function AdminSanctum({ isOpen, onOpenChange }: AdminSanctumProps) {
     };
   }, [ws]);
 
-  const clearLoading = () => {
-    setLoading(false);
-    if (loadingTimeoutRef.current) {
-        clearTimeout(loadingTimeoutRef.current);
-        loadingTimeoutRef.current = null;
-    }
-  };
-
   const refreshUserList = () => {
     if (ws?.readyState === WebSocket.OPEN) {
       setLoading(true);
@@ -105,10 +100,13 @@ export function AdminSanctum({ isOpen, onOpenChange }: AdminSanctumProps) {
       // Safety timeout: Release UI if server doesn't respond
       if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current);
       loadingTimeoutRef.current = setTimeout(() => {
-          if (loading) {
-              setLoading(false);
-              console.warn("[ADMIN SANCTUM]: Server list request timed out after 10s.");
-          }
+          setLoading(current => {
+              if (current) {
+                  console.warn("[ADMIN SANCTUM]: Server list request timed out after 10s. Forcing clear...");
+                  return false;
+              }
+              return current;
+          });
       }, 10000);
     } else {
         console.error("[ADMIN SANCTUM]: Cannot refresh list, WebSocket is not open.");
@@ -204,7 +202,7 @@ export function AdminSanctum({ isOpen, onOpenChange }: AdminSanctumProps) {
                     <div className="p-2 space-y-2">
                         {filteredUsers.map(u => {
                             const isOnline = onlineUserIds.has(u.id);
-                            const stats = localStats[u.id] || { gold: 0, elo: 0 };
+                            const stats = localStats[u.id] || { gold: 0, elo: 1200 };
                             return (
                                 <Card key={u.id} className="border border-border/50 bg-muted/5 rounded-none hover:bg-primary/5 transition-colors">
                                     <CardContent className="p-3 flex items-center justify-between gap-4">
@@ -314,7 +312,7 @@ export function AdminSanctum({ isOpen, onOpenChange }: AdminSanctumProps) {
 
         <div className="p-4 bg-black border-t border-border/50 text-center relative z-10">
             <p className="text-[0.5rem] text-muted-foreground uppercase tracking-widest font-bold">
-               Vibe Chess Architectural Console v1.0.8-BETA
+               Vibe Chess Architectural Console v1.0.9-BETA
             </p>
         </div>
       </DialogContent>

