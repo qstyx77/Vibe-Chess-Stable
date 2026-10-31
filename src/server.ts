@@ -391,8 +391,6 @@ wss.on('connection', (ws: UserConnection) => {
                         ws.username = data.username;
                         userConnections[data.userId] = ws;
                         
-                        // NON-BLOCKING PERMISSION CACHE
-                        // This allows users to appear online instantly while metadata loads in background
                         admin.firestore().doc(`users/${data.userId}`).get().then(snap => {
                             const userData = snap.data();
                             ws.isMuted = userData?.mutedUntil && userData.mutedUntil > Date.now();
@@ -403,6 +401,41 @@ wss.on('connection', (ws: UserConnection) => {
                         ws.send(JSON.stringify({ type: 'tournament-queue-update', count: arenaQueue.length }));
                     }
                     break;
+                case 'admin-action': {
+                    if (!ws.isAdmin) break;
+                    const { action, payload } = data;
+                    if (action === 'get-all-users') {
+                        const snap = await admin.firestore().collection('users').limit(200).get();
+                        const users = snap.docs.map(d => ({ ...d.data(), id: d.id }));
+                        ws.send(JSON.stringify({ type: 'admin-users-list', users }));
+                    } else if (action === 'update-user') {
+                        const { targetUid, gold, elo } = payload;
+                        await admin.firestore().doc(`users/${targetUid}`).update({ 
+                            goldBalance: gold, 
+                            eloRating: elo 
+                        });
+                        const targetWs = userConnections[targetUid];
+                        if (targetWs) {
+                            targetWs.send(JSON.stringify({ type: 'chat-message', message: {
+                                id: `admin_upd_${Date.now()}`,
+                                sender: 'SYSTEM',
+                                text: `[SANCTUM]: Your stats have been refined by the Architect.`,
+                                category: 'log',
+                                timestamp: Date.now()
+                            }}));
+                        }
+                    } else if (action === 'broadcast') {
+                        const msg = JSON.stringify({ type: 'chat-message', message: {
+                            id: `broadcast_${Date.now()}`,
+                            sender: 'SYSTEM',
+                            text: `[REALM BROADCAST]: ${payload.text.toUpperCase()}`,
+                            timestamp: Date.now(),
+                            category: 'log'
+                        }});
+                        wss.clients.forEach(c => { if(c.readyState === WebSocket.OPEN) c.send(msg); });
+                    }
+                    break;
+                }
                 case 'player-command': {
                     const sendResponse = (text: string) => {
                         ws.send(JSON.stringify({ 
@@ -598,7 +631,6 @@ wss.on('connection', (ws: UserConnection) => {
                         
                         const targetWs = targetUid ? userConnections[targetUid] : null;
                         if (targetWs && targetWs.readyState === WebSocket.OPEN) {
-                            // Ensure whispers are always in the social category
                             const chatMsg = { ...msg, text: `[WHISPER]: ${data.text}`, category: 'social' as const };
                             targetWs.send(JSON.stringify({ type: 'chat-message', message: chatMsg }));
                             ws.send(JSON.stringify({ type: 'chat-message', message: { ...msg, text: `[TO ${targetName || targetWs.username}]: ${data.text}`, category: 'social' as const } }));
@@ -948,9 +980,6 @@ wss.on('connection', (ws: UserConnection) => {
     });
     ws.on('close', () => {
         if (ws.userId) {
-            // SAFE DISCONNECT: Only remove from map if this exact socket is the one registered.
-            // This prevents race conditions where a new connection from a page refresh is 
-            // accidentally deleted by the closing handshake of the old connection.
             if (userConnections[ws.userId] === ws) {
                 delete userConnections[ws.userId];
             }

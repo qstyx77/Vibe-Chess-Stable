@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -11,6 +12,7 @@ import { InventoryWindow } from '@/components/evolving-chess/InventoryWindow';
 import { MycoSpellMenu, type MycoSpell } from '@/components/evolving-chess/MycoSpellMenu';
 import { RoyalStore } from '@/components/evolving-chess/RoyalStore';
 import { BetaWelcomeDialog } from '@/components/evolving-chess/BetaWelcomeDialog';
+import { AdminSanctum } from '@/components/evolving-chess/AdminSanctum';
 import {
   initializeBoard,
   createEmptyBoard,
@@ -47,7 +49,7 @@ import { ITEM_METADATA, ITEM_SETS } from '@/types';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Globe, Link2Off, Copy, Landmark, Coins, MessageSquare, Sword, Users, ShoppingBag, ScrollText, Send, ArrowLeft, Skull, RotateCcw, Package, BookOpen } from 'lucide-react';
+import { Globe, Link2Off, Copy, Landmark, Coins, MessageSquare, Sword, Users, ShoppingBag, ScrollText, Send, ArrowLeft, Skull, RotateCcw, Package, BookOpen, Shield } from 'lucide-react';
 import { VibeChessAI } from '@/lib/vibe-chess-ai';
 import {
   AlertDialog,
@@ -185,6 +187,7 @@ export default function EvolvingChessPage() {
   const [isRulesDialogOpen, setIsRulesDialogOpen] = useState(false);
   const [isRoyalStoreOpen, setIsRoyalStoreOpen] = useState(false);
   const [isBetaWelcomeOpen, setIsBetaWelcomeOpen] = useState(false);
+  const [isAdminSanctumOpen, setIsAdminSanctumOpen] = useState(false);
   const [killStreaks, setKillStreaks] = useState<{ white: number, black: number }>({ white: 0, black: 0 });
   const [historyStack, setHistoryStack] = useState<GameSnapshot[]>([]);
   const [isWhiteAI, setIsWhiteAI] = useState(false);
@@ -544,7 +547,6 @@ export default function EvolvingChessPage() {
       const isCompetitive = onlineStatus === 'connected' && (roomId?.startsWith('arena_') || !!eloInfo); 
       
       if (!isCompetitive && initialSnapshot) {
-          // SAFE RETURN: Restore inventory and equipment
           updateDocumentNonBlocking(userRef, { 
               inventory: initialSnapshot.inventory,
               equipment: initialSnapshot.whiteEquipment,
@@ -1719,8 +1721,8 @@ export default function EvolvingChessPage() {
                const nextTracks = { 
                    white: currentPlayer === 'white' ? newMoveInfo : lastMoveWhite, 
                    black: currentPlayer === 'black' ? newMoveInfo : lastMoveBlack, 
-                   global: newMoveInfo 
-               };
+                       global: newMoveInfo 
+                   };
 
                if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: move })); setSelectedSquare(null); setPossibleMoves([]); }
                else {
@@ -2053,7 +2055,13 @@ export default function EvolvingChessPage() {
     <div className="relative z-20 flex flex-col flex-grow w-full p-0.5 overflow-y-auto scrollbar-hide">
       <div className="flex flex-col items-center justify-between gap-0 pb-0.5">
         <div className="w-full flex items-center justify-between">
-          <div className="w-1/3"></div>
+          <div className="w-1/3">
+             {userData?.role === 'admin' && (
+                <button onClick={() => setIsAdminSanctumOpen(true)} className="p-1 text-primary animate-pulse">
+                    <PixelGear className="h-6 w-6 ascii-shader" />
+                </button>
+             )}
+          </div>
           <div className="w-1/3 flex items-center justify-center"> 
             <div className="flex items-center gap-1.5 shrink-0"> 
                <div className={cn(headerIconsOpacity ? "opacity-100" : "opacity-0 transition-opacity duration-1000")}>
@@ -2224,6 +2232,12 @@ export default function EvolvingChessPage() {
                   </PopoverTrigger>
                   <PopoverContent className="w-64 bg-card border-border"><div className="space-y-6 py-2"><div className="space-y-4"><div className="flex items-center justify-between"><span className="text-[0.75rem] font-pixel uppercase">SFX Volume</span><PixelGear className="h-4 w-4 text-primary ascii-shader" /></div><Slider defaultValue={[volume]} max={200} step={1} onValueChange={(val) => { setVolume(val[0]); audioManager.setVolume(val[0]); }} /></div><div className="space-y-4 border-t pt-4"><div className="flex items-center justify-between"><span className="text-[0.75rem] font-pixel uppercase">AI Depth</span><PixelMonitor className="h-4 w-4 text-primary ascii-shader" /></div><Slider defaultValue={[aiDifficulty]} min={2} max={8} step={1} onValueChange={(val) => setAiDifficulty(val[0])} /></div></div></PopoverContent>
                 </Popover>
+                {userData?.role === 'admin' && (
+                    <button onClick={() => setIsAdminSanctumOpen(true)} className="flex flex-col items-center gap-0.5 h-auto p-0 bg-transparent border-none outline-none group text-primary animate-pulse">
+                        <Shield className="h-12 w-12 transition-transform group-hover:scale-110" />
+                        <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Sanctum</span>
+                    </button>
+                )}
              </div>
              {onlineStatus === 'disconnected' ? ( 
                <div className="flex flex-col gap-1.5 items-center border-t border-border/20 pt-1.5"> 
@@ -2299,6 +2313,7 @@ export default function EvolvingChessPage() {
       <RoyalStore isOpen={isRoyalStoreOpen} onOpenChange={setIsRoyalStoreOpen} />
       <GameSummaryDialog isOpen={isGameSummaryOpen} onClose={() => setIsGameSummaryOpen(false)} winner={gameInfo.winner} winnerName={getPlayerDisplayName(gameInfo.winner === 'white' ? 'white' : 'black')} loserName={getPlayerDisplayName(gameInfo.winner === 'white' ? 'black' : 'white')} eloInfo={eloInfo} moveCount={gameMoveCounter} onReset={fullGameReset} />
       <BetaWelcomeDialog isOpen={isBetaWelcomeOpen} onOpenChange={setIsBetaWelcomeOpen} />
+      {userData?.role === 'admin' && <AdminSanctum isOpen={isAdminSanctumOpen} onOpenChange={setIsAdminSanctumOpen} />}
     </div>
   );
 }
