@@ -21,7 +21,8 @@ import {
   Megaphone, 
   RefreshCw,
   Check,
-  Activity
+  Activity,
+  User as UserIcon
 } from 'lucide-react';
 import { useSocial } from '../social/SocialContext';
 import { cn } from '@/lib/utils';
@@ -53,6 +54,7 @@ export function AdminSanctum({ isOpen, onOpenChange }: AdminSanctumProps) {
 
   useEffect(() => {
     if (isOpen && ws?.readyState === WebSocket.OPEN) {
+      console.log("[ADMIN SANCTUM]: Dialog opened, requesting Hero Ledger...");
       refreshUserList();
     }
   }, [isOpen, ws]);
@@ -63,6 +65,7 @@ export function AdminSanctum({ isOpen, onOpenChange }: AdminSanctumProps) {
         try {
             const data = JSON.parse(event.data);
             if (data.type === 'admin-users-list') {
+                console.log(`[ADMIN SANCTUM]: Hero Ledger received. Count: ${data.users.length}`);
                 setUsers(data.users);
                 const initialLocal: Record<string, { gold: number, elo: number }> = {};
                 data.users.forEach((u: AdminUserRecord) => {
@@ -71,8 +74,8 @@ export function AdminSanctum({ isOpen, onOpenChange }: AdminSanctumProps) {
                 setLocalStats(initialLocal);
                 clearLoading();
             } else if (data.type === 'admin-error') {
+                console.error("[ADMIN SANCTUM]: Server reported error:", data.message);
                 clearLoading();
-                console.error("[ADMIN SANCTUM]: Request rejected by server:", data.message);
             }
         } catch (e) {
             // Not admin data
@@ -96,6 +99,7 @@ export function AdminSanctum({ isOpen, onOpenChange }: AdminSanctumProps) {
   const refreshUserList = () => {
     if (ws?.readyState === WebSocket.OPEN) {
       setLoading(true);
+      console.log("[ADMIN SANCTUM]: Sending 'get-all-users' command...");
       ws.send(JSON.stringify({ type: 'admin-action', action: 'get-all-users' }));
       
       // Safety timeout: Release UI if server doesn't respond
@@ -103,15 +107,18 @@ export function AdminSanctum({ isOpen, onOpenChange }: AdminSanctumProps) {
       loadingTimeoutRef.current = setTimeout(() => {
           if (loading) {
               setLoading(false);
-              console.warn("[ADMIN SANCTUM]: Server list request timed out.");
+              console.warn("[ADMIN SANCTUM]: Server list request timed out after 10s.");
           }
       }, 10000);
+    } else {
+        console.error("[ADMIN SANCTUM]: Cannot refresh list, WebSocket is not open.");
     }
   };
 
   const handleUpdateUser = (userId: string) => {
     const stats = localStats[userId];
     if (ws?.readyState === WebSocket.OPEN && stats) {
+      console.log(`[ADMIN SANCTUM]: Dispatching update for Hero ${userId}...`);
       ws.send(JSON.stringify({ 
           type: 'admin-action', 
           action: 'update-user', 
@@ -127,6 +134,7 @@ export function AdminSanctum({ isOpen, onOpenChange }: AdminSanctumProps) {
   const handleBroadcast = (e: React.FormEvent) => {
     e.preventDefault();
     if (broadcastText.trim() && ws?.readyState === WebSocket.OPEN) {
+        console.log(`[ADMIN SANCTUM]: Dispatching global broadcast: ${broadcastText}`);
         ws.send(JSON.stringify({ 
             type: 'admin-action', 
             action: 'broadcast', 
@@ -175,20 +183,25 @@ export function AdminSanctum({ isOpen, onOpenChange }: AdminSanctumProps) {
         </DialogHeader>
 
         <div className="flex-1 overflow-hidden flex flex-col lg:flex-row relative z-10">
-            {/* HERO LEDGER */}
-            <div className="flex-grow flex flex-col border-r border-border/30 p-4">
-                <div className="relative mb-4">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input 
-                        placeholder="SEARCH HERO BY NAME OR ID..." 
-                        className="pl-10 h-10 text-[0.7rem] bg-background/50 border-primary/20 rounded-none uppercase font-pixel"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                    />
+            {/* HERO LEDGER MAIN PANEL */}
+            <div className="flex-grow flex flex-col border-r border-border/30 p-4 bg-black/20">
+                <div className="flex items-center justify-between mb-4 px-1">
+                    <h2 className="text-[0.65rem] text-primary uppercase font-bold flex items-center gap-2">
+                        <UserIcon className="h-4 w-4" /> Hero Ledger
+                    </h2>
+                    <div className="relative w-64">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input 
+                            placeholder="SEARCH HERO..." 
+                            className="pl-10 h-8 text-[0.6rem] bg-background/50 border-primary/20 rounded-none uppercase font-pixel"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                    </div>
                 </div>
 
-                <ScrollArea className="flex-1 pr-4">
-                    <div className="space-y-2">
+                <ScrollArea className="flex-1 pr-4 border border-primary/10 bg-black/40">
+                    <div className="p-2 space-y-2">
                         {filteredUsers.map(u => {
                             const isOnline = onlineUserIds.has(u.id);
                             const stats = localStats[u.id] || { gold: 0, elo: 0 };
@@ -237,17 +250,27 @@ export function AdminSanctum({ isOpen, onOpenChange }: AdminSanctumProps) {
                                 </Card>
                             );
                         })}
+                        
                         {filteredUsers.length === 0 && !loading && (
                             <div className="text-center py-20 opacity-30">
                                 <Activity className="h-12 w-12 mx-auto mb-2" />
-                                <p className="text-[0.6rem] uppercase">No matching Hero found.</p>
+                                <p className="text-[0.6rem] uppercase">
+                                    {users.length === 0 ? "THE REALM IS CURRENTLY UNPOPULATED" : "NO HERO MATCHES SEARCH CRITERIA"}
+                                </p>
+                            </div>
+                        )}
+                        
+                        {loading && (
+                             <div className="text-center py-20 animate-pulse">
+                                <RefreshCw className="h-12 w-12 mx-auto mb-2 animate-spin text-primary opacity-50" />
+                                <p className="text-[0.6rem] uppercase text-primary">COMMUNING WITH THE ANCIENT LEDGER...</p>
                             </div>
                         )}
                     </div>
                 </ScrollArea>
             </div>
 
-            {/* BROADCAST TOOL */}
+            {/* BROADCAST TOOL SIDEBAR */}
             <div className="w-full lg:w-80 p-4 bg-muted/10 border-t lg:border-t-0 flex flex-col gap-4">
                 <section className="space-y-3">
                     <h2 className="text-[0.65rem] text-accent uppercase font-bold flex items-center gap-2">

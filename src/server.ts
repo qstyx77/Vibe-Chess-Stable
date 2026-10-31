@@ -411,6 +411,8 @@ wss.on('connection', (ws: UserConnection) => {
                     }
                     break;
                 case 'admin-action': {
+                    console.log(`[SERVER]: Admin action received: ${data.action} from ${ws.username || 'unknown'}`);
+                    
                     // Secondary security check
                     let authorized = ws.isAdmin;
                     if (!authorized && ws.userId) {
@@ -422,7 +424,7 @@ wss.on('connection', (ws: UserConnection) => {
                     }
 
                     if (!authorized) {
-                        console.warn(`[SERVER]: Unauthorized admin action from ${ws.username || 'unknown'}`);
+                        console.warn(`[SERVER]: Unauthorized admin action rejected for ${ws.username || 'unknown'}`);
                         ws.send(JSON.stringify({ type: 'admin-error', message: 'PERMISSION DENIED: Administrative credentials required.' }));
                         break;
                     }
@@ -430,12 +432,14 @@ wss.on('connection', (ws: UserConnection) => {
                     const { action, payload } = data;
                     if (action === 'get-all-users') {
                         try {
+                            console.log("[SERVER]: Fetching Hero ledger...");
                             // Add a promise-based timeout wrapper to prevent hangs in Studio
                             const fetchUsers = admin.firestore().collection('users').limit(200).get();
                             const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Firestore operation timed out')), 5000));
                             
                             const snap = await Promise.race([fetchUsers, timeoutPromise]) as admin.firestore.QuerySnapshot;
                             const users = snap.docs.map(d => ({ ...d.data(), id: d.id }));
+                            console.log(`[SERVER]: Ledger retrieved successfully. Count: ${users.length}`);
                             ws.send(JSON.stringify({ type: 'admin-users-list', users }));
                         } catch (e: any) {
                             console.error("[SERVER]: Admin Ledger Error:", e);
@@ -443,6 +447,7 @@ wss.on('connection', (ws: UserConnection) => {
                         }
                     } else if (action === 'update-user') {
                         const { targetUid, gold, elo } = payload;
+                        console.log(`[SERVER]: Updating Hero ${targetUid}: Gold=${gold}, Elo=${elo}`);
                         await admin.firestore().doc(`users/${targetUid}`).update({ 
                             goldBalance: gold, 
                             eloRating: elo 
@@ -462,6 +467,7 @@ wss.on('connection', (ws: UserConnection) => {
                         const users = snap.docs.map(d => ({ ...d.data(), id: d.id }));
                         ws.send(JSON.stringify({ type: 'admin-users-list', users }));
                     } else if (action === 'broadcast') {
+                        console.log(`[SERVER]: Broadcasting realm-wide: ${payload.text}`);
                         const msg = JSON.stringify({ type: 'chat-message', message: {
                             id: `broadcast_${Date.now()}`,
                             sender: 'SYSTEM',
