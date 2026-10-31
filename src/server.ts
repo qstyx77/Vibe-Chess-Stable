@@ -391,23 +391,47 @@ wss.on('connection', (ws: UserConnection) => {
                         ws.username = data.username;
                         userConnections[data.userId] = ws;
                         
-                        admin.firestore().doc(`users/${data.userId}`).get().then(snap => {
+                        // CRITICAL: Ensure Admin/Mute check is blocking in identify to prevent race conditions with admin actions
+                        try {
+                            const snap = await admin.firestore().doc(`users/${data.userId}`).get();
                             const userData = snap.data();
                             ws.isMuted = userData?.mutedUntil && userData.mutedUntil > Date.now();
                             ws.isAdmin = userData?.role === 'admin';
-                        }).catch(e => console.error(`[SERVER]: Error fetching user data for ${data.userId}:`, e));
+                        } catch (e) {
+                            console.error(`[SERVER]: Error fetching user data for ${data.userId}:`, e);
+                        }
 
                         broadcastPresence();
                         ws.send(JSON.stringify({ type: 'tournament-queue-update', count: arenaQueue.length }));
                     }
                     break;
                 case 'admin-action': {
-                    if (!ws.isAdmin) break;
+                    // RESILIENCE: Perform secondary role check if isAdmin hasn't been cached yet
+                    let authorized = ws.isAdmin;
+                    if (!authorized && ws.userId) {
+                        const snap = await admin.firestore().doc(`users/${ws.userId}`).get();
+                        if (snap.data()?.role === 'admin') {
+                            ws.isAdmin = true;
+                            authorized = true;
+                        }
+                    }
+
+                    if (!authorized) {
+                        console.warn(`[SERVER]: Unauthorized admin action from ${ws.username || 'unknown'}`);
+                        ws.send(JSON.stringify({ type: 'admin-error', message: 'PERMISSION DENIED: Administrative credentials required.' }));
+                        break;
+                    }
+
                     const { action, payload } = data;
                     if (action === 'get-all-users') {
-                        const snap = await admin.firestore().collection('users').limit(200).get();
-                        const users = snap.docs.map(d => ({ ...d.data(), id: d.id }));
-                        ws.send(JSON.stringify({ type: 'admin-users-list', users }));
+                        try {
+                            const snap = await admin.firestore().collection('users').limit(200).get();
+                            const users = snap.docs.map(d => ({ ...d.data(), id: d.id }));
+                            ws.send(JSON.stringify({ type: 'admin-users-list', users }));
+                        } catch (e) {
+                            console.error("[SERVER]: Admin Ledger Error:", e);
+                            ws.send(JSON.stringify({ type: 'admin-error', message: 'Failed to retrieve Hero ledger.' }));
+                        }
                     } else if (action === 'update-user') {
                         const { targetUid, gold, elo } = payload;
                         await admin.firestore().doc(`users/${targetUid}`).update({ 
@@ -424,6 +448,10 @@ wss.on('connection', (ws: UserConnection) => {
                                 timestamp: Date.now()
                             }}));
                         }
+                        // Send updated list back to caller to confirm success
+                        const snap = await admin.firestore().collection('users').limit(200).get();
+                        const users = snap.docs.map(d => ({ ...d.data(), id: d.id }));
+                        ws.send(JSON.stringify({ type: 'admin-users-list', users }));
                     } else if (action === 'broadcast') {
                         const msg = JSON.stringify({ type: 'chat-message', message: {
                             id: `broadcast_${Date.now()}`,

@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -68,6 +69,9 @@ export function AdminSanctum({ isOpen, onOpenChange }: AdminSanctumProps) {
             });
             setLocalStats(initialLocal);
             setLoading(false);
+        } else if (data.type === 'admin-error') {
+            setLoading(false);
+            console.error("[ADMIN SANCTUM]: Request rejected by server.");
         }
     };
     ws.addEventListener('message', handleAdminList);
