@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -10,6 +9,7 @@ import { LootWinningsWindow } from '@/components/evolving-chess/LootWinningsWind
 import { DungeonWelcomeDialog } from '@/components/evolving-chess/DungeonWelcomeDialog';
 import { BossBattleDialog } from '@/components/evolving-chess/BossBattleDialog';
 import { MycoSpellMenu, type MycoSpell } from '@/components/evolving-chess/MycoSpellMenu';
+import { AdminSanctum } from '@/components/evolving-chess/AdminSanctum';
 import {
   initializeBoard,
   createEmptyBoard,
@@ -43,7 +43,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { ArrowLeft, MessageSquare, Send, Sword, Users, ShoppingBag, ScrollText } from 'lucide-react';
+import { ArrowLeft, MessageSquare, Send, Sword, Users, ShoppingBag, ScrollText, Shield } from 'lucide-react';
 import { VibeChessAI } from '@/lib/vibe-chess-ai';
 import { cn } from '@/lib/utils';
 import { useUser, useFirestore, updateDocumentNonBlocking } from '@/firebase';
@@ -66,7 +66,7 @@ import { useSocial } from '@/components/social/SocialContext';
 import { ChessPieceDisplay } from '@/components/evolving-chess/ChessPieceDisplay';
 import { PieceAbilitiesInfo } from '@/components/evolving-chess/PieceAbilitiesInfo';
 import { Separator } from '@/components/ui/separator';
-import { PixelGemstoneMasonry, VibeChessTitle, PixelTome, PixelSack, PixelReset, PixelSwords, PixelSkull } from '@/components/evolving-chess/IconLibrary';
+import { PixelGemstoneMasonry, VibeChessTitle, PixelTome, PixelSack, PixelReset, PixelSwords, PixelSkull, PixelGear } from '@/components/evolving-chess/IconLibrary';
 import { UserInteractionPopover } from '@/components/social/UserInteractionPopover';
 
 const DUNGEON_EXP_MAP: Record<string, number> = {
@@ -280,6 +280,7 @@ export default function DungeonPage() {
   const [isRulesDialogOpen, setIsRulesDialogOpen] = useState(false);
   const [isDungeonWelcomeOpen, setIsDungeonWelcomeOpen] = useState(false);
   const [isBossBattleOpen, setIsBossBattleOpen] = useState(false);
+  const [isAdminSanctumOpen, setIsAdminSanctumOpen] = useState(false);
   const [promotionQueue, setPromotionQueue] = useState<{ square: AlgebraicSquare, targetLevel: number }[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [isInventoryOpen, setIsInventoryOpen] = useState(false);
@@ -2041,6 +2042,12 @@ export default function DungeonPage() {
                 <button onClick={() => setIsInventoryOpen(true)} disabled={hasStartedFloor} className="flex flex-col items-center gap-0.5 h-auto p-0 bg-transparent border-none outline-none group disabled:opacity-30"> <PixelSack className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" /> <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Loot</span> </button>
                 <button onClick={() => setIsRulesDialogOpen(true)} className="flex flex-col items-center gap-0.5 h-auto p-0 bg-transparent border-none outline-none group"> <PixelTome className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" /> <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Rules</span> </button>
                 <button onClick={() => setIsResetConfirmOpen(true)} className="flex flex-col items-center gap-0.5 h-auto p-0 bg-transparent border-none outline-none group"> <PixelReset className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" /> <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Reset</span> </button>
+                {userData?.role === 'admin' && (
+                    <button onClick={() => setIsAdminSanctumOpen(true)} className="flex flex-col items-center gap-0.5 h-auto p-0 bg-transparent border-none outline-none group text-primary animate-pulse">
+                        <PixelGear className="h-12 w-12 transition-transform group-hover:scale-110 ascii-shader" />
+                        <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Sanctum</span>
+                    </button>
+                )}
              </div>
           </CardContent> 
         </Card> 
@@ -2064,6 +2071,7 @@ export default function DungeonPage() {
       </AlertDialog>
       <InventoryWindow isOpen={isInventoryOpen} onClose={() => setIsInventoryOpen(false)} inventory={inventory} selectedItemType={selectedInventoryItemType} onSelectItem={setSelectedInventoryItemType} onUseItem={handleUsePortalScroll} attunementSlots={attunementSlots} usedSlots={usedSlots} />
       <LootWinningsWindow isOpen={isLootWindowOpen} onClose={handleClaimLoot} loot={lootFound} floor={level} />
+      {userData?.role === 'admin' && <AdminSanctum isOpen={isAdminSanctumOpen} onOpenChange={setIsAdminSanctumOpen} />}
     </div>
   );
 }
