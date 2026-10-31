@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -16,7 +16,6 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { 
   Search, 
-  User as UserIcon, 
   Coins, 
   Trophy, 
   Megaphone, 
@@ -47,6 +46,7 @@ export function AdminSanctum({ isOpen, onOpenChange }: AdminSanctumProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [broadcastText, setBroadcastText] = useState('');
   const [loading, setLoading] = useState(false);
+  const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Buffer for local numeric changes before "Update" is clicked
   const [localStats, setLocalStats] = useState<Record<string, { gold: number, elo: number }>>({});
@@ -60,28 +60,52 @@ export function AdminSanctum({ isOpen, onOpenChange }: AdminSanctumProps) {
   useEffect(() => {
     if (!ws) return;
     const handleAdminList = (event: MessageEvent) => {
-        const data = JSON.parse(event.data);
-        if (data.type === 'admin-users-list') {
-            setUsers(data.users);
-            const initialLocal: Record<string, { gold: number, elo: number }> = {};
-            data.users.forEach((u: AdminUserRecord) => {
-                initialLocal[u.id] = { gold: u.goldBalance, elo: u.eloRating };
-            });
-            setLocalStats(initialLocal);
-            setLoading(false);
-        } else if (data.type === 'admin-error') {
-            setLoading(false);
-            console.error("[ADMIN SANCTUM]: Request rejected by server.");
+        try {
+            const data = JSON.parse(event.data);
+            if (data.type === 'admin-users-list') {
+                setUsers(data.users);
+                const initialLocal: Record<string, { gold: number, elo: number }> = {};
+                data.users.forEach((u: AdminUserRecord) => {
+                    initialLocal[u.id] = { gold: u.goldBalance, elo: u.eloRating };
+                });
+                setLocalStats(initialLocal);
+                clearLoading();
+            } else if (data.type === 'admin-error') {
+                clearLoading();
+                console.error("[ADMIN SANCTUM]: Request rejected by server:", data.message);
+            }
+        } catch (e) {
+            // Not admin data
         }
     };
     ws.addEventListener('message', handleAdminList);
-    return () => ws.removeEventListener('message', handleAdminList);
+    return () => {
+        ws.removeEventListener('message', handleAdminList);
+        if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current);
+    };
   }, [ws]);
+
+  const clearLoading = () => {
+    setLoading(false);
+    if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+        loadingTimeoutRef.current = null;
+    }
+  };
 
   const refreshUserList = () => {
     if (ws?.readyState === WebSocket.OPEN) {
       setLoading(true);
       ws.send(JSON.stringify({ type: 'admin-action', action: 'get-all-users' }));
+      
+      // Safety timeout: Release UI if server doesn't respond
+      if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current);
+      loadingTimeoutRef.current = setTimeout(() => {
+          if (loading) {
+              setLoading(false);
+              console.warn("[ADMIN SANCTUM]: Server list request timed out.");
+          }
+      }, 10000);
     }
   };
 

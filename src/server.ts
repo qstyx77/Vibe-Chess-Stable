@@ -3,6 +3,7 @@ import WebSocket from 'ws';
 import http from 'http';
 import { URL } from 'url';
 import * as admin from 'firebase-admin';
+import { firebaseConfig } from './firebase/config';
 
 import { 
     initializeBoard, 
@@ -34,9 +35,11 @@ import {
 } from './lib/chess-utils';
 import type { PlayerColor, Piece, AlgebraicSquare, PieceType, InventoryItemType, ChatMessage, Move } from './types';
 
-// Initialize Admin SDK
+// Initialize Admin SDK with explicit Project ID for Studio environments
 if (!admin.apps.length) {
-    admin.initializeApp();
+    admin.initializeApp({
+        projectId: firebaseConfig.projectId
+    });
 }
 
 const server = http.createServer((req, res) => {
@@ -391,14 +394,16 @@ wss.on('connection', (ws: UserConnection) => {
                         ws.username = data.username;
                         userConnections[data.userId] = ws;
                         
-                        // CRITICAL: Ensure Admin/Mute check is blocking in identify to prevent race conditions with admin actions
+                        // CRITICAL: Make the initial role check blocking to ensure subsequent admin actions work
                         try {
                             const snap = await admin.firestore().doc(`users/${data.userId}`).get();
                             const userData = snap.data();
-                            ws.isMuted = userData?.mutedUntil && userData.mutedUntil > Date.now();
+                            ws.isMuted = !!(userData?.mutedUntil && userData.mutedUntil > Date.now());
                             ws.isAdmin = userData?.role === 'admin';
+                            console.log(`[SERVER]: User identified: ${data.username} (Admin: ${ws.isAdmin})`);
                         } catch (e) {
                             console.error(`[SERVER]: Error fetching user data for ${data.userId}:`, e);
+                            ws.isAdmin = false;
                         }
 
                         broadcastPresence();
@@ -406,7 +411,7 @@ wss.on('connection', (ws: UserConnection) => {
                     }
                     break;
                 case 'admin-action': {
-                    // RESILIENCE: Perform secondary role check if isAdmin hasn't been cached yet
+                    // Secondary security check
                     let authorized = ws.isAdmin;
                     if (!authorized && ws.userId) {
                         const snap = await admin.firestore().doc(`users/${ws.userId}`).get();
@@ -425,12 +430,16 @@ wss.on('connection', (ws: UserConnection) => {
                     const { action, payload } = data;
                     if (action === 'get-all-users') {
                         try {
-                            const snap = await admin.firestore().collection('users').limit(200).get();
+                            // Add a promise-based timeout wrapper to prevent hangs in Studio
+                            const fetchUsers = admin.firestore().collection('users').limit(200).get();
+                            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Firestore operation timed out')), 5000));
+                            
+                            const snap = await Promise.race([fetchUsers, timeoutPromise]) as admin.firestore.QuerySnapshot;
                             const users = snap.docs.map(d => ({ ...d.data(), id: d.id }));
                             ws.send(JSON.stringify({ type: 'admin-users-list', users }));
-                        } catch (e) {
+                        } catch (e: any) {
                             console.error("[SERVER]: Admin Ledger Error:", e);
-                            ws.send(JSON.stringify({ type: 'admin-error', message: 'Failed to retrieve Hero ledger.' }));
+                            ws.send(JSON.stringify({ type: 'admin-error', message: e.message || 'Failed to retrieve Hero ledger.' }));
                         }
                     } else if (action === 'update-user') {
                         const { targetUid, gold, elo } = payload;
@@ -448,7 +457,7 @@ wss.on('connection', (ws: UserConnection) => {
                                 timestamp: Date.now()
                             }}));
                         }
-                        // Send updated list back to caller to confirm success
+                        // Send updated list back to caller
                         const snap = await admin.firestore().collection('users').limit(200).get();
                         const users = snap.docs.map(d => ({ ...d.data(), id: d.id }));
                         ws.send(JSON.stringify({ type: 'admin-users-list', users }));
