@@ -1,4 +1,3 @@
-
 import WebSocket from 'ws';
 import http from 'http';
 import { URL } from 'url';
@@ -438,22 +437,7 @@ wss.on('connection', (ws: UserConnection) => {
                     }
 
                     const { action, payload } = data;
-                    if (action === 'get-all-users') {
-                        try {
-                            console.log("[SERVER]: Fetching Hero ledger...");
-                            // Add a promise-based timeout wrapper to prevent hangs
-                            const fetchUsers = admin.firestore().collection('users').limit(200).get();
-                            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Hero Ledger query timed out')), 8000));
-                            
-                            const snap = await Promise.race([fetchUsers, timeoutPromise]) as admin.firestore.QuerySnapshot;
-                            const users = snap.docs.map(d => ({ ...d.data(), id: d.id }));
-                            console.log(`[SERVER]: Ledger retrieved successfully. Count: ${users.length}`);
-                            ws.send(JSON.stringify({ type: 'admin-users-list', users }));
-                        } catch (e: any) {
-                            console.error("[SERVER]: Admin Ledger Error:", e.message);
-                            ws.send(JSON.stringify({ type: 'admin-error', message: e.message || 'Failed to retrieve Hero ledger.' }));
-                        }
-                    } else if (action === 'update-user') {
+                    if (action === 'update-user') {
                         const { targetUid, gold, elo } = payload;
                         console.log(`[SERVER]: Updating Hero ${targetUid}: Gold=${gold}, Elo=${elo}`);
                         try {
@@ -471,10 +455,6 @@ wss.on('connection', (ws: UserConnection) => {
                                     timestamp: Date.now()
                                 }}));
                             }
-                            // Send updated list back
-                            const snap = await admin.firestore().collection('users').limit(200).get();
-                            const users = snap.docs.map(d => ({ ...d.data(), id: d.id }));
-                            ws.send(JSON.stringify({ type: 'admin-users-list', users }));
                         } catch (e: any) {
                             console.error("[SERVER]: Hero Update Error:", e.message);
                             ws.send(JSON.stringify({ type: 'admin-error', message: 'Failed to update Hero record.' }));

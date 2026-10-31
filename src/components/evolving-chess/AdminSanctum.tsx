@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
@@ -25,6 +24,8 @@ import {
   User as UserIcon
 } from 'lucide-react';
 import { useSocial } from '../social/SocialContext';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query, limit, doc } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
 import { PixelGear, PixelGemstoneMasonry } from './IconLibrary';
 
@@ -39,79 +40,54 @@ interface AdminUserRecord {
   goldBalance: number;
   eloRating: number;
   lastActive?: string;
+  role?: string;
 }
 
 export function AdminSanctum({ isOpen, onOpenChange }: AdminSanctumProps) {
-  const { ws, onlineUserIds, sendMessage } = useSocial();
-  const [users, setUsers] = useState<AdminUserRecord[]>([]);
+  const firestore = useFirestore();
+  const { ws, onlineUserIds } = useSocial();
   const [searchQuery, setSearchQuery] = useState('');
   const [broadcastText, setBroadcastText] = useState('');
-  const [loading, setLoading] = useState(false);
-  const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // 1. Direct Real-time Ledger via Client SDK (Bypasses server-side Admin SDK hangs)
+  const usersQuery = useMemoFirebase(() => {
+    if (!isOpen || !firestore) return null;
+    return query(collection(firestore, 'users'), limit(200));
+  }, [isOpen, firestore]);
+
+  const { data: usersData, isLoading: loading } = useCollection<AdminUserRecord>(usersQuery);
 
   // Buffer for local numeric changes before "Update" is clicked
   const [localStats, setLocalStats] = useState<Record<string, { gold: number, elo: number }>>({});
 
   useEffect(() => {
-    if (isOpen && ws?.readyState === WebSocket.OPEN) {
-      console.log("[ADMIN SANCTUM]: Dialog opened, requesting Hero Ledger...");
-      refreshUserList();
+    if (usersData) {
+        setLocalStats(prev => {
+            const next = { ...prev };
+            usersData.forEach(u => {
+                // Only initialize if we aren't currently tracking local changes to avoid overwriting typed input
+                if (next[u.id] === undefined) {
+                    next[u.id] = { gold: u.goldBalance || 0, elo: u.eloRating || 1200 };
+                }
+            });
+            return next;
+        });
     }
-  }, [isOpen, ws]);
+  }, [usersData]);
 
   useEffect(() => {
     if (!ws) return;
-    const handleAdminList = (event: MessageEvent) => {
-        console.log("[ADMIN SANCTUM]: Socket pulse received:", event.data.substring(0, 100));
+    const handleAdminError = (event: MessageEvent) => {
         try {
             const data = JSON.parse(event.data);
-            if (data.type === 'admin-users-list') {
-                console.log(`[ADMIN SANCTUM]: Hero Ledger received. Count: ${data.users.length}`);
-                setUsers(data.users);
-                const initialLocal: Record<string, { gold: number, elo: number }> = {};
-                data.users.forEach((u: AdminUserRecord) => {
-                    initialLocal[u.id] = { gold: u.goldBalance || 0, elo: u.eloRating || 1200 };
-                });
-                setLocalStats(initialLocal);
-                setLoading(false);
-                if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current);
-            } else if (data.type === 'admin-error') {
+            if (data.type === 'admin-error') {
                 console.error("[ADMIN SANCTUM]: Server reported error:", data.message);
-                setLoading(false);
-                if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current);
             }
-        } catch (e) {
-            // Not admin data
-        }
+        } catch (e) {}
     };
-    ws.addEventListener('message', handleAdminList);
-    return () => {
-        ws.removeEventListener('message', handleAdminList);
-        if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current);
-    };
+    ws.addEventListener('message', handleAdminError);
+    return () => ws.removeEventListener('message', handleAdminError);
   }, [ws]);
-
-  const refreshUserList = () => {
-    if (ws?.readyState === WebSocket.OPEN) {
-      setLoading(true);
-      console.log("[ADMIN SANCTUM]: Sending 'get-all-users' command...");
-      ws.send(JSON.stringify({ type: 'admin-action', action: 'get-all-users' }));
-      
-      // Safety timeout: Release UI if server doesn't respond
-      if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current);
-      loadingTimeoutRef.current = setTimeout(() => {
-          setLoading(current => {
-              if (current) {
-                  console.warn("[ADMIN SANCTUM]: Server list request timed out after 10s. Forcing clear...");
-                  return false;
-              }
-              return current;
-          });
-      }, 10000);
-    } else {
-        console.error("[ADMIN SANCTUM]: Cannot refresh list, WebSocket is not open.");
-    }
-  };
 
   const handleUpdateUser = (userId: string) => {
     const stats = localStats[userId];
@@ -143,7 +119,8 @@ export function AdminSanctum({ isOpen, onOpenChange }: AdminSanctumProps) {
   };
 
   const filteredUsers = useMemo(() => {
-    return users.filter(u => 
+    const list = (usersData || []) as AdminUserRecord[];
+    return list.filter(u => 
         u.username.toLowerCase().includes(searchQuery.toLowerCase()) || 
         u.id.toLowerCase().includes(searchQuery.toLowerCase())
     ).sort((a, b) => {
@@ -153,7 +130,7 @@ export function AdminSanctum({ isOpen, onOpenChange }: AdminSanctumProps) {
         if (!aOnline && bOnline) return 1;
         return 0;
     });
-  }, [users, searchQuery, onlineUserIds]);
+  }, [usersData, searchQuery, onlineUserIds]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -174,9 +151,13 @@ export function AdminSanctum({ isOpen, onOpenChange }: AdminSanctumProps) {
                     <DialogDescription className="text-[0.6rem] text-muted-foreground uppercase">Administrative Control Protocol: SUGGA-01</DialogDescription>
                  </div>
               </div>
-              <Button variant="outline" size="sm" onClick={refreshUserList} disabled={loading} className="h-8 text-[0.6rem] uppercase rounded-none border-primary/30">
-                 <RefreshCw className={cn("h-3 w-3 mr-2", loading && "animate-spin")} /> Refresh Ledger
-              </Button>
+              <div className="flex items-center gap-4">
+                 {loading && <Activity className="h-4 w-4 text-primary animate-pulse" />}
+                 <div className="text-right">
+                    <p className="text-[0.45rem] text-muted-foreground uppercase">Status</p>
+                    <p className="text-[0.6rem] text-primary uppercase font-bold">Authenticated</p>
+                 </div>
+              </div>
            </div>
         </DialogHeader>
 
@@ -202,7 +183,7 @@ export function AdminSanctum({ isOpen, onOpenChange }: AdminSanctumProps) {
                     <div className="p-2 space-y-2">
                         {filteredUsers.map(u => {
                             const isOnline = onlineUserIds.has(u.id);
-                            const stats = localStats[u.id] || { gold: 0, elo: 1200 };
+                            const stats = localStats[u.id] || { gold: u.goldBalance || 0, elo: u.eloRating || 1200 };
                             return (
                                 <Card key={u.id} className="border border-border/50 bg-muted/5 rounded-none hover:bg-primary/5 transition-colors">
                                     <CardContent className="p-3 flex items-center justify-between gap-4">
@@ -253,7 +234,7 @@ export function AdminSanctum({ isOpen, onOpenChange }: AdminSanctumProps) {
                             <div className="text-center py-20 opacity-30">
                                 <Activity className="h-12 w-12 mx-auto mb-2" />
                                 <p className="text-[0.6rem] uppercase">
-                                    {users.length === 0 ? "THE REALM IS CURRENTLY UNPOPULATED" : "NO HERO MATCHES SEARCH CRITERIA"}
+                                    {usersData && usersData.length === 0 ? "THE REALM IS CURRENTLY UNPOPULATED" : "NO HERO MATCHES SEARCH CRITERIA"}
                                 </p>
                             </div>
                         )}
@@ -303,7 +284,7 @@ export function AdminSanctum({ isOpen, onOpenChange }: AdminSanctumProps) {
                         </div>
                         <div className="p-2 bg-black/40 border border-border/30 text-center">
                             <p className="text-[0.45rem] text-muted-foreground uppercase">Registered</p>
-                            <p className="text-sm font-bold text-primary">{users.length}</p>
+                            <p className="text-sm font-bold text-primary">{usersData?.length || 0}</p>
                         </div>
                     </div>
                 </section>
