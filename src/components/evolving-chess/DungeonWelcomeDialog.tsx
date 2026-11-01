@@ -84,7 +84,15 @@ export function DungeonWelcomeDialog({ isOpen, onOpenChange }: DungeonWelcomeDia
                         <div className="flex justify-between items-start gap-2">
                             <div className="flex-1">
                                 <p className="text-[#38BDF8] text-[0.65rem] mb-2 font-bold uppercase">Unit Unlocks</p>
-                                <p className="text-[0.5rem] text-muted-foreground uppercase leading-tight">Defeating major bosses every 10 floors permanently unlocks elite units (Myco Mage, Grappler, Mimic, Dancer) for your army.</p>
+                                <div className="space-y-2">
+                                    <p className="text-[0.5rem] text-muted-foreground uppercase leading-tight">Elite units are earned through boss mastery. Defeat them multiple times to recruit them:</p>
+                                    <ul className="text-[0.45rem] text-foreground/70 list-disc pl-4 uppercase space-y-1">
+                                        <li>Necromancer (F20): 15 Victories for Myco Mage</li>
+                                        <li>Colossus (F30): 10 Victories for Grappler</li>
+                                        <li>Mirage (F40): 5 Victories for Mimic</li>
+                                        <li>Void Entity (F50): 1 Defeat for Dancer</li>
+                                    </ul>
+                                </div>
                             </div>
                             <div className="h-10 w-10 shrink-0 flex items-center justify-center">
                                 <ChessPieceDisplay piece={{ id: 'welcome-myco', type: 'myco_mage', color: 'white', level: 1, hasMoved: false }} />
