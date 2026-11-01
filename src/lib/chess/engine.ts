@@ -481,7 +481,7 @@ export function applyMove(
           p.isPoisoned = false; p.isExhausted = false; p.cooldownTurnsRemaining = 0;
       }
       p.heldItem = null;
-      return { newBoard, capturedPiece: null, selfDestructCaptures: [], destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered: null, originalPieceLevel: oldL, originalPieceType: p.type, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null, anvilDroppedSquares, levelChanges, obliteratedPieces: [] };
+      return { newBoard, capturedPiece: null, selfDestructCaptures: [], destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents: [], rallyCryTriggered: null, originalPieceLevel: oldL, originalPieceType: p.type, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null, anvilDroppedSquares, levelChanges, obliteratedPieces: [] };
   }
 
   if (move.type === 'lose-thy-faith') {
@@ -807,6 +807,30 @@ export function applyMove(
       return { newBoard, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents: [], rallyCryTriggered: null, originalPieceLevel: originalLevelValue, originalPieceType: originalTypeIdentifier, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn, specialCaptureSquare, resurrectionScrollEvent, anvilDroppedSquares, levelChanges, obliteratedPieces: [] };
   }
 
+  if (move.type === 'swap') {
+      const p1 = newBoard[fromRow][fromCol].piece;
+      const p2 = newBoard[toRow][toCol].piece;
+      if (p1?.heldItem === 'relay_ribbon') {
+          const oldL = p1.level;
+          p1.level = Math.min(p1.type === 'queen' ? 7 : 99, (p1.level || 1) + 1);
+          if (p1.level > oldL) {
+              levelChanges.push({ square: coordsToAlgebraic(fromRow, fromCol), delta: 1, reason: "Relay Ribbon" });
+              p1.isPoisoned = false; p1.isExhausted = false; p1.cooldownTurnsRemaining = 0;
+          }
+      }
+      if (p2?.heldItem === 'relay_ribbon') {
+          const oldL = p2.level;
+          p2.level = Math.min(p2.type === 'queen' ? 7 : 99, (p2.level || 1) + 1);
+          if (p2.level > oldL) {
+              levelChanges.push({ square: coordsToAlgebraic(toRow, toCol), delta: 1, reason: "Relay Ribbon" });
+              p2.isPoisoned = false; p2.isExhausted = false; p2.cooldownTurnsRemaining = 0;
+          }
+      }
+      newBoard[fromRow][fromCol].piece = p2;
+      newBoard[toRow][toCol].piece = p1;
+      return { newBoard, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents: [], rallyCryTriggered: null, originalPieceLevel: originalLevelValue, originalPieceType: originalTypeIdentifier, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null, anvilDroppedSquares, levelChanges, obliteratedPieces: [] };
+  }
+
   // --- STANDARD MOVEMENT LOGIC (NO EARLY RETURN BEFORE THIS POINT) ---
 
   if (move.type === 'enpassant') {
@@ -850,7 +874,7 @@ export function applyMove(
     pieceLanded.heldItem = mimItem;
   }
   
-  const effectiveHeldItem = pieceLanded.heldItem; // FIXED: Added missing variable definition
+  const effectiveHeldItem = pieceLanded.heldItem;
 
   const backRankIdxVal = pieceLanded.color === 'white' ? 0 : 7;
   const teamActiveSets = getActiveSets(newBoard, pieceLanded.color);
