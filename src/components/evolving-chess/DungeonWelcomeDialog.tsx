@@ -46,7 +46,7 @@ export function DungeonWelcomeDialog({ isOpen, onOpenChange }: DungeonWelcomeDia
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) handleClose(); }}>
-      <DialogContent className="sm:max-w-4xl bg-black border-2 border-primary font-pixel p-0 overflow-hidden max-h-[95vh] flex flex-col shadow-[0_0_50px_rgba(var(--primary),0.3)]">
+      <DialogContent className="sm:max-w-4xl bg-black border-2 border-primary font-pixel p-0 overflow-hidden max-h-[95vh] flex flex-col shadow-[0_0_50px_rgba(var(--primary),0.3)] rounded-none">
         <DialogHeader className="sr-only">
           <DialogTitle>The Dungeon Crawl</DialogTitle>
           <DialogDescription>Essential information about dungeon exploration, bosses, and survival.</DialogDescription>
@@ -70,7 +70,7 @@ export function DungeonWelcomeDialog({ isOpen, onOpenChange }: DungeonWelcomeDia
             
             <section className="space-y-4">
                 <div className="text-[0.6rem] md:text-[0.65rem] leading-relaxed space-y-4 text-foreground/90 uppercase pt-2">
-                    <p>Welcome to the <span className="text-primary">Dungeon Crawl</span>. This is a 50-floor PvE challenge where your army evolves through constant battle.</p>
+                    <p>Welcome to the <span className="text-primary">Dungeon Crawl</span>. This is a 50-floor PvE challenge where your army evolves through constant battle, with a Boss Battle every 10 floors.</p>
                     <p>Unlike standard matches, progress here is <span className="text-accent underline">persistent</span>. Your unit levels, items, and army composition are saved between sessions. Use this to build an unstoppable force.</p>
                 </div>
             </section>
