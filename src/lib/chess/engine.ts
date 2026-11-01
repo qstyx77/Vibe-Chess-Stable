@@ -849,6 +849,8 @@ export function applyMove(
     }
     pieceLanded.heldItem = mimItem;
   }
+  
+  const effectiveHeldItem = pieceLanded.heldItem; // FIXED: Added missing variable definition
 
   const backRankIdxVal = pieceLanded.color === 'white' ? 0 : 7;
   const teamActiveSets = getActiveSets(newBoard, pieceLanded.color);
