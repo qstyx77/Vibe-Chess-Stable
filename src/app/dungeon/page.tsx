@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -362,8 +363,8 @@ export default function DungeonPage() {
   const saveDungeonState = useCallback((curL: number, curB: BoardState, curP: PlayerColor, ks: any, caps: any, sC: number, nS: number, ep: AlgebraicSquare | null, nrC: number, curInv: InventoryItem[]) => {
     if (!user || !firestore) return;
     const userRef = doc(firestore, 'users', user.uid); const eq: Record<string, string> = {};
-    curB.flat().forEach(sq => { if (sq.piece?.heldItem) eq[sq.piece.id] = sq.piece.heldItem; });
-    updateDocumentNonBlocking(userRef, { inventory: curInv, equipment: eq, dungeonState: { level: curL, board: curB.flat(), currentPlayer: curP, killStreaks: ks, capturedPieces: caps, shroomSpawnCounter: sC, nextShroomSpawnTurn: nS, enPassantTargetSquare: ep, necroResurrectionCounter: nrC } });
+    curB.flat().forEach(sq => { if (sq.piece?.color === 'white' && sq.piece?.heldItem) eq[sq.piece.id] = sq.piece.heldItem; });
+    updateDocumentNonBlocking(userRef, { inventory: curInv, dungeonEquipment: eq, dungeonState: { level: curL, board: curB.flat(), currentPlayer: curP, killStreaks: ks, capturedPieces: caps, shroomSpawnCounter: sC, nextShroomSpawnTurn: nS, enPassantTargetSquare: ep, necroResurrectionCounter: nrC } });
   }, [user, firestore]);
 
   const deductConsumable = useCallback((type: InventoryItemType) => {
@@ -1677,14 +1678,14 @@ export default function DungeonPage() {
         setNecroResurrectionCounter(saved.necroResurrectionCounter || 0);
       } else {
         // Warped from lobby (saved level but no board)
-        let army: Piece[] = []; const elo = userData.eloRating || 1200; let initial = initializeBoard(elo, 1200, userData.unlockedPieces || []);
+        let army: Piece[] = []; const elo = userData.eloRating || 1200; let initial = initializeBoard(elo, 1200, userData.unlockedPieces || [], [], userData.dungeonEquipment || {});
         initial.flat().forEach(sq => { if (sq.piece && sq.piece.color === 'white') army.push(sq.piece); });
         setPlayerArmy(army); setLevel(targetLevel); const newB = generateDungeonFloor(targetLevel, army); setBoard(newB);
         setCapturedPieces({ white: [], black: [] }); setCurrentPlayer('white'); setKillStreaks({ white: 0, black: 0 });
         saveDungeonState(targetLevel, newB, 'white', { white: 0, black: 0 }, { white: [], black: [] }, 0, 5, null, 0, userData.inventory || []);
       }
     } else {
-      let army: Piece[] = []; const elo = userData.eloRating || 1200; let initial = initializeBoard(elo, 1200, userData.unlockedPieces || []);
+      let army: Piece[] = []; const elo = userData.eloRating || 1200; let initial = initializeBoard(elo, 1200, userData.unlockedPieces || [], [], userData.dungeonEquipment || {});
       initial.flat().forEach(sq => { if (sq.piece && sq.piece.color === 'white') army.push(sq.piece); });
       setPlayerArmy(army); setLevel(1); const newB = generateDungeonFloor(1, army); setBoard(newB);
       setCapturedPieces({ white: [], black: [] }); setCurrentPlayer('white'); setKillStreaks({ white: 0, black: 0 });

@@ -45,7 +45,17 @@
         },
         "equipment": {
           "type": "object",
-          "description": "Mapping of piece IDs to equipped item types.",
+          "description": "Mapping of piece IDs to equipped item types for White in Lobby.",
+          "additionalProperties": { "type": "string" }
+        },
+        "blackEquipment": {
+          "type": "object",
+          "description": "Mapping of piece IDs to equipped item types for Black in Lobby.",
+          "additionalProperties": { "type": "string" }
+        },
+        "dungeonEquipment": {
+          "type": "object",
+          "description": "Mapping of piece IDs to equipped item types for the Dungeon loadout.",
           "additionalProperties": { "type": "string" }
         },
         "dungeonState": {

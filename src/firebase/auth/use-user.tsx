@@ -1,3 +1,4 @@
+
 'use client';
 import { doc, getFirestore, onSnapshot, setDoc, getDoc } from 'firebase/firestore';
 import { useEffect, useState, useRef } from 'react';
@@ -29,6 +30,7 @@ interface UserData {
   inventory?: InventoryItem[];
   equipment?: Record<string, string>;
   blackEquipment?: Record<string, string>;
+  dungeonEquipment?: Record<string, string>;
   dungeonState?: DungeonState;
   unlockedPieces?: string[];
   colossusDefeats?: number;
@@ -146,6 +148,7 @@ export function useUser() {
             inventory: ITEM_TYPES.map(type => ({ type, count: 5 })),
             equipment: {},
             blackEquipment: {},
+            dungeonEquipment: {},
             unlockedPieces: PLAYTEST_UNLOCKS,
             colossusDefeats: 0,
             mirageDefeats: 0,
