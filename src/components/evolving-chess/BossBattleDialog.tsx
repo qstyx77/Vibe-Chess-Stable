@@ -97,7 +97,7 @@ const BOSS_DATA: Record<number, BossMetadata> = {
 };
 
 const BossTitle = ({ text, suffix }: { text: string, suffix: string }) => (
-    <svg viewBox="0 0 280 40" className="h-10 md:h-12 w-auto animate-title-shimmer ascii-shader" xmlns="http://www.w3.org/2000/svg">
+    <svg viewBox="0 0 280 40" className="h-10 md:h-12 w-auto animate-title-shimmer" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <pattern id={`boss-shader-${suffix}`} x="0" y="0" width="2" height="2" patternUnits="userSpaceOnUse">
           <rect x="0" y="0" width="1" height="1" fill="white" />
@@ -225,7 +225,7 @@ export function BossBattleDialog({ isOpen, onOpenChange, floor }: BossBattleDial
                         Current Bonuses: +{dropRates.depthBonus}% Depth | +{dropRates.cloverCount}% Luck
                     </p>
                     <div className="flex items-center justify-center gap-1.5 text-[0.4rem] text-muted-foreground/70 uppercase leading-tight">
-                        <span>Depth Bonus: +1% per 10 floors | Luck Bonus: +1% per equipped Clover</span>
+                        <span>Depth Bonus: +1% per 10 floors reached | Luck Bonus: +1% per equipped Clover</span>
                         <ItemSprite type="clover" size={10} className="align-middle" />
                     </div>
                 </div>

@@ -2161,7 +2161,7 @@ export default function EvolvingChessPage() {
                 </div>
               )}
            </div>
-           <VibeChessTitle className="h-16 w-auto ascii-shader" suffix="-desk" /> 
+           <VibeChessTitle className="h-16 w-auto" suffix="-desk" /> 
            <div className={cn(headerIconsOpacity ? "opacity-100" : "opacity-0 transition-opacity duration-1000")}>
               {headerIconsActive && (
                 <div className="h-10 w-10 shrink-0 animate-shroom-spring">
