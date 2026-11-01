@@ -276,52 +276,171 @@ export function applyMove(
   const movingPiece = newBoard[fromRow][fromCol].piece;
   if (!movingPiece) return { newBoard: board, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered: null, originalPieceLevel: 0, selfCheckByPushBack, queenLevelReducedEvents: null, promotedToInfiltrator, promotedToHero, infiltrationWin, shroomConsumed: false, enPassantTargetSquare: null, extraTurn, specialCaptureSquare, anvilDroppedSquares, levelChanges, obliteratedPieces: [] };
 
-  const isSafeKingMoveType = ['castle', 'swap', 'dance-swap', 'grapple-hook-swap', 'swap-scroll'].includes(move.type || '');
-  if (targetPiece?.type === 'king' && !isSafeKingMoveType) {
-    return { newBoard: board, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents: [], rallyCryTriggered: null, originalPieceLevel: movingPiece.level, originalPieceType: movingPiece.type, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null, anvilDroppedSquares, levelChanges, obliteratedPieces: [] };
+  const originalLevelValue = Number(movingPiece.level || 1);
+  const originalTypeIdentifier = movingPiece.type;
+  const originalEffectiveLevelBefore = getEffectiveLevel(board, fromRow, fromCol);
+
+  // --- SPELL/SCROLL HANDLERS (EARLY RETURNS TO PREVENT ILLEGAL TELEPORTATION) ---
+
+  if (move.type === 'wind-scroll') {
+      const oppColor = movingPiece.color === 'white' ? 'black' : 'white';
+      for (let dr = -1; dr <= 1; dr++) {
+          for (let dc = -1; dc <= 1; dc++) {
+              if (dr === 0 && dc === 0) continue;
+              const nr = toRow + dr; const nc = toCol + dc;
+              if (isValidSquare(nr, nc)) {
+                  const victimSq = newBoard[nr][nc];
+                  if (victimSq.piece && victimSq.piece.color === oppColor) {
+                      const pdr = Math.sign(nr - toRow);
+                      const pdc = Math.sign(nc - toCol);
+                      if (pdr !== 0 || pdc !== 0) {
+                          const pushResult = performExtendedDisplacement(newBoard, nr, nc, pdr, pdc, 1, false, movingPiece.color);
+                          if (pushResult.obliterated.length > 0) obliteratedPieces.push(...pushResult.obliterated);
+                          levelChanges.push(...pushResult.levelChanges);
+                      }
+                  }
+              }
+          }
+      }
+      newBoard[fromRow][fromCol].piece!.heldItem = null;
+      return { newBoard, capturedPiece: null, selfDestructCaptures: [], destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered: null, originalPieceLevel: originalLevelValue, originalPieceType: originalTypeIdentifier, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null, anvilDroppedSquares, levelChanges, obliteratedPieces };
   }
 
-  let effectiveHeldItem = movingPiece.heldItem;
-  if (movingPiece.type === 'mimic') {
-    let mimickedItem: InventoryItemType | null = null;
-    if (movingPiece.heldItem === 'mirror_mask') {
-        const enemyLast = movingPiece.color === 'white' ? lastMoveBlack : lastMoveWhite;
-        mimickedItem = enemyLast?.item || null;
-    } else if (movingPiece.heldItem === 'mimic_blade') {
-        const allyLast = movingPiece.color === 'white' ? lastMoveWhite : lastMoveBlack;
-        mimickedItem = allyLast?.item || null;
-    }
-    effectiveHeldItem = mimickedItem;
+  if (move.type === 'summon-anvil') {
+      newBoard[toRow][toCol].item = { type: 'anvil' };
+      newBoard[fromRow][fromCol].piece!.heldItem = null;
+      anvilDroppedSquares.push(coordsToAlgebraic(toRow, toCol));
+      return { newBoard, capturedPiece: null, selfDestructCaptures: [], destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents: [], rallyCryTriggered: null, originalPieceLevel: originalLevelValue, originalPieceType: originalTypeIdentifier, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null, anvilDroppedSquares, levelChanges, obliteratedPieces: [] };
   }
 
-  if (targetItem?.type === 'anvil' && movingPiece.heldItem === 'crowbar') {
-      newBoard[toRow][toCol].item = null;
-      movingPiece.heldItem = null;
+  if (move.type === 'shield-scroll') {
+      const targetP = newBoard[toRow][toCol].piece;
+      if (targetP && targetP.color === movingPiece.color) {
+          targetP.isShielded = true;
+          const rosaryArchbishop = newBoard.flat().find(sq => sq.piece && sq.piece.color === movingPiece.color && sq.piece.heldItem === 'rosary');
+          if (rosaryArchbishop) {
+              const oldL = targetP.level;
+              targetP.level = Math.min(targetP.type === 'queen' ? 7 : 99, (targetP.level || 1) + 1);
+              if (targetP.level > oldL) {
+                  levelChanges.push({ square: coordsToAlgebraic(toRow, toCol), delta: 1, reason: "Rosary Bonus" });
+                  targetP.isPoisoned = false; targetP.isExhausted = false; targetP.cooldownTurnsRemaining = 0;
+              }
+          }
+      }
+      newBoard[fromRow][fromCol].piece!.heldItem = null;
+      return { newBoard, capturedPiece: null, selfDestructCaptures: [], destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents: [], rallyCryTriggered: null, originalPieceLevel: originalLevelValue, originalPieceType: originalTypeIdentifier, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null, anvilDroppedSquares, levelChanges, obliteratedPieces: [] };
   }
 
-  const isFrontlineAct = FRONTLINE_TYPES.includes(movingPiece.type);
-  const effLevelBeforeMove = getEffectiveLevel(board, fromRow, fromCol);
-  const actorSetsAct = getActiveSets(board, movingPiece.color);
-  const isWindSetAct = actorSetsAct.includes('wind_set');
-  const canPushEntry = (isFrontlineAct && (effLevelBeforeMove >= 4 || (effLevelBeforeMove >= 2 && isWindSetAct) || movingPiece.heldItem === 'grip_gloves'));
-  const isRamPushMove = move.type === 'ram-push';
-
-  if (targetItem?.type === 'anvil' && (canPushEntry || isRamPushMove)) {
-      const dr = Math.sign(toRow - fromRow);
-      const dc = Math.sign(toCol - fromCol);
-      const isCardinal = dr === 0 || dc === 0;
-      const dist = (isRamPushMove && isCardinal) ? 3 : 1;
-      const obliterate = true; 
-      
-      const pushRes = performExtendedDisplacement(newBoard, toRow, toCol, dr, dc, dist, obliterate, movingPiece.color);
-      if (pushRes.obliterated.length > 0) obliteratedPieces.push(...pushRes.obliterated);
-      levelChanges.push(...pushRes.levelChanges);
+  if (move.type === 'kings-decree') {
+      const targetP = newBoard[toRow][toCol].piece;
+      if (targetP && targetP.color === movingPiece.color && targetP.type === 'pawn' && targetP.level === 1) {
+          targetP.type = 'commander';
+      }
+      newBoard[fromRow][fromCol].piece!.heldItem = null;
+      return { newBoard, capturedPiece: null, selfDestructCaptures: [], destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents: [], rallyCryTriggered: null, originalPieceLevel: originalLevelValue, originalPieceType: originalTypeIdentifier, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null, anvilDroppedSquares, levelChanges, obliteratedPieces: [] };
   }
 
-  if (move.type === 'trap-net') {
-      triggerExhaustion(newBoard, fromRow, fromCol, movingPiece.color);
-      newBoard[fromRow][fromCol].piece!.heldItem = null; 
-      return { newBoard, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered: null, originalPieceLevel: movingPiece.level, originalPieceType: movingPiece.type, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null, anvilDroppedSquares, levelChanges, obliteratedPieces: [] };
+  if (move.type === 'heavy-rain') {
+      let placedCount = 0;
+      const allEmpty = [];
+      for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) if (!newBoard[r][c].piece && !newBoard[r][c].item) allEmpty.push({ r, c });
+      const shuffled = allEmpty.sort(() => Math.random() - 0.5);
+      for (let i = 0; i < Math.min(3, shuffled.length); i++) {
+          const pos = shuffled[i];
+          newBoard[pos.r][pos.c].item = { type: 'anvil' };
+          anvilDroppedSquares.push(coordsToAlgebraic(pos.r, pos.col));
+      }
+      newBoard[fromRow][fromCol].piece!.heldItem = null;
+      return { newBoard, capturedPiece: null, selfDestructCaptures: [], destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents: [], rallyCryTriggered: null, originalPieceLevel: originalLevelValue, originalPieceType: originalTypeIdentifier, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null, anvilDroppedSquares, levelChanges, obliteratedPieces: [] };
+  }
+
+  if (move.type === 'antidote') {
+      newBoard.flat().forEach(sq => {
+          if (sq.piece && sq.piece.color === movingPiece.color) {
+              sq.piece.isPoisoned = false;
+              sq.piece.isExhausted = false;
+              sq.piece.cooldownTurnsRemaining = 0;
+          }
+      });
+      newBoard[fromRow][fromCol].piece!.heldItem = null;
+      return { newBoard, capturedPiece: null, selfDestructCaptures: [], destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents: [], rallyCryTriggered: null, originalPieceLevel: originalLevelValue, originalPieceType: originalTypeIdentifier, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null, anvilDroppedSquares, levelChanges, obliteratedPieces: [] };
+  }
+
+  if (move.type === 'rally-scroll') {
+      const { ralliedSquares: rs, levelChanges: lcs } = applyRally(newBoard, movingPiece.color, 'all', move.from);
+      ralliedSquares.push(...rs);
+      levelChanges.push(...lcs);
+      newBoard[fromRow][fromCol].piece!.level = 1;
+      newBoard[fromRow][fromCol].piece!.heldItem = null;
+      return { newBoard, capturedPiece: null, selfDestructCaptures: [], destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents: [], rallyCryTriggered: null, originalPieceLevel: originalLevelValue, originalPieceType: originalTypeIdentifier, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null, ralliedSquares, anvilDroppedSquares, levelChanges, obliteratedPieces: [] };
+  }
+
+  if (move.type === 'life-leach') {
+      const oppColor = movingPiece.color === 'white' ? 'black' : 'white';
+      newBoard.flat().forEach(sq => {
+          if (sq.piece && sq.piece.color === oppColor) {
+              const oldL = sq.piece.level;
+              sq.piece.level = Math.max(1, sq.piece.level - 1);
+              if (sq.piece.level < oldL) {
+                  levelChanges.push({ square: sq.algebraic, delta: -1, reason: "Life Leach" });
+              }
+          }
+      });
+      newBoard[fromRow][fromCol].piece!.heldItem = null;
+      return { newBoard, capturedPiece: null, selfDestructCaptures: [], destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents: [], rallyCryTriggered: null, originalPieceLevel: originalLevelValue, originalPieceType: originalTypeIdentifier, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null, anvilDroppedSquares, levelChanges, obliteratedPieces: [] };
+  }
+
+  if (move.type === 'ice-blast') {
+      const oppColor = movingPiece.color === 'white' ? 'black' : 'white';
+      for (let dr = -1; dr <= 1; dr++) {
+          for (let dc = -1; dc <= 1; dc++) {
+              if (dr === 0 && dc === 0) continue;
+              const nr = fromRow + dr; const nc = fromCol + dc;
+              if (isValidSquare(nr, nc)) {
+                  const victim = newBoard[nr][nc].piece;
+                  if (victim && victim.color === oppColor) {
+                      if (victim.heldItem === 'antifreeze') {
+                          victim.heldItem = null;
+                      } else if (victim.heldItem !== 'thermal_socks') {
+                          victim.frozenTurnsRemaining = 2;
+                      }
+                  }
+              }
+          }
+      }
+      newBoard[fromRow][fromCol].piece!.heldItem = null;
+      return { newBoard, capturedPiece: null, selfDestructCaptures: [], destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents: [], rallyCryTriggered: null, originalPieceLevel: originalLevelValue, originalPieceType: originalTypeIdentifier, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null, anvilDroppedSquares, levelChanges, obliteratedPieces: [] };
+  }
+
+  if (move.type === 'soul-harvest') {
+      let totalStolen = 0;
+      for (let dr = -1; dr <= 1; dr++) {
+          for (let dc = -1; dc <= 1; dc++) {
+              if (dr === 0 && dc === 0) continue;
+              const nr = fromRow + dr; const nc = fromCol + dc;
+              if (isValidSquare(nr, nc)) {
+                  const victim = newBoard[nr][nc].piece;
+                  if (victim && victim.type !== 'king') {
+                      const stolen = victim.level - 1;
+                      if (stolen > 0) {
+                          totalStolen += stolen;
+                          victim.level = 1;
+                          levelChanges.push({ square: coordsToAlgebraic(nr, nc), delta: -stolen, reason: "Soul Harvest" });
+                      }
+                  }
+              }
+          }
+      }
+      const p = newBoard[fromRow][fromCol].piece!;
+      const oldL = p.level;
+      p.level += totalStolen;
+      if (p.type === 'queen') p.level = Math.min(7, p.level);
+      if (p.level > oldL) {
+          levelChanges.push({ square: coordsToAlgebraic(fromRow, fromCol), delta: p.level - oldL, reason: "Soul Harvest Gain" });
+          p.isPoisoned = false; p.isExhausted = false; p.cooldownTurnsRemaining = 0;
+      }
+      p.heldItem = null;
+      return { newBoard, capturedPiece: null, selfDestructCaptures: [], destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents: [], rallyCryTriggered: null, originalPieceLevel: oldL, originalPieceType: p.type, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null, anvilDroppedSquares, levelChanges, obliteratedPieces: [] };
   }
 
   if (move.type === 'earthquake-scroll') {
@@ -349,7 +468,7 @@ export function applyMove(
           }
       }
       newBoard[fromRow][fromCol].piece!.heldItem = null;
-      return { newBoard, capturedPiece: null, selfDestructCaptures: [], destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered: null, originalPieceLevel: movingPiece.level, originalPieceType: movingPiece.type, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null, anvilDroppedSquares, levelChanges, obliteratedPieces };
+      return { newBoard, capturedPiece: null, selfDestructCaptures: [], destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered: null, originalPieceLevel: originalLevelValue, originalPieceType: originalTypeIdentifier, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null, anvilDroppedSquares, levelChanges, obliteratedPieces };
   }
 
   if (move.type === 'demonic-possession') {
@@ -371,7 +490,7 @@ export function applyMove(
           if (sq.piece && sq.piece.color === oppColor) sq.piece.isShielded = false;
       }));
       newBoard[fromRow][fromCol].piece!.heldItem = null;
-      return { newBoard, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered: null, originalPieceLevel: movingPiece.level, originalPieceType: movingPiece.type, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null, anvilDroppedSquares, levelChanges, obliteratedPieces: [] };
+      return { newBoard, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered: null, originalPieceLevel: originalLevelValue, originalPieceType: originalTypeIdentifier, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null, anvilDroppedSquares, levelChanges, obliteratedPieces: [] };
   }
 
   if (move.type === 'burning-ray') {
@@ -628,12 +747,8 @@ export function applyMove(
         multiPromotions.push({ square: move.to, targetLevel: 1 });
     }
 
-    return { newBoard, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered: null, originalPieceLevel: 0, originalPieceType: 'dancer', selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn, specialCaptureSquare: null, anvilDroppedSquares: [], levelChanges, obliteratedPieces: [], multiPromotions };
+    return { newBoard, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered: null, originalPieceLevel: 0, originalPieceType: 'dancer', selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn, specialCaptureSquare, anvilDroppedSquares: [], levelChanges, obliteratedPieces: [], multiPromotions };
   }
-
-  const originalLevelValue = Number(movingPiece.level || 1);
-  const originalTypeIdentifier = movingPiece.type;
-  const originalEffectiveLevelBefore = getEffectiveLevel(board, fromRow, fromCol);
 
   if (move.type === 'resurrection-scroll') {
       if (graveyard) {
@@ -691,6 +806,8 @@ export function applyMove(
       if (newBoard[toRow][toCol].piece) newBoard[toRow][toCol].piece!.heldItem = null; 
       return { newBoard, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents: [], rallyCryTriggered: null, originalPieceLevel: originalLevelValue, originalPieceType: originalTypeIdentifier, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn, specialCaptureSquare, resurrectionScrollEvent, anvilDroppedSquares, levelChanges, obliteratedPieces: [] };
   }
+
+  // --- STANDARD MOVEMENT LOGIC (NO EARLY RETURN BEFORE THIS POINT) ---
 
   if (move.type === 'enpassant') {
     const cpR = fromRow; const cpC = toCol;
