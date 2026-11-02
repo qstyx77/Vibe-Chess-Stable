@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -423,9 +422,14 @@ export default function DungeonPage() {
 
   // --- COMPLEX GAME LOGIC ---
 
-  const processMoveEnd = useCallback((boardAfter: BoardState, nG: any, curKs: any, turnP: PlayerColor, extra: boolean, nEp: AlgebraicSquare | null = null, wasCap: boolean = false, movedT?: PieceType | null, trackWhite?: LastMoveInfo | null, trackBlack?: LastMoveInfo | null, trackGlobal?: LastMoveInfo | null, loseFaithAffectedSquares?: AlgebraicSquare[]) => {
+  const processMoveEnd = useCallback((boardAfter: BoardState, nG: any, curKs: any, turnP: PlayerColor, extra: boolean, nEp: AlgebraicSquare | null = null, wasCap: boolean = false, movedT?: PieceType | null, trackWhite?: LastMoveInfo | null, trackBlack?: LastMoveInfo | null, trackGlobal?: LastMoveInfo | null, loseFaithAffectedSquares?: AlgebraicSquare[], trapAffectedSquares?: AlgebraicSquare[]) => {
     let nB = boardAfter; setDidCaptureLastTurn(prev => ({ ...prev, [turnP]: wasCap }));
     
+    if (trapAffectedSquares && trapAffectedSquares.length > 0) {
+        audioManager.playTrap();
+        trapAffectedSquares.forEach(sq => addEffect('magic-burst', sq, undefined, undefined, 'trap_net'));
+    }
+
     const effWhite = trackWhite !== undefined ? trackWhite : lastMoveWhite;
     const effBlack = trackBlack !== undefined ? trackBlack : lastMoveBlack;
     const effGlobal = trackGlobal !== undefined ? trackGlobal : lastMoveGlobal;
@@ -671,7 +675,7 @@ export default function DungeonPage() {
     saveDungeonState(level, nB, nxtP, curKs, nG, shroomSpawnCounter, nextShroomSpawnTurn, nEp, necroResurrectionCounter, inventory);
   }, [board, level, inventory, user, firestore, userData, lastMoveWhite, lastMoveBlack, lastMoveGlobal, addLog, getPlayerDisplayName, addEffect, shroomSpawnCounter, nextShroomSpawnTurn, necroResurrectionCounter, positionHistory, advanceLevel, saveDungeonState, wraithSpawnTimer]);
 
-  const triggerSpecialsChain = useCallback((bCh: BoardState, cG: { white: Piece[], black: Piece[] }, cKs: { white: number, black: number }, oldS: number, newS: number, isEx: boolean, nEp: AlgebraicSquare | null, actP: PlayerColor = 'white', compM: string[] = [], capId: string | null = null, wasCap: boolean = false, movedT?: PieceType | null, trackWhite?: LastMoveInfo | null, trackBlack?: LastMoveInfo | null, trackGlobal?: LastMoveInfo | null) => {
+  const triggerSpecialsChain = useCallback((bCh: BoardState, cG: { white: Piece[], black: Piece[] }, cKs: { white: number, black: number }, oldS: number, newS: number, isEx: boolean, nEp: AlgebraicSquare | null, actP: PlayerColor = 'white', compM: string[] = [], capId: string | null = null, wasCap: boolean = false, movedT?: PieceType | null, trackWhite?: LastMoveInfo | null, trackBlack?: LastMoveInfo | null, trackGlobal?: LastMoveInfo | null, trapAffectedSquares?: AlgebraicSquare[]) => {
     const isAI = actP === 'black'; const sil = bCh.flat().find(sq => sq.piece?.color === actP && isSilenced(bCh, sq.rowIndex, sq.colIndex, actP));
     let nG = { white: Array.isArray(cG.white) ? [...cG.white] : [], black: Array.isArray(cG.black) ? [...cG.black] : [] };
     
@@ -897,17 +901,17 @@ export default function DungeonPage() {
                 }
                 addLog(`${actP === 'white' ? "Hero" : "Dungeon"} sniped a Level ${sniped.level} ${sniped.type}!`); audioManager.playSnipe(); addEffect('poof', coordsToAlgebraic(row, col));
                 const targetP = sniped.color; nG[targetP] = [...(nG[targetP]||[]), sniped];
-                triggerSpecialsChain(nxtB, nG, cKs, oldS, newS, iEx, nEp, actP, [...compM, 'snipe'], capId, wasCap, movedT, nextAITracks.white, nextAITracks.black, nextAITracks.global); return;
+                triggerSpecialsChain(nxtB, nG, cKs, oldS, newS, iEx, nEp, actP, [...compM, 'snipe'], capId, wasCap, movedT, nextAITracks.white, nextAITracks.black, nextAITracks.global, trapAffectedSquares); return;
             } else {
                 setSpecialActionContext({ boardForNextStep: bCh, playerWhoseTurnCompleted: actP, isExtraTurn: iEx, newEnPassantTarget: nEp, oldStreak: oldS, newStreak: newS, completedMilestones: [...compM, 'snipe'], currentGraveyard: nG, currentKs: cKs, capturingPieceId: capId, trackWhite: effWhite, trackBlack: effBlack, trackGlobal: effGlobal });
                 setIsAwaitingArcherSnipe(true); addLog("Sniper active! Select a target to snipe."); return;
             }
         }
     }
-    processMoveEnd(bCh, nG, cKs, actP, iEx, nEp, wasCap, movedT, effWhite, effBlack, effGlobal);
+    processMoveEnd(bCh, nG, cKs, actP, iEx, nEp, wasCap, movedT, effWhite, effBlack, effGlobal, trapAffectedSquares);
   }, [board, level, inventory, lastMoveWhite, lastMoveBlack, lastMoveGlobal, addLog, getPlayerDisplayName, addEffect, processMoveEnd, firstBloodAchieved]);
 
-  const processPawnSacrificeCheck = useCallback((bAf: BoardState, g: { white: Piece[], black: Piece[] }, cKs: { white: number, black: number }, p: PlayerColor, m: Move | null, oL: number | undefined, oT: PieceType | undefined, iEx: boolean, ep: AlgebraicSquare | null, oS: number, nS: number, cId: string | null = null, wC: boolean = false, mT?: PieceType | null, trackWhite?: LastMoveInfo | null, trackBlack?: LastMoveInfo | null, trackGlobal?: LastMoveInfo | null) => {
+  const processPawnSacrificeCheck = useCallback((bAf: BoardState, g: { white: Piece[], black: Piece[] }, cKs: { white: number, black: number }, p: PlayerColor, m: Move | null, oL: number | undefined, oT: PieceType | undefined, iEx: boolean, ep: AlgebraicSquare | null, oS: number, nS: number, cId: string | null = null, wC: boolean = false, mT?: PieceType | null, trackWhite?: LastMoveInfo | null, trackBlack?: LastMoveInfo | null, trackGlobal?: LastMoveInfo | null, trapAffectedSquares?: AlgebraicSquare[]) => {
     if (!m) return false; const { row, col } = algebraicToCoords(m.to); const piece = bAf[row][col].piece;
     
     const effWhite = trackWhite !== undefined ? trackWhite : lastMoveWhite;
@@ -923,7 +927,7 @@ export default function DungeonPage() {
                 const {row: pr, col: pc} = algebraicToCoords(flSq.algebraic); const sacrificed = { ...nxtB[pr][pc].piece! };
                 nxtB[pr][pc].piece = null; audioManager.playCapture(); addLog(`AI Sacrificed ${sacrificed.type} for the Queen!`);
                 const nG = { white: Array.isArray(g.white) ? [...g.white] : [], black: Array.isArray(g.black) ? [...g.black] : [] }; nG[sacrificed.color] = [...nG[sacrificed.color], sacrificed];
-                triggerSpecialsChain(nxtB, nG, cKs, oS, nS, iEx, ep, p, [], cId, wC, mT, effWhite, effBlack, effGlobal);
+                triggerSpecialsChain(nxtB, nG, cKs, oS, nS, iEx, ep, p, [], cId, wC, mT, effWhite, effBlack, effGlobal, trapAffectedSquares);
             }
             return true;
         }
@@ -932,7 +936,7 @@ export default function DungeonPage() {
         addLog("Royal Sacrifice required! Select a unit to give up."); return true;
       }
     }
-    triggerSpecialsChain(bAf, g, cKs, oS, nS, iEx, ep, p, [], cId, wC, mT, effWhite, effBlack, effGlobal); return false;
+    triggerSpecialsChain(bAf, g, cKs, oS, nS, iEx, ep, p, [], cId, wC, mT, effWhite, effBlack, effGlobal, trapAffectedSquares); return false;
   }, [triggerSpecialsChain, addLog, lastMoveWhite, lastMoveBlack, lastMoveGlobal]);
 
   const handlePromotionSelect = useCallback((t: PieceType) => {
@@ -1097,7 +1101,7 @@ export default function DungeonPage() {
         setLastMoveGlobal(newMoveInfo);
         const res = applyMove(board, move, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, false);
         setBoard(res.newBoard);
-        setTimeout(() => { setIsMoveProcessing(false); clickGuardReference.current = false; setIsAwaitingDecreeTarget(false); setSelectedSquare(null); processMoveEnd(res.newBoard, capturedPieces, killStreaks, currentPlayer, false, null, false, 'king', nextTracks.white, nextTracks.black, nextTracks.global); }, 800);
+        setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; setIsAwaitingDecreeTarget(false); setSelectedSquare(null); processMoveEnd(res.newBoard, capturedPieces, killStreaks, currentPlayer, false, null, false, 'king', nextTracks.white, nextTracks.black, nextTracks.global); }, 800);
         return;
     }
 
@@ -1210,7 +1214,7 @@ export default function DungeonPage() {
                 setIsMoveProcessing(false); clickGuard.current = false; setIsAwaitingGrappleThrow(false); setGrappledPieceSubject(null); setGrappledItemSubject(null); 
                 const wasCap = !!(result.capturedPiece || result.smokeBombEvent);
                 const oS = killStreaks[currentPlayer], nS = wasCap ? oS + 1 : 0, cKs = { ...killStreaks, [currentPlayer]: nS }; setKillStreaks(cKs);
-                processPawnSacrificeCheck(result.newBoard, updatedG, cKs, currentPlayer, move, grappledPieceSubject!.piece.level, grappledPieceSubject!.piece.type, result.extraTurn, result.enPassantTargetSet, oS, nS, result.newBoard[row][col].piece?.id || null, wasCap, grappledPieceSubject!.piece.type, nextTracks.white, nextTracks.black, nextTracks.global);
+                processPawnSacrificeCheck(result.newBoard, updatedG, cKs, currentPlayer, move, grappledPieceSubject!.piece.level, grappledPieceSubject!.piece.type, result.extraTurn, result.enPassantTargetSet, oS, nS, result.newBoard[row][col].piece?.id || null, wasCap, grappledPieceSubject!.piece.type, nextTracks.white, nextTracks.black, nextTracks.global, result.trapAffectedSquares);
             }, 800);
             return;
         }
@@ -1516,6 +1520,7 @@ export default function DungeonPage() {
                    else if (item === 'phase_out') audioManager.playPhaseOut();
                    else if (item === 'lose_faith_scroll') audioManager.playLoseFaith();
                    else if (item === 'wind_scroll') audioManager.playWind();
+                   else if (item === 'trap_net') audioManager.playTrap();
 
                    if (item === 'antidote') {
                        board.flat().forEach(sq => {
@@ -1555,7 +1560,16 @@ export default function DungeonPage() {
                    }
 
                    setBoard(res.newBoard);
-                   setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; setSelectedSquare(null); processMoveEnd(res.newBoard, capturedPieces, killStreaks, currentPlayer, false, null, false, moving.type, nextTracks.white, nextTracks.black, nextTracks.global); }, 800);
+                   setTimeout(() => { 
+                       setIsMoveProcessing(false); 
+                       clickGuard.current = false; 
+                       setSelectedSquare(null); 
+                       if (res.trapAffectedSquares && res.trapAffectedSquares.length > 0) {
+                            audioManager.playTrap();
+                            res.trapAffectedSquares.forEach(sq => addEffect('magic-burst', sq, undefined, undefined, 'trap_net'));
+                       }
+                       processMoveEnd(res.newBoard, capturedPieces, killStreaks, currentPlayer, false, null, false, moving.type, nextTracks.white, nextTracks.black, nextTracks.global); 
+                   }, 800);
                    return;
                }
 
@@ -1708,8 +1722,14 @@ export default function DungeonPage() {
             const q = res.multiPromotions || []; const oppRank = movingP.color === 'white' ? 0 : 7;
             if (FRONTLINE_TYPES.includes(nextBoardState[row][col].piece?.type || '') && row === oppRank) { q.push({ square: alg, targetLevel: getPromotionLevel(res.capturedPiece?.type || null) }); }
             if (rookResResult?.promotionRequiredForResurrectedPawn) { q.push({ square: rookResResult.resurrectedSquareAlg!, targetLevel: 1 }); }
+            
+            if (res.trapAffectedSquares && res.trapAffectedSquares.length > 0) {
+                audioManager.playTrap();
+                res.trapAffectedSquares.forEach(sq => addEffect('magic-burst', sq, undefined, undefined, 'trap_net'));
+            }
+            
             if (q.length > 0) { setPromotionQueue(q); setIsPromotingPawn(true); setPromotionSquare(q[0].square); setPromotionTargetLevel(q[0].targetLevel); setSpecialActionContext({ boardForNextStep: nextBoardState, playerWhoseTurnCompleted: 'white', isExtraTurn: iEx, newEnPassantTarget: res.enPassantTargetSet, oldStreak: oS, newStreak: nS, currentGraveyard: nxtG, currentKs: cKs, capturingPieceId: nextBoardState[row][col].piece?.id || null, trackWhite: nextTracks.white, trackBlack: nextTracks.black, trackGlobal: nextTracks.global }); } 
-            else { processPawnSacrificeCheck(nextBoardState, nxtG, cKs, 'white', {from: selectedSquare, to: alg, type: mType}, oL, oT, iEx, res.enPassantTargetSet, oS, nS, nextBoardState[row][col].piece?.id || null, streakGain > 0, oT, nextTracks.white, nextTracks.black, nextTracks.global); }
+            else { processPawnSacrificeCheck(nextBoardState, nxtG, cKs, 'white', {from: selectedSquare, to: alg, type: mType}, oL, oT, iEx, res.enPassantTargetSet, oS, nS, nextBoardState[row][col].piece?.id || null, streakGain > 0, oT, nextTracks.white, nextTracks.black, nextTracks.global, res.trapAffectedSquares); }
           }, 800);
           return;
        }
@@ -1845,6 +1865,7 @@ export default function DungeonPage() {
         if (oH === 'demonic_possession') audioManager.playPossession();
         if (oH === 'phase_out') audioManager.playPhaseOut();
         if (oH === 'lose_faith_scroll') audioManager.playLoseFaith();
+        if (oH === 'trap_net') audioManager.playTrap();
         if (oH === 'oil_slick') {
             audioManager.playSlick();
             const { row: tr, col: tc } = algebraicToCoords(toAlg);
@@ -1945,7 +1966,13 @@ export default function DungeonPage() {
           let iEx = appRes.extraTurn || (oS < 6 && nS >= 6);
           if (landed && landed.level >= 5 && aiPromoted) iEx = true;
           const cKs = { ...killStreaks, black: nS }; setKillStreaks(cKs);
-          processPawnSacrificeCheck(nextB, nxtG, cKs, 'black', {from: fromAlg, to: toAlg, type: move.type as AIMoveType['type']}, oL, oT, iEx, appRes.enPassantTargetSet, oS, nS, nextB[move.to[0]][move.to[1]].piece?.id || null, streakGain > 0, oT, nextTracks.white, nextTracks.black, nextTracks.global);
+          
+          if (appRes.trapAffectedSquares && appRes.trapAffectedSquares.length > 0) {
+            audioManager.playTrap();
+            appRes.trapAffectedSquares.forEach(sq => addEffect('magic-burst', sq, undefined, undefined, 'trap_net'));
+          }
+          
+          processPawnSacrificeCheck(nextB, nxtG, cKs, 'black', {from: fromAlg, to: toAlg, type: move.type as AIMoveType['type']}, oL, oT, iEx, appRes.enPassantTargetSet, oS, nS, nextB[move.to[0]][move.to[1]].piece?.id || null, streakGain > 0, oT, nextTracks.white, nextTracks.black, nextTracks.global, appRes.trapAffectedSquares);
         }, 800);
     } else {
         const nextNo = aiNoMoveCounter + 1; setAiNoMoveCounter(nextNo);

@@ -1,4 +1,3 @@
-
 import WebSocket from 'ws';
 import http from 'http';
 import { URL } from 'url';
@@ -386,7 +385,8 @@ const moveTypeToItem: Record<string, InventoryItemType> = {
     'phase-out': 'phase_out',
     'glacial-ray': 'glacial_ray',
     'burning-ray': 'burning_ray',
-    'lose-thy-faith': 'lose_faith_scroll'
+    'lose-thy-faith': 'lose_faith_scroll',
+    'trap-net': 'trap_net'
 };
 
 let arenaQueue: { ws: WebSocket; userId: string; userData: any }[] = [];
@@ -872,7 +872,7 @@ wss.on('connection', (ws: UserConnection) => {
                     const movePayload = data.payload as Move;
                     const gs = room.gameState;
                     const playerColor = gs.players.white?.userId === ws.userId ? 'white' : 'black';
-                    const isRewardMove = ['dance-swap', 'dance-move', 'anvil-drop', 'holy-shield', 'archer-snipe', 'pawn-sacrifice', 'ks-resurrection', 'myco-propagate', 'tele-portobello', 'spore-bomb', 'raise-mycelimen', 'demonic-possession', 'lose-thy-faith', 'oil-slick'].includes(movePayload.type || '');
+                    const isRewardMove = ['dance-swap', 'dance-move', 'anvil-drop', 'holy-shield', 'archer-snipe', 'pawn-sacrifice', 'ks-resurrection', 'myco-propagate', 'tele-portobello', 'spore-bomb', 'raise-mycelimen', 'demonic-possession', 'lose-thy-faith', 'oil-slick', 'trap-net'].includes(movePayload.type || '');
                     if (gs.currentPlayer !== playerColor && !isRewardMove) break;
                     const fromSq = algebraicToCoords(movePayload.from);
                     const movingPiece = gs.board[fromSq.row][fromSq.col].piece;
@@ -937,7 +937,7 @@ wss.on('connection', (ws: UserConnection) => {
                             if (winnerData && loserData) {
                                 const changes = calculateEloChange(winnerData.elo || 1200, 1200); // simplified loser elo
                                 eloInfo[winnerData.userId] = { oldElo: winnerData.elo || 1200, newElo: (winnerData.elo || 1200) + changes.winnerGain };
-                                eloInfo[loserData.userId] = { oldElo: loserData.elo || 1200, newElo: (loserData.elo || 1200) + changes.loserLoss };
+                                eloInfo[loserData.userId] = { oldElo: winnerData.elo || 1200, newElo: (winnerData.elo || 1200) + changes.loserLoss };
                             }
                             broadcastToRoom(ws.roomId!, { type: 'game-over', winner: playerColor, reason, eloInfo, goldEarned: {}, moveCount: gs.gameMoveCounter });
                         }
@@ -969,7 +969,7 @@ wss.on('connection', (ws: UserConnection) => {
                             if (winnerData && loserData) {
                                 const changes = calculateEloChange(winnerData.elo || 1200, loserData.elo || 1200);
                                 eloInfo[winnerData.userId] = { oldElo: winnerData.elo || 1200, newElo: (winnerData.elo || 1200) + changes.winnerGain };
-                                eloInfo[loserData.userId] = { oldElo: loserData.elo || 1200, newElo: (loserData.elo || 1200) + changes.loserLoss };
+                                eloInfo[loserData.userId] = { oldElo: winnerData.elo || 1200, newElo: (loserData.elo || 1200) + changes.loserLoss };
                             }
                             broadcastToRoom(ws.roomId!, { type: 'game-over', winner: playerColor, reason: 'checkmate', eloInfo, goldEarned: {}, moveCount: gs.gameMoveCounter });
                         }
@@ -1015,7 +1015,10 @@ wss.on('connection', (ws: UserConnection) => {
                             oilSlick: movePayload.type === 'oil-slick',
                             slickPos: movePayload.type === 'oil-slick' ? movePayload.to : null,
                             loseFaithAffectedSquares: result.loseFaithAffectedSquares || [],
-                            anvilDroppedSquares: result.anvilDroppedSquares || []
+                            anvilDroppedSquares: result.anvilDroppedSquares || [],
+                            trap: movePayload.type === 'trap-net' || !!result.trapAffectedSquares?.length,
+                            trapPos: movePayload.type === 'trap-net' ? movePayload.from : null,
+                            trapAffectedSquares: result.trapAffectedSquares || []
                         };
                         broadcastToRoom(ws.roomId!, { type: 'game-move', gameState: gs, move: movePayload, events: evs });
                     }

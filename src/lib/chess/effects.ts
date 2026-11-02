@@ -622,8 +622,9 @@ export function applyOilSlide(board: BoardState, row: number, col: number, dr: n
     return { r: currentR, c: currentC, obliterated, levelChanges };
 }
 
-export function triggerExhaustion(board: BoardState, r: number, c: number, color: PlayerColor) {
+export function triggerExhaustion(board: BoardState, r: number, c: number, color: PlayerColor): AlgebraicSquare[] {
     const oppColor = color === 'white' ? 'black' : 'white';
+    const affected: AlgebraicSquare[] = [];
     for (let dr = -1; dr <= 1; dr++) {
         for (let dc = -1; dc <= 1; dc++) {
             if (dr === 0 && dc === 0) continue;
@@ -633,8 +634,10 @@ export function triggerExhaustion(board: BoardState, r: number, c: number, color
                 if (victim && victim.color === oppColor) {
                     victim.isExhausted = true;
                     victim.cooldownTurnsRemaining = 2;
+                    affected.push(coordsToAlgebraic(nr, nc));
                 }
             }
         }
     }
+    return affected;
 }

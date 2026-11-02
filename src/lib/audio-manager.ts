@@ -420,6 +420,11 @@ class AudioManager {
     osc.stop(now + 0.3);
   }
 
+  playTrap() {
+    this.playTone(400, 'square', 0.05, 0.4);
+    setTimeout(() => this.playTone(300, 'square', 0.05, 0.3), 40);
+  }
+
   playVictory() {
     this.init();
     this.resume();

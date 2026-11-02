@@ -412,6 +412,7 @@ export interface ApplyMoveResult {
   glassShardTriggered?: boolean;
   signalHornEvent?: { piece: Piece, square: AlgebraicSquare };
   loseFaithAffectedSquares?: AlgebraicSquare[];
+  trapAffectedSquares?: AlgebraicSquare[];
 }
 
 export type ViewMode = 'flipping' | 'tabletop';
