@@ -1068,6 +1068,7 @@ export default function EvolvingChessPage() {
       
       if (oldH === 'life_leach') audioManager.playDrain();
       if (oldH === 'rally_scroll') audioManager.playRally();
+      if (oldH === 'antidote') audioManager.playAntidote();
       
       if (applyResult.itemReturned) { setInventory(prev => { const next = [...prev]; const existing = next.find(i => i.type === applyResult.itemReturned); if (existing) existing.count++; else next.push({ type: applyResult.itemReturned!, count: 1 }); return next; }); addLog(`AI returned equipment: ${ITEM_METADATA[applyResult.itemReturned].name}`); }
       if (applyResult.reflectionOccurred) { 
@@ -1101,6 +1102,14 @@ export default function EvolvingChessPage() {
           addEffectCallback('poof', applyResult.smokeBombEvent.square);
       } else if (applyResult.capturedPiece && !isObliteration) { 
           const pile = applyResult.capturedPiece.color; updatedG[pile] = [...updatedG[pile], { ...applyResult.capturedPiece }]; 
+      }
+
+      if (oldH === 'antidote') {
+          board.flat().forEach(sq => {
+              if (sq.piece && sq.piece.color === currentPlayer && (sq.piece.isPoisoned || sq.piece.isExhausted)) {
+                  addEffectCallback('magic-burst', sq.algebraic, undefined, undefined, 'antidote');
+              }
+          });
       }
       
       if (applyResult.selfDestructCaptures) { applyResult.selfDestructCaptures.forEach(vic => { const pile = vic.color; updatedG[pile] = [...updatedG[pile], { ...vic }]; }); }
@@ -1450,7 +1459,7 @@ export default function EvolvingChessPage() {
         }
         return;
     }
-    if (isSelectingTeleportAlly) { if (piece && piece.color === currentPlayer && piece.type !== 'king' && piece.type !== 'queen' && piece.id !== (selectedSquare ? boardState[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece?.id : null)) { setTeleportAllyPieceId(piece.id); setIsSelectingTeleportAlly(false); setIsSelectingTeleportShroom(true); addLog("Select a shroom to teleport to!"); } return; }
+    if (isSelectingTeleportAlly) { if (piece && piece.color === currentPlayer && piece.type !== 'king' && piece.type !== 'queen' && piece.id !== (selectedSquare ? board[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece?.id : null)) { setTeleportAllyPieceId(piece.id); setIsSelectingTeleportAlly(false); setIsSelectingTeleportShroom(true); addLog("Select a shroom to teleport to!"); } return; }
     if (isSelectingTeleportShroom && sq?.item?.type === 'shroom') {
         const mage = board[algebraicToCoords(selectedSquare!).row][algebraicToCoords(selectedSquare!).col].piece!;
         const newMoveInfo: LastMoveInfo = { type: mage.type, level: mage.level, item: mage.heldItem || null };
@@ -1717,6 +1726,15 @@ export default function EvolvingChessPage() {
                        else if (item === 'detonation_scroll') audioManager.playExplosion();
                        else if (item === 'life_leach') audioManager.playDrain();
                        else if (item === 'rally_scroll') audioManager.playRally();
+                       else if (item === 'antidote') audioManager.playAntidote();
+
+                       if (item === 'antidote') {
+                           board.flat().forEach(sq => {
+                               if (sq.piece && sq.piece.color === currentPlayer && (sq.piece.isPoisoned || sq.piece.isExhausted)) {
+                                   addEffectCallback('magic-burst', sq.algebraic, undefined, undefined, 'antidote');
+                               }
+                           });
+                       }
 
                        const res = applyMove(board, move, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, false);
                        
@@ -1803,7 +1821,7 @@ export default function EvolvingChessPage() {
            }
         }
 
-        const isGrappler = (patternType === 'grappler' || (moving.type === 'mimic' && lastMoveGlobal?.type === 'grappler')) && !silencedUnit;
+        const isGrappler = (patternType === 'grappler' || (moving.type === 'mimic' && lastMoveGlobal?.type && lastMoveGlobal.type !== 'mimic')) && !silencedUnit;
         if (!isAnySpecialModeActive && isGrappler) {
             const tSq = board[row][col]; const tP = tSq.piece; const tA = tSq.item?.type === 'anvil' && effItem === 'power_glove';
             if ((tP && tP.type !== 'king') || tA) {

@@ -901,7 +901,7 @@ export default function DungeonPage() {
     processMoveEnd(bCh, nG, cKs, actP, isEx, nEp, wasCap, movedT, effWhite, effBlack, effGlobal);
   }, [board, level, inventory, lastMoveWhite, lastMoveBlack, lastMoveGlobal, addLog, getPlayerDisplayName, addEffect, processMoveEnd, firstBloodAchieved]);
 
-  const processPawnSacrificeCheck = useCallback((bAf: BoardState, g: { white: Piece[], black: Piece[] }, cKs: { white: number, black: number }, p: PlayerColor, m: Move | null, oL: number | undefined, oT: PieceType | undefined, isEx: boolean, ep: AlgebraicSquare | null, oS: number, nS: number, cId: string | null = null, wC: boolean = false, mT?: PieceType | null, trackWhite?: LastMoveInfo | null, trackBlack?: LastMoveInfo | null, trackGlobal?: LastMoveInfo | null) => {
+  const processPawnSacrificeCheck = useCallback((bAf: BoardState, g: { white: Piece[], black: Piece[] }, cKs: { white: number, black: number }, p: PlayerColor, m: Move | null, oL: number | undefined, oT: PieceType | undefined, iEx: boolean, ep: AlgebraicSquare | null, oS: number, nS: number, cId: string | null = null, wC: boolean = false, mT?: PieceType | null, trackWhite?: LastMoveInfo | null, trackBlack?: LastMoveInfo | null, trackGlobal?: LastMoveInfo | null) => {
     if (!m) return false; const { row, col } = algebraicToCoords(m.to); const piece = bAf[row][col].piece;
     
     const effWhite = trackWhite !== undefined ? trackWhite : lastMoveWhite;
@@ -917,16 +917,16 @@ export default function DungeonPage() {
                 const {row: pr, col: pc} = algebraicToCoords(flSq.algebraic); const sacrificed = { ...nxtB[pr][pc].piece! };
                 nxtB[pr][pc].piece = null; audioManager.playCapture(); addLog(`AI Sacrificed ${sacrificed.type} for the Queen!`);
                 const nG = { white: Array.isArray(g.white) ? [...g.white] : [], black: Array.isArray(g.black) ? [...g.black] : [] }; nG[sacrificed.color] = [...nG[sacrificed.color], sacrificed];
-                triggerSpecialsChain(nxtB, nG, cKs, oS, nS, isEx, ep, p, [], cId, wC, mT, effWhite, effBlack, effGlobal);
+                triggerSpecialsChain(nxtB, nG, cKs, oS, nS, iEx, ep, p, [], cId, wC, mT, effWhite, effBlack, effGlobal);
             }
             return true;
         }
         setIsAwaitingPawnSacrifice(true); setPlayerToSacrificePawn(p); setBoardForPostSacrifice(bAf);
-        setSpecialActionContext({ boardForNextStep: bAf, playerWhoseTurnCompleted: p, isExtraTurn: isEx, newEnPassantTarget: ep, oldStreak: oS, newStreak: nS, currentGraveyard: g, currentKs: cKs, capturingPieceId: cId, trackWhite: effWhite, trackBlack: effBlack, trackGlobal: effGlobal }); 
+        setSpecialActionContext({ boardForNextStep: bAf, playerWhoseTurnCompleted: p, isExtraTurn: iEx, newEnPassantTarget: ep, oldStreak: oS, newStreak: nS, currentGraveyard: g, currentKs: cKs, capturingPieceId: cId, trackWhite: effWhite, trackBlack: effBlack, trackGlobal: effGlobal }); 
         addLog("Royal Sacrifice required! Select a unit to give up."); return true;
       }
     }
-    triggerSpecialsChain(bAf, g, cKs, oS, nS, isEx, ep, p, [], cId, wC, mT, effWhite, effBlack, effGlobal); return false;
+    triggerSpecialsChain(bAf, g, cKs, oS, nS, iEx, ep, p, [], cId, wC, mT, effWhite, effBlack, effGlobal); return false;
   }, [triggerSpecialsChain, addLog, lastMoveWhite, lastMoveBlack, lastMoveGlobal]);
 
   const handlePromotionSelect = useCallback((t: PieceType) => {
@@ -1155,7 +1155,7 @@ export default function DungeonPage() {
                 addLog("Grappler: Capture must be forward-diagonal!");
                 return;
             }
-            const move: Move = { from: selectedSquare!, to: alg, type: 'capture' };
+            const move: Move = { from: selectedSquare, to: alg, type: 'capture' };
             clickGuard.current = true; setIsMoveProcessing(true); setAnimatedSquareTo(alg);
             if (currentPlayer === 'white') setLastMoveWhite(newMoveInfo); else setLastMoveBlack(newMoveInfo);
             setLastMoveGlobal(newMoveInfo);
@@ -1285,6 +1285,23 @@ export default function DungeonPage() {
             setLastMoveGlobal(newMoveInfo);
             const result = applyMove(board, { from: selectedSquare!, to: alg, type }, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, false);
             setBoard(result.newBoard); setSelectedSquare(null); setPossibleMoves([]);
+
+            if (type === 'burning-ray') {
+              const dr = Math.sign(row - fR);
+              const dc = Math.sign(col - fC);
+              for (let i = 1; i <= 4; i++) {
+                const nr = fR + i * dr;
+                const nc = fC + i * dc;
+                if (!isValidSquare(nr, nc)) break;
+                const targetAlg = coordsToAlgebraic(nr, nc);
+                setTimeout(() => {
+                  addEffect('explosion', targetAlg);
+                  audioManager.playExplosion();
+                }, i * 150);
+                if (result.newBoard[nr][nc].piece?.type === 'king') break;
+              }
+            }
+
             setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; setIsAwaitingRayTarget(null); processMoveEnd(result.newBoard, capturedPieces, killStreaks, currentPlayer, false, null, false, movingP.type, nextTracks.white, nextTracks.black, nextTracks.global); }, 800);
         }
         return;
@@ -1472,6 +1489,15 @@ export default function DungeonPage() {
                    else if (item === 'detonation_scroll') audioManager.playExplosion();
                    else if (item === 'life_leach') audioManager.playDrain();
                    else if (item === 'rally_scroll') audioManager.playRally();
+                   else if (item === 'antidote') audioManager.playAntidote();
+
+                   if (item === 'antidote') {
+                       board.flat().forEach(sq => {
+                           if (sq.piece && sq.piece.color === currentPlayer && (sq.piece.isPoisoned || sq.piece.isExhausted)) {
+                               addEffect('magic-burst', sq.algebraic, undefined, undefined, 'antidote');
+                           }
+                       });
+                   }
 
                    setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(selectedSquare);
                    if (currentPlayer === 'white') setLastMoveWhite(newMoveInfo); else setLastMoveBlack(newMoveInfo);
@@ -1636,13 +1662,13 @@ export default function DungeonPage() {
           setClickedEnemySquare(null); setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
           setTimeout(() => { 
             setIsMoveProcessing(false); clickGuard.current = false; 
-            const oS = killStreaks['white'], nS = (streakGain > 0) ? oS + streakGain : 0, isExtraTurn = res.extraTurn || (oS < 6 && nS >= 6);
+            const oS = killStreaks['white'], nS = (streakGain > 0) ? oS + streakGain : 0, iEx = res.extraTurn || (oS < 6 && nS >= 6);
             const cKs = { ...killStreaks, white: nS }; setKillStreaks(cKs);
             const q = res.multiPromotions || []; const oppRank = movingP.color === 'white' ? 0 : 7;
             if (FRONTLINE_TYPES.includes(nextBoardState[row][col].piece?.type || '') && row === oppRank) { q.push({ square: alg, targetLevel: getPromotionLevel(res.capturedPiece?.type || null) }); }
             if (rookResResult?.promotionRequiredForResurrectedPawn) { q.push({ square: rookResResult.resurrectedSquareAlg!, targetLevel: 1 }); }
-            if (q.length > 0) { setPromotionQueue(q); setIsPromotingPawn(true); setPromotionSquare(q[0].square); setPromotionTargetLevel(q[0].targetLevel); setSpecialActionContext({ boardForNextStep: nextBoardState, playerWhoseTurnCompleted: 'white', isExtraTurn: isExtraTurn, newEnPassantTarget: res.enPassantTargetSet, oldStreak: oS, newStreak: nS, currentGraveyard: nxtG, currentKs: cKs, capturingPieceId: nextBoardState[row][col].piece?.id || null, trackWhite: nextTracks.white, trackBlack: nextTracks.black, trackGlobal: nextTracks.global }); } 
-            else { processPawnSacrificeCheck(nextBoardState, nxtG, cKs, 'white', {from: selectedSquare, to: alg, type: mType}, oL, oT, isExtraTurn, res.enPassantTargetSet, oS, nS, nextBoardState[row][col].piece?.id || null, streakGain > 0, oT, nextTracks.white, nextTracks.black, nextTracks.global); }
+            if (q.length > 0) { setPromotionQueue(q); setIsPromotingPawn(true); setPromotionSquare(q[0].square); setPromotionTargetLevel(q[0].targetLevel); setSpecialActionContext({ boardForNextStep: nextBoardState, playerWhoseTurnCompleted: 'white', isExtraTurn: iEx, newEnPassantTarget: res.enPassantTargetSet, oldStreak: oS, newStreak: nS, currentGraveyard: nxtG, currentKs: cKs, capturingPieceId: nextBoardState[row][col].piece?.id || null, trackWhite: nextTracks.white, trackBlack: nextTracks.black, trackGlobal: nextTracks.global }); } 
+            else { processPawnSacrificeCheck(nextBoardState, nxtG, cKs, 'white', {from: selectedSquare, to: alg, type: mType}, oL, oT, iEx, res.enPassantTargetSet, oS, nS, nextBoardState[row][col].piece?.id || null, streakGain > 0, oT, nextTracks.white, nextTracks.black, nextTracks.global); }
           }, 800);
           return;
        }
@@ -1773,6 +1799,7 @@ export default function DungeonPage() {
         
         if (oH === 'life_leach') audioManager.playDrain();
         if (oH === 'rally_scroll') audioManager.playRally();
+        if (oH === 'antidote') audioManager.playAntidote();
 
         if (appRes.conversionEvents && appRes.conversionEvents.length > 0) {
             audioManager.playConversion();
@@ -1800,6 +1827,15 @@ export default function DungeonPage() {
         if (appRes.signalHornEvent) { addLog(`Signal Horn! ${appRes.signalHornEvent.piece.type} gains a level.`); }
         if (appRes.anvilDroppedSquares) appRes.anvilDroppedSquares.forEach(sq => { setTimeout(() => { addEffect('focus', sq); audioManager.playAnvil(); }, 300); });
         let nextB = appRes.newBoard;
+
+        if (oH === 'antidote') {
+            nextB.flat().forEach(sq => {
+                if (sq.piece && sq.piece.color === 'black' && (sq.piece.isPoisoned || sq.piece.isExhausted)) {
+                    addEffect('magic-burst', sq.algebraic, undefined, undefined, 'antidote');
+                }
+            });
+        }
+
         if (mP.id === 'boss-entity' && streakGain > 0) {
             addLog("Time Lock! The Void entities reality!"); audioManager.playFreeze();
             const { row: tr, col: tc } = algebraicToCoords(toAlg);
@@ -1847,10 +1883,10 @@ export default function DungeonPage() {
         setTimeout(() => { 
           setIsAiThinking(false); setIsMoveProcessing(false); clickGuard.current = false; 
           const oS = killStreaks['black'], nS = (streakGain > 0) ? oS + streakGain : 0;
-          let isExtraTurn = appRes.extraTurn || (oS < 6 && nS >= 6);
-          if (landed && landed.level >= 5 && aiPromoted) isExtraTurn = true;
+          let iEx = appRes.extraTurn || (oS < 6 && nS >= 6);
+          if (landed && landed.level >= 5 && aiPromoted) iEx = true;
           const cKs = { ...killStreaks, black: nS }; setKillStreaks(cKs);
-          processPawnSacrificeCheck(nextB, nxtG, cKs, 'black', {from: fromAlg, to: toAlg, type: move.type as AIMoveType['type']}, oL, oT, isExtraTurn, appRes.enPassantTargetSet, oS, nS, nextB[move.to[0]][move.to[1]].piece?.id || null, streakGain > 0, oT, nextTracks.white, nextTracks.black, nextTracks.global);
+          processPawnSacrificeCheck(nextB, nxtG, cKs, 'black', {from: fromAlg, to: toAlg, type: move.type as AIMoveType['type']}, oL, oT, iEx, appRes.enPassantTargetSet, oS, nS, nextB[move.to[0]][move.to[1]].piece?.id || null, streakGain > 0, oT, nextTracks.white, nextTracks.black, nextTracks.global);
         }, 800);
     } else {
         const nextNo = aiNoMoveCounter + 1; setAiNoMoveCounter(nextNo);
