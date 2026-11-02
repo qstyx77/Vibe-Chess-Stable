@@ -1074,6 +1074,14 @@ export default function EvolvingChessPage() {
       if (oldH === 'demonic_possession') audioManager.playPossession();
       if (oldH === 'phase_out') audioManager.playPhaseOut();
       if (oldH === 'lose_faith_scroll') audioManager.playLoseFaith();
+      if (oldH === 'oil_slick') {
+          audioManager.playSlick();
+          const { row: tr, col: tc } = algebraicToCoords(toAlg);
+          for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+              const nr = tr + dr; const nc = tc + dc;
+              if (isValidSquareUtil(nr, nc)) addEffectCallback('magic-burst', coordsToAlgebraic(nr, nc), undefined, undefined, 'oil_slick');
+          }
+      }
       if (oldH === 'wind_scroll' || oldH === 'wind_sword' || oldH === 'wind_cloak') audioManager.playWind();
       if (aiMove.type === 'swap' || aiMove.type === 'dance-swap' || aiMove.type === 'grapple-hook-swap' || oldH === 'swap_scroll') audioManager.playTeleport();
 
@@ -1599,7 +1607,13 @@ export default function EvolvingChessPage() {
           }
 
           if (isAwaitingOilSlickTarget) { 
-              setIsMoveProcessing(true); setAnimatedSquareTo(algebraic); const res = applyMove(board, { from: selectedSquare!, to: algebraic, type: 'oil-slick' }, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, false); setBoard(res.newBoard); setTimeout(() => { setIsMoveProcessing(false); setIsAwaitingOilSlickTarget(false); setSelectedSquare(null); processMoveEnd(res.newBoard, capturedPieces, killStreaks, currentPlayer, false, null, false, movedType, nextTracks.white, nextTracks.black, nextTracks.global); }, 800); 
+              setIsMoveProcessing(true); setAnimatedSquareTo(algebraic);
+              audioManager.playSlick();
+              for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+                const nr = row + dr; const nc = col + dc;
+                if (isValidSquare(nr, nc)) addEffectCallback('magic-burst', coordsToAlgebraic(nr, nc), undefined, undefined, 'oil_slick');
+              }
+              const res = applyMove(board, { from: selectedSquare!, to: algebraic, type: 'oil-slick' }, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, false); setBoard(res.newBoard); setTimeout(() => { setIsMoveProcessing(false); setIsAwaitingOilSlickTarget(false); setSelectedSquare(null); processMoveEnd(res.newBoard, capturedPieces, killStreaks, currentPlayer, false, null, false, movedType, nextTracks.white, nextTracks.black, nextTracks.global); }, 800); 
           } else { 
               const moveType = isAwaitingWindScrollTarget ? 'wind-scroll' : (isAwaitingAnvilScrollTarget ? 'summon-anvil' : (isAwaitingEarthquakeScrollTarget ? 'earthquake-scroll' : 'move'));
               const contextBoard = (specialActionContext?.boardForNextStep || board);
@@ -2056,6 +2070,14 @@ export default function EvolvingChessPage() {
                 if (remoteEvents.phaseOut) { audioManager.playPhaseOut(); }
                 if (remoteEvents.windPush) { audioManager.playWind(); }
                 if (remoteEvents.teleport) { audioManager.playTeleport(); }
+                if (remoteEvents.oilSlick && remoteEvents.slickPos) {
+                  audioManager.playSlick();
+                  const { row: sr, col: sc } = algebraicToCoords(remoteEvents.slickPos);
+                  for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+                    const nr = sr + dr; const nc = sc + dc;
+                    if (isValidSquare(nr, nc)) addEffectCallback('magic-burst', coordsToAlgebraic(nr, nc), undefined, undefined, 'oil_slick');
+                  }
+                }
                 if (remoteEvents.loseFaithAffectedSquares?.length > 0) {
                     audioManager.playLoseFaith();
                     remoteEvents.loseFaithAffectedSquares.forEach((sq: AlgebraicSquare) => addEffectCallback('poof', sq));

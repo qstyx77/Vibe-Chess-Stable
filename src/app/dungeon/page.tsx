@@ -1097,7 +1097,7 @@ export default function DungeonPage() {
         setLastMoveGlobal(newMoveInfo);
         const res = applyMove(board, move, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, false);
         setBoard(res.newBoard);
-        setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; setIsAwaitingDecreeTarget(false); setSelectedSquare(null); processMoveEnd(res.newBoard, capturedPieces, killStreaks, currentPlayer, false, null, false, 'king', nextTracks.white, nextTracks.black, nextTracks.global); }, 800);
+        setTimeout(() => { setIsMoveProcessing(false); clickGuardReference.current = false; setIsAwaitingDecreeTarget(false); setSelectedSquare(null); processMoveEnd(res.newBoard, capturedPieces, killStreaks, currentPlayer, false, null, false, 'king', nextTracks.white, nextTracks.black, nextTracks.global); }, 800);
         return;
     }
 
@@ -1341,7 +1341,14 @@ export default function DungeonPage() {
                     if (isValidSquare(nr, nc)) addEffect('magic-burst', coordsToAlgebraic(nr, nc), undefined, undefined, 'earthquake_scroll');
                 }
             }
-            else if (isAwaitingOilSlickTarget) { moveType = 'oil-slick'; deductConsumable('oil_slick'); audioManager.playShroom(); }
+            else if (isAwaitingOilSlickTarget) { 
+                moveType = 'oil-slick'; deductConsumable('oil_slick'); 
+                audioManager.playSlick();
+                for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+                  const nr = row + dr; const nc = col + dc;
+                  if (isValidSquare(nr, nc)) addEffect('magic-burst', coordsToAlgebraic(nr, nc), undefined, undefined, 'oil_slick');
+                }
+            }
             else if (isAwaitingAnvilDrop) {
                 clickGuard.current = false; setIsMoveProcessing(false); setAnimatedSquareTo(null);
                 const nextB = specialActionContext!.boardForNextStep.map((r:any) => r.map((s:any) => ({ ...s }))); 
@@ -1838,6 +1845,14 @@ export default function DungeonPage() {
         if (oH === 'demonic_possession') audioManager.playPossession();
         if (oH === 'phase_out') audioManager.playPhaseOut();
         if (oH === 'lose_faith_scroll') audioManager.playLoseFaith();
+        if (oH === 'oil_slick') {
+            audioManager.playSlick();
+            const { row: tr, col: tc } = algebraicToCoords(toAlg);
+            for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+                const nr = tr + dr; const nc = tc + dc;
+                if (isValidSquareUtil(nr, nc)) addEffect('magic-burst', coordsToAlgebraic(nr, nc), undefined, undefined, 'oil_slick');
+            }
+        }
         if (oH === 'wind_scroll' || oH === 'wind_sword' || oH === 'wind_cloak') audioManager.playWind();
         if (move.type === 'swap' || move.type === 'dance-swap' || move.type === 'grapple-hook-swap' || oH === 'swap_scroll') audioManager.playTeleport();
 
@@ -2094,7 +2109,7 @@ export default function DungeonPage() {
                 <div className="space-y-0.5"> <p className="text-[0.55rem] font-bold text-destructive leading-none uppercase">W-Streak: {killStreaks.white}</p> <p className="text-[0.55rem] font-bold text-destructive uppercase">B-Streak: {killStreaks.black}</p> </div>
             </div>
             <div className="w-full mb-1"> <h3 className="text-[0.6rem] font-bold text-muted-foreground uppercase mb-0.5 leading-none">Captured Black</h3> <div className="flex flex-wrap gap-0.5 bg-background rounded-none min-h-[1.5rem] p-0.5 border border-border/20"> {capturedPieces.black.length === 0 ? <span className="text-[0.5rem] text-muted-foreground">None</span> : capturedPieces.black.map(p => <div key={p.id} className="w-5 h-5"><ChessPieceDisplay piece={p} isMini /></div>)} </div> </div>
-            <div className="w-full mb-1"> <h3 className="text-[0.6rem] font-bold text-muted-foreground uppercase mb-0.5 leading-none">Captured White</h3> <div className="flex flex-wrap gap-0.5 bg-background rounded-none min-h-[1.5rem] p-0.5 border border-border/20"> {capturedPieces.white.length === 0 ? <span className="text-[0.5rem] text-muted-foreground">None</span> : capturedPieces.white.map(p => <div key={p.id} className="w-5 h-5"><ChessPieceDisplay piece={p} isMini /></div>)} </div> </div>
+            <div className="w-full mb-1"> <h3 className="text-[0.6rem] font-bold text-muted-foreground uppercase mb-0.5 leading-none">Captured White</h3> <div className="flex flex-wrap gap-0.5 bg-background rounded-none min-h-[1.5rem] p-0.5 border border-border/20"> {capturedPieces.white.length === 0 ? <span className="text-[0.5rem] text-muted-foreground">None</span> : capturedPieces.white.map(p => key={p.id} className="w-5 h-5"><ChessPieceDisplay piece={p} isMini /></div>)} </div> </div>
             <div className="flex-grow flex flex-col justify-center min-h-[4.5rem] pt-1"> {pieceForInfoDisplay ? ( <PieceAbilitiesInfo piece={pieceForInfoDisplay} /> ) : ( <div className="text-center text-[0.6rem] text-muted-foreground leading-tight uppercase font-pixel opacity-50"> Hover for Info </div> )} </div>
         </div>
       )}

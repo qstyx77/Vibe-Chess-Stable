@@ -1,3 +1,4 @@
+
 import WebSocket from 'ws';
 import http from 'http';
 import { URL } from 'url';
@@ -871,7 +872,7 @@ wss.on('connection', (ws: UserConnection) => {
                     const movePayload = data.payload as Move;
                     const gs = room.gameState;
                     const playerColor = gs.players.white?.userId === ws.userId ? 'white' : 'black';
-                    const isRewardMove = ['dance-swap', 'dance-move', 'anvil-drop', 'holy-shield', 'archer-snipe', 'pawn-sacrifice', 'ks-resurrection', 'myco-propagate', 'tele-portobello', 'spore-bomb', 'raise-mycelimen', 'demonic-possession', 'lose-thy-faith'].includes(movePayload.type || '');
+                    const isRewardMove = ['dance-swap', 'dance-move', 'anvil-drop', 'holy-shield', 'archer-snipe', 'pawn-sacrifice', 'ks-resurrection', 'myco-propagate', 'tele-portobello', 'spore-bomb', 'raise-mycelimen', 'demonic-possession', 'lose-thy-faith', 'oil-slick'].includes(movePayload.type || '');
                     if (gs.currentPlayer !== playerColor && !isRewardMove) break;
                     const fromSq = algebraicToCoords(movePayload.from);
                     const movingPiece = gs.board[fromSq.row][fromSq.col].piece;
@@ -1011,6 +1012,8 @@ wss.on('connection', (ws: UserConnection) => {
                             phaseOut: movePayload.type === 'phase-out',
                             windPush: movePayload.type === 'wind-scroll' || result.obliteratedPieces?.length > 0 || wasCapture,
                             teleport: isSwap,
+                            oilSlick: movePayload.type === 'oil-slick',
+                            slickPos: movePayload.type === 'oil-slick' ? movePayload.to : null,
                             loseFaithAffectedSquares: result.loseFaithAffectedSquares || [],
                             anvilDroppedSquares: result.anvilDroppedSquares || []
                         };

@@ -396,6 +396,30 @@ class AudioManager {
     setTimeout(() => this.playTone(900, 'sine', 0.15, 0.3), 40);
   }
 
+  playSlick() {
+    this.init();
+    this.resume();
+    if (!this.ctx || !this.masterGain) return;
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(200, now);
+    osc.frequency.exponentialRampToValueAtTime(100, now + 0.3);
+    const lfo = this.ctx.createOscillator();
+    lfo.frequency.value = 30;
+    const lfoGain = this.ctx.createGain();
+    lfoGain.gain.value = 50;
+    lfo.connect(lfoGain);
+    lfoGain.connect(osc.frequency);
+    gain.gain.setValueAtTime(0.4, now);
+    gain.gain.linearRampToValueAtTime(0, now + 0.3);
+    lfo.start();
+    osc.start();
+    lfo.stop(now + 0.3);
+    osc.stop(now + 0.3);
+  }
+
   playVictory() {
     this.init();
     this.resume();
