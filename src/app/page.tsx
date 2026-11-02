@@ -1067,6 +1067,7 @@ export default function EvolvingChessPage() {
       applyResult.levelChanges?.forEach(lc => addEffectCallback('level-change', lc.square, currentPlayer, lc.delta, undefined));
       
       if (oldH === 'life_leach') audioManager.playDrain();
+      if (oldH === 'soul_harvest') audioManager.playSoulHarvest();
       if (oldH === 'rally_scroll') audioManager.playRally();
       if (oldH === 'antidote') audioManager.playAntidote();
       
@@ -1459,7 +1460,7 @@ export default function EvolvingChessPage() {
         }
         return;
     }
-    if (isSelectingTeleportAlly) { if (piece && piece.color === currentPlayer && piece.type !== 'king' && piece.type !== 'queen' && piece.id !== (selectedSquare ? board[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece?.id : null)) { setTeleportAllyPieceId(piece.id); setIsSelectingTeleportAlly(false); setIsSelectingTeleportShroom(true); addLog("Select a shroom to teleport to!"); } return; }
+    if (isSelectingTeleportAlly) { if (piece && piece.color === currentPlayer && piece.type !== 'king' && piece.type !== 'queen' && piece.id !== (selectedSquare ? boardState[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece?.id : null)) { setTeleportAllyPieceId(piece.id); setIsSelectingTeleportAlly(false); setIsSelectingTeleportShroom(true); addLog("Select a shroom to teleport to!"); } return; }
     if (isSelectingTeleportShroom && sq?.item?.type === 'shroom') {
         const mage = board[algebraicToCoords(selectedSquare!).row][algebraicToCoords(selectedSquare!).col].piece!;
         const newMoveInfo: LastMoveInfo = { type: mage.type, level: mage.level, item: mage.heldItem || null };
@@ -1501,7 +1502,7 @@ export default function EvolvingChessPage() {
           return; 
         }
         if (algebraic === dancerToDance) { setIsAwaitingDanceTarget(false); setDancerToDance(null); if (specialActionContext) triggerSpecialsChain(board, specialActionContext.currentGraveyard, specialActionContext.currentKs, specialActionContext.oldStreak, specialActionContext.newStreak, specialActionContext.isExtraTurn, specialActionContext.newEnPassantTarget, currentPlayer, specialActionContext.completedMilestones, specialActionContext.capturingPieceId, false, lastMoveGlobal?.type, specialActionContext.trackWhite, specialActionContext.trackBlack, specialActionContext.trackGlobal); return; }
-        const {row: fr, col: fC} = algebraicToCoords(dancerToDance); const isAdjacent = Math.abs(row - fr) <= 1 && Math.abs(col - fC) <= 1;
+        const {row: fr, col: fC} = algebraicToCoords(dancerToDance); const isAdjacent = Math.abs(actualRowIndex - fr) <= 1 && Math.abs(actualColIndex - fc) <= 1;
         const targetP = board[row][col].piece;
         const targetItem = board[row][col].item;
         const activeD = board[fr][fC].piece!;
@@ -1725,6 +1726,7 @@ export default function EvolvingChessPage() {
                        else if (item === 'ice_blast' || item === 'ice_scroll') audioManager.playFreeze();
                        else if (item === 'detonation_scroll') audioManager.playExplosion();
                        else if (item === 'life_leach') audioManager.playDrain();
+                       else if (item === 'soul_harvest') audioManager.playDrain();
                        else if (item === 'rally_scroll') audioManager.playRally();
                        else if (item === 'antidote') audioManager.playAntidote();
 

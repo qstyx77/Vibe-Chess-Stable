@@ -292,6 +292,29 @@ class AudioManager {
     osc.stop(now + 0.3);
   }
 
+  playSoulHarvest() {
+    this.init();
+    this.resume();
+    if (!this.ctx || !this.masterGain) return;
+    const now = this.ctx.currentTime;
+    // Harmonic series for a hollow, eerie sound
+    [1, 1.5, 2, 2.5].forEach((mult, i) => {
+      const osc = this.ctx!.createOscillator();
+      const gain = this.ctx!.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(200 * mult, now);
+      osc.frequency.exponentialRampToValueAtTime(800 * mult, now + 0.6);
+      
+      gain.gain.setValueAtTime(0.2 / (i + 1), now);
+      gain.gain.linearRampToValueAtTime(0, now + 0.6);
+      
+      osc.connect(gain);
+      gain.connect(this.masterGain!);
+      osc.start();
+      osc.stop(now + 0.6);
+    });
+  }
+
   playVictory() {
     this.init();
     this.resume();

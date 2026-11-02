@@ -339,7 +339,7 @@ export default function DungeonPage() {
     isAwaitingSwapScrollTarget || isAwaitingSwapTarget || isAwaitingDecreeTarget || 
     isAwaitingEarthquakeScrollTarget || isAwaitingOilSlickTarget || !!isAwaitingRayTarget || isSelectingTeleportAlly || 
     isSelectingTeleportShroom || isSelectingSporeBombShroom || isLootWindowOpen || isDungeonWelcomeOpen || isBossBattleOpen, 
-  [isInventoryOpen, isPromotingPawn, isAwaitingAnvilDrop, isAwaitingAnvilScrollTarget, isAwaitingHolyShield, isAwaitingArcherSnipe, isAwaitingPawnSacrifice, isAwaitingCommanderPromotion, isSelectingMycoSpell, isAwaitingGrappleThrow, isAwaitingDanceTarget, isAwaitingEarthquakeScrollTarget, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, isAwaitingOilSlickTarget, isAwaitingRayTarget, isLootWindowOpen, isAwaitingWindScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingSwapTarget, isAwaitingDecreeTarget, isDungeonWelcomeOpen, isBossBattleOpen]);
+  [isInventoryOpen, isPromotingPawn, isAwaitingAnvilDrop, isAwaitingAnvilScrollTarget, isAwaitingHolyShield, isAwaitingArcherSnipe, isAwaitingPawnSacrifice, isAwaitingCommanderPromotion, isSelectingMycoSpell, isAwaitingGrappleThrow, isAwaitingDanceTarget, isAwaitingEarthquakeScrollTarget, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, isAwaitingOilSlickTarget, isAwaitingRayTarget, isLootWindowOpen, isAwaitingWindScrollTarget, isAwaitingAnvilScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingSwapTarget, isAwaitingDecreeTarget, isDungeonWelcomeOpen, isBossBattleOpen]);
 
   const attunementSlots = useMemo(() => {
     const elo = userData?.eloRating || 1200; return 3 + Math.floor((Math.max(0, elo - 1200)) / 400);
@@ -1488,6 +1488,7 @@ export default function DungeonPage() {
                    else if (item === 'ice_blast' || item === 'ice_scroll') audioManager.playFreeze();
                    else if (item === 'detonation_scroll') audioManager.playExplosion();
                    else if (item === 'life_leach') audioManager.playDrain();
+                   else if (item === 'soul_harvest') audioManager.playDrain();
                    else if (item === 'rally_scroll') audioManager.playRally();
                    else if (item === 'antidote') audioManager.playAntidote();
 
@@ -1798,6 +1799,7 @@ export default function DungeonPage() {
         }, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, didCaptureLastTurn.white);
         
         if (oH === 'life_leach') audioManager.playDrain();
+        if (oH === 'soul_harvest') audioManager.playSoulHarvest();
         if (oH === 'rally_scroll') audioManager.playRally();
         if (oH === 'antidote') audioManager.playAntidote();
 
