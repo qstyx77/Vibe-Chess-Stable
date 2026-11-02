@@ -411,6 +411,7 @@ export interface ApplyMoveResult {
   smokeBombEvent?: { piece: Piece, square: AlgebraicSquare };
   glassShardTriggered?: boolean;
   signalHornEvent?: { piece: Piece, square: AlgebraicSquare };
+  loseFaithAffectedSquares?: AlgebraicSquare[];
 }
 
 export type ViewMode = 'flipping' | 'tabletop';

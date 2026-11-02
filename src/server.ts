@@ -494,7 +494,7 @@ wss.on('connection', (ws: UserConnection) => {
 
                     if (cmd === '/friend' && targetUid) {
                         const targetRef = admin.firestore().doc(`users/${ws.userId}/friends/${targetUid}`);
-                        await targetRef.set({ id: targetUid, username: friendName, status: 'accepted', createdAt: new Date().toISOString() });
+                        await targetRef.set({ id: targetUid, username: targetName, status: 'accepted', createdAt: new Date().toISOString() });
                         sendResponse(`Successfully added ${targetName} to your friends list.`);
                     } else if (cmd === '/unfriend' && targetUid) {
                         await admin.firestore().doc(`users/${ws.userId}/friends/${targetUid}`).delete();
@@ -872,7 +872,7 @@ wss.on('connection', (ws: UserConnection) => {
                     const movePayload = data.payload as Move;
                     const gs = room.gameState;
                     const playerColor = gs.players.white?.userId === ws.userId ? 'white' : 'black';
-                    const isRewardMove = ['dance-swap', 'dance-move', 'anvil-drop', 'holy-shield', 'archer-snipe', 'pawn-sacrifice', 'ks-resurrection', 'myco-propagate', 'tele-portobello', 'spore-bomb', 'raise-mycelimen', 'demonic-possession'].includes(movePayload.type || '');
+                    const isRewardMove = ['dance-swap', 'dance-move', 'anvil-drop', 'holy-shield', 'archer-snipe', 'pawn-sacrifice', 'ks-resurrection', 'myco-propagate', 'tele-portobello', 'spore-bomb', 'raise-mycelimen', 'demonic-possession', 'lose-thy-faith'].includes(movePayload.type || '');
                     if (gs.currentPlayer !== playerColor && !isRewardMove) break;
                     const fromSq = algebraicToCoords(movePayload.from);
                     const movingPiece = gs.board[fromSq.row][fromSq.col].piece;
@@ -1009,6 +1009,7 @@ wss.on('connection', (ws: UserConnection) => {
                             shroomSpawned: shroomSpawnedEvent, shroomPos: shroomSpawnedEvent ? shroomSpawnPos : null,
                             possession: movePayload.type === 'demonic-possession',
                             phaseOut: movePayload.type === 'phase-out',
+                            loseFaithAffectedSquares: result.loseFaithAffectedSquares || [],
                             anvilDroppedSquares: result.anvilDroppedSquares || []
                         };
                         broadcastToRoom(ws.roomId!, { type: 'game-move', gameState: gs, move: movePayload, events: evs });

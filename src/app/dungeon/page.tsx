@@ -423,12 +423,17 @@ export default function DungeonPage() {
 
   // --- COMPLEX GAME LOGIC ---
 
-  const processMoveEnd = useCallback((boardAfter: BoardState, nG: any, curKs: any, turnP: PlayerColor, extra: boolean, nEp: AlgebraicSquare | null = null, wasCap: boolean = false, movedT?: PieceType | null, trackWhite?: LastMoveInfo | null, trackBlack?: LastMoveInfo | null, trackGlobal?: LastMoveInfo | null) => {
+  const processMoveEnd = useCallback((boardAfter: BoardState, nG: any, curKs: any, turnP: PlayerColor, extra: boolean, nEp: AlgebraicSquare | null = null, wasCap: boolean = false, movedT?: PieceType | null, trackWhite?: LastMoveInfo | null, trackBlack?: LastMoveInfo | null, trackGlobal?: LastMoveInfo | null, loseFaithAffectedSquares?: AlgebraicSquare[]) => {
     let nB = boardAfter; setDidCaptureLastTurn(prev => ({ ...prev, [turnP]: wasCap }));
     
     const effWhite = trackWhite !== undefined ? trackWhite : lastMoveWhite;
     const effBlack = trackBlack !== undefined ? trackBlack : lastMoveBlack;
     const effGlobal = trackGlobal !== undefined ? trackGlobal : lastMoveGlobal;
+
+    if (loseFaithAffectedSquares && loseFaithAffectedSquares.length > 0) {
+        audioManager.playLoseFaith();
+        loseFaithAffectedSquares.forEach(sq => addEffect('poof', sq));
+    }
 
     // --- Wraith Phase Implementation ---
     const royals = nB.flat().filter(sq => sq.piece && (sq.piece.type === 'king' || sq.piece.type === 'queen'));
@@ -1493,6 +1498,7 @@ export default function DungeonPage() {
                    else if (item === 'antidote') audioManager.playAntidote();
                    else if (item === 'demonic_possession') audioManager.playPossession();
                    else if (item === 'phase_out') audioManager.playPhaseOut();
+                   else if (item === 'lose_faith_scroll') audioManager.playLoseFaith();
 
                    if (item === 'antidote') {
                        board.flat().forEach(sq => {
@@ -1525,6 +1531,10 @@ export default function DungeonPage() {
                            const nr = fR + dr; const nc = fC + dc;
                            if (isValidSquare(nr, nc)) addEffect('magic-burst', coordsToAlgebraic(nr, nc), undefined, undefined, 'phase_out');
                        }
+                   }
+
+                   if (item === 'lose_faith_scroll' && res.loseFaithAffectedSquares) {
+                       res.loseFaithAffectedSquares.forEach(sq => addEffect('poof', sq));
                    }
 
                    setBoard(res.newBoard);
@@ -1813,6 +1823,7 @@ export default function DungeonPage() {
         if (oH === 'antidote') audioManager.playAntidote();
         if (oH === 'demonic_possession') audioManager.playPossession();
         if (oH === 'phase_out') audioManager.playPhaseOut();
+        if (oH === 'lose_faith_scroll') audioManager.playLoseFaith();
 
         if (appRes.conversionEvents && appRes.conversionEvents.length > 0) {
             audioManager.playConversion();
@@ -1820,6 +1831,10 @@ export default function DungeonPage() {
                 addEffect('conversion', e.at);
                 addLog(`Dungeon: Conversion! One of your units was turned!`);
             });
+        }
+
+        if (oH === 'lose_faith_scroll' && appRes.loseFaithAffectedSquares) {
+            appRes.loseFaithAffectedSquares.forEach(sq => addEffect('poof', sq));
         }
 
         appRes.levelChanges?.forEach(lc => {

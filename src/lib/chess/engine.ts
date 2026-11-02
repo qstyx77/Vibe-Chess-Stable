@@ -1,4 +1,3 @@
-
 import type { BoardState, Piece, PieceType, PlayerColor, AlgebraicSquare, InventoryItemType, ItemType, SquareState, RookResurrectionResult, LastMoveInfo, ApplyMoveResult, Move, LevelChangeEvent, ConversionEvent } from '@/types';
 import { VAL_MAP, FRONTLINE_TYPES } from './constants';
 import { algebraicToCoords, coordsToAlgebraic, isValidSquare, getEffectiveLevel, isSilenced, getPromotionLevel, findKing, isItemValidForPiece, getActiveSets } from './utils';
@@ -278,6 +277,7 @@ export function applyMove(
   let smokeBombEvent = undefined;
   let glassShardTriggered = false;
   let signalHornEvent = undefined;
+  let loseFaithAffectedSquares: AlgebraicSquare[] = [];
 
   const movingPiece = newBoard[fromRow][fromCol].piece;
   if (!movingPiece) return { newBoard: board, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered: null, originalPieceLevel: 0, selfCheckByPushBack, queenLevelReducedEvents: null, promotedToInfiltrator, promotedToHero, infiltrationWin, shroomConsumed: false, enPassantTargetSquare: null, extraTurn, specialCaptureSquare, anvilDroppedSquares, levelChanges, obliteratedPieces: [] };
@@ -493,10 +493,13 @@ export function applyMove(
   if (move.type === 'lose-thy-faith') {
       const oppColor = movingPiece.color === 'white' ? 'black' : 'white';
       newBoard.forEach(row => row.forEach(sq => {
-          if (sq.piece && sq.piece.color === oppColor) sq.piece.isShielded = false;
+          if (sq.piece && sq.piece.color === oppColor && sq.piece.isShielded) {
+              sq.piece.isShielded = false;
+              loseFaithAffectedSquares.push(sq.algebraic);
+          }
       }));
       newBoard[fromRow][fromCol].piece!.heldItem = null;
-      return { newBoard, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered: null, originalPieceLevel: originalLevelValue, originalPieceType: originalTypeIdentifier, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null, anvilDroppedSquares, levelChanges, obliteratedPieces: [] };
+      return { newBoard, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered: null, originalPieceLevel: originalLevelValue, originalPieceType: originalTypeIdentifier, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null, anvilDroppedSquares, levelChanges, obliteratedPieces: [], loseFaithAffectedSquares };
   }
 
   if (move.type === 'burning-ray') {
@@ -1247,5 +1250,5 @@ export function applyMove(
       return { newBoard, capturedPiece: null, selfDestructCaptures: [], destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered: null, originalPieceLevel: originalLevelValue, originalPieceType: originalTypeIdentifier, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null, anvilDroppedSquares, levelChanges, obliteratedPieces: [] };
   }
 
-  return { newBoard, capturedPiece: captured, selfDestructCaptures, destroyedAnvils, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel: originalLevelValue, originalPieceType: originalTypeIdentifier, selfCheckByPushBack, queenLevelReducedEvents: null, promotedToInfiltrator, promotedToHero, infiltrationWin, shroomConsumed, enPassantTargetSquare: enPassantTargetSquare, enPassantTargetSet: enPassantTargetSet, extraTurn, specialCaptureSquare, phoenixResurrection, reflectionOccurred, resurrectionScrollEvent, itemReturned, stolenItem, multiPromotions, ralliedSquares, winByKingsConquest, hydraSplitOccurred, hydraSpawnSquares, anvilDroppedSquares, levelChanges, obliteratedPieces, smokeBombEvent, glassShardTriggered, signalHornEvent };
+  return { newBoard, capturedPiece: captured, selfDestructCaptures, destroyedAnvils, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel: originalLevelValue, originalPieceType: originalTypeIdentifier, selfCheckByPushBack, queenLevelReducedEvents: null, promotedToInfiltrator, promotedToHero, infiltrationWin, shroomConsumed, enPassantTargetSquare: enPassantTargetSquare, enPassantTargetSet: enPassantTargetSet, extraTurn, specialCaptureSquare, phoenixResurrection, reflectionOccurred, resurrectionScrollEvent, itemReturned, stolenItem, multiPromotions, ralliedSquares, winByKingsConquest, hydraSplitOccurred, hydraSpawnSquares, anvilDroppedSquares, levelChanges, obliteratedPieces, smokeBombEvent, glassShardTriggered, signalHornEvent, loseFaithAffectedSquares };
 }

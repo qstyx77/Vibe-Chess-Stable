@@ -353,6 +353,11 @@ class AudioManager {
     }
   }
 
+  playLoseFaith() {
+    this.playTone(660, 'sine', 0.2, 0.4);
+    setTimeout(() => this.playShatter(), 100);
+  }
+
   playVictory() {
     this.init();
     this.resume();

@@ -264,8 +264,8 @@ export default function EvolvingChessPage() {
   const [isSelectingMycoSpell, setIsSelectingMycoSpell] = useState(false);
   const [isSelectingTeleportAlly, setIsSelectingTeleportAlly] = useState(false);
   const [isSelectingTeleportShroom, setIsSelectingTeleportShroom] = useState(false);
-  const [teleportAllyPieceId, setTeleportAllyPieceId] = useState<string | null>(null);
   const [isSelectingSporeBombShroom, setIsSelectingSporeBombShroom] = useState(false);
+  const [teleportAllyPieceId, setTeleportAllyPieceId] = useState<string | null>(null);
   const [isInventoryOpen, setIsInventoryOpen] = useState(false);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
@@ -500,7 +500,7 @@ export default function EvolvingChessPage() {
       board: board.map(row => row.map(sq => ({ ...sq, piece: sq.piece ? { ...sq.piece } : null, item: sq.item ? { ...sq.item } : null }))),
       currentPlayer, gameInfo: { ...gameInfo }, capturedPieces: { white: [...capturedPieces.white], black: [...capturedPieces.black] }, killStreaks: { ...killStreaks }, boardOrientation, viewMode, isWhiteAI, isBlackAI, positionHistory: [...positionHistory], lastMoveFrom, lastMoveTo, gameMoveCounter, enPassantTargetSquare, 
       lastMoveWhite, lastMoveBlack, lastMoveGlobal, 
-      isAwaitingPawnSacrifice, playerToSacrificePawn, boardForPostSacrifice, playerWhoMadeQueenMove, isExtraTurnFromQueenMove, isAwaitingRookSacrifice: false, playerToSacrificeForRook: null, rookToMakeInvulnerable: null, boardForRookSacrifice: null, originalTurnPlayerForRookSacrifice: null, isExtraTurnFromRookLevelUp: false, isResurrectionPromotionInProgress: false, playerForPostResurrectionPromotion: null, isExtraTurnForPostResurrectionPromotion: false, promotionSquare, promotionMoveWasCapture: false, originalPromotionLevel: null, promotionPawnOriginalLevel: null, firstBloodAchieved, playerWhoGotFirstBlood, isAwaitingCommanderPromotion, resurrectedSquares: [...resurrectedSquares], turnTimer, activeTimerPlayer: null, whiteTimeouts, blackTimeouts, isAwaitingAnvilDrop, playerToDropAnvil: playerToDropAnvil || null, anvilDropContext: specialActionContext ? { ...specialActionContext } as any : null, anvilDropAfterPromotion: false, inventory: [...inventory], didOpponentCaptureLastTurn: didCaptureLastTurn[currentPlayer === 'white' ? 'black' : 'white']
+      isAwaitingPawnSacrifice, playerToSacrificePawn, boardForPostSacrifice, playerWhoMadeQueenMove, isExtraTurnFromQueenMove, isAwaitingRookSacrifice: false, playerToSacrificeForRook: null, rookToMakeInvulnerable: null, boardForRookSacrifice: null, originalTurnPlayerForRookSacrifice: null, isExtraTurnFromRookLevelUp: false, isResurrectionPromotionInProgress: false, playerForPostResurrectionPromotion: null, isExtraTurnForPostResurrectionPromotion: false, promotionSquare, promotionMoveWasCapture: false, originalPromotionLevel: number | null, promotionPawnOriginalLevel: number | null, firstBloodAchieved, playerWhoGotFirstBlood, isAwaitingCommanderPromotion, resurrectedSquares: [...resurrectedSquares], turnTimer, activeTimerPlayer: null, whiteTimeouts, blackTimeouts, isAwaitingAnvilDrop, playerToDropAnvil: playerToDropAnvil || null, anvilDropContext: specialActionContext ? { ...specialActionContext } as any : null, anvilDropAfterPromotion: false, inventory: [...inventory], didOpponentCaptureLastTurn: didCaptureLastTurn[currentPlayer === 'white' ? 'black' : 'white']
     };
     setHistoryStack(prev => [...prev, snapshot].slice(-40));
   }, [board, currentPlayer, gameInfo, capturedPieces, killStreaks, boardOrientation, viewMode, isWhiteAI, isBlackAI, positionHistory, lastMoveFrom, lastMoveTo, gameMoveCounter, enPassantTargetSquare, lastMoveWhite, lastMoveBlack, lastMoveGlobal, isAwaitingPawnSacrifice, playerToSacrificePawn, boardForPostSacrifice, playerWhoMadeQueenMove, isExtraTurnFromQueenMove, promotionSquare, firstBloodAchieved, playerWhoGotFirstBlood, isAwaitingCommanderPromotion, resurrectedSquares, turnTimer, whiteTimeouts, blackTimeouts, isAwaitingAnvilDrop, playerToDropAnvil, specialActionContext, inventory, didCaptureLastTurn]);
@@ -1072,6 +1072,7 @@ export default function EvolvingChessPage() {
       if (oldH === 'antidote') audioManager.playAntidote();
       if (oldH === 'demonic_possession') audioManager.playPossession();
       if (oldH === 'phase_out') audioManager.playPhaseOut();
+      if (oldH === 'lose_faith_scroll') audioManager.playLoseFaith();
       
       if (applyResult.itemReturned) { setInventory(prev => { const next = [...prev]; const existing = next.find(i => i.type === applyResult.itemReturned); if (existing) existing.count++; else next.push({ type: applyResult.itemReturned!, count: 1 }); return next; }); addLog(`AI returned equipment: ${ITEM_METADATA[applyResult.itemReturned].name}`); }
       if (applyResult.reflectionOccurred) { 
@@ -1733,6 +1734,7 @@ export default function EvolvingChessPage() {
                        else if (item === 'antidote') audioManager.playAntidote();
                        else if (item === 'demonic_possession') audioManager.playPossession();
                        else if (item === 'phase_out') audioManager.playPhaseOut();
+                       else if (item === 'lose_faith_scroll') audioManager.playLoseFaith();
 
                        if (item === 'antidote') {
                            board.flat().forEach(sq => {
@@ -1963,7 +1965,7 @@ export default function EvolvingChessPage() {
   } else { 
     setSelectedSquare(null); setPossibleMoves([]); setClickedEnemySquare(null); setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
   }
-}, [board, currentPlayer, selectedSquare, enPassantTargetSquare, killStreaks, capturedPieces, onlineStatus, localPlayerColor, isWhiteAI, isBlackAI, boardForPostSacrifice, specialActionContext, isExtraTurnFromQueenMove, isInventoryOpen, selectedInventoryItemType, usedSlots, attunementSlots, inventory, addLog, handlePieceHover, processPawnSacrificeCheck, triggerSpecialsChain, processMoveEnd, lastMoveWhite, lastMoveBlack, lastMoveGlobal, addEffectCallback, isSelectingMycoSpell, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, teleportAllyPieceId, isMoveProcessing, gameInfo.gameOver, isAiThinking, isAwaitingCommanderPromotion, playerWhoGotFirstBlood, isAwaitingAnvilDrop, isAwaitingHolyShield, isAwaitingArcherSnipe, playerToDropAnvil, pushHistory, saveLoadoutToFirestore, getPlayerDisplayName, isAnySpecialModeActive, isAwaitingDanceTarget, dancerToDance, isAwaitingGrappleThrow, grappledPieceSubject, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget, isAwaitingRayTarget, playerToPromote, grappledItemSubject, isAwaitingOilSlickTarget, didCaptureLastTurn, positionHistory, promotionQueue, clickedEnemySquare, playOutcomeSound, user, handleGameEndCleanup, initialSnapshot, userData, toast]);
+}, [board, currentPlayer, selectedSquare, enPassantTargetSquare, killStreaks, capturedPieces, onlineStatus, localPlayerColor, isWhiteAI, isBlackAI, boardForPostSacrifice, specialActionContext, isExtraTurnFromQueenMove, isInventoryOpen, selectedInventoryItemType, usedSlots, attunementSlots, inventory, addLog, handlePieceHover, processPawnSacrificeCheck, triggerSpecialsChain, processMoveEnd, lastMoveWhite, lastMoveBlack, lastMoveGlobal, addEffectCallback, isSelectingMycoSpell, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, teleportAllyPieceId, isMoveProcessing, gameInfo.gameOver, isAiThinking, isAwaitingCommanderPromotion, playerWhoGotFirstBlood, isAwaitingAnvilDrop, isAwaitingHolyShield, isAwaitingArcherSnipe, playerToDropAnvil, pushHistory, saveLoadoutToFirestore, getPlayerDisplayName, isAnySpecialModeActive, isAwaitingDanceTarget, dancerToDance, isAwaitingGrappleThrow, grappledPieceSubject, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget, isAwaitingRayTarget, playerToPromote, grappledItemSubject, isAwaitingOilSlickTarget, didCaptureLastTurn, positionHistory, promotionQueue, clickedEnemySquare, playOutcomeSound, user, handleGameEndCleanup, initialSnapshot, userData, attunementSlots, setIsAdminSanctumOpen]);
 
   const fullGameReset = () => {
     const unlocks = userData?.unlockedPieces || []; const uElo = userData?.eloRating || 1200; let initial = initializeBoard(uElo, uElo, unlocks, unlocks);
@@ -2035,6 +2037,10 @@ export default function EvolvingChessPage() {
                 if (remoteEvents.shroomSpawned) { audioManager.playShroom(); addLog("A mystical Shroom 🍄 has appeared!"); }
                 if (remoteEvents.possession) { audioManager.playPossession(); }
                 if (remoteEvents.phaseOut) { audioManager.playPhaseOut(); }
+                if (remoteEvents.loseFaithAffectedSquares?.length > 0) {
+                    audioManager.playLoseFaith();
+                    remoteEvents.loseFaithAffectedSquares.forEach((sq: AlgebraicSquare) => addEffectCallback('poof', sq));
+                }
                 if (remoteEvents.anvilDroppedSquares) { remoteEvents.anvilDroppedSquares.forEach((sq: AlgebraicSquare, idx: number) => { setTimeout(() => { addEffectCallback('poof', sq); audioManager.playAnvil(); }, 300 + (idx * 150)); }); }
                 
                 remoteEvents.levelChanges?.forEach((lc: any) => {
