@@ -57,10 +57,10 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
+  AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogDescription,
 } from "@/components/ui/alert-dialog";
 import { audioManager } from '@/lib/audio-manager';
 import { useSocial } from '@/components/social/SocialContext';
@@ -1197,7 +1197,7 @@ export default function DungeonPage() {
             if (result.phoenixResurrection) { addEffect('light-beam', result.phoenixResurrection.square); audioManager.playResurrect(); }
             if (result.resurrectionScrollEvent) { addEffect('light-beam', result.resurrectionScrollEvent.square); audioManager.playResurrect(); }
             if (result.signalHornEvent) { addLog(`Signal Horn! ${result.signalHornEvent.piece.type} gains a level.`); }
-            if (result.anvilDroppedSquares) result.anvilDroppedSquares.forEach(sq => { setTimeout(() => { addEffect('focus', sq); audioManager.playAnvil(); }, 300); });
+            if (result.anvilDroppedSquares) result.anvilDroppedSquares.forEach((sq, idx) => { setTimeout(() => { addEffect('focus', sq); audioManager.playAnvil(); }, 300 + (idx * 150)); });
 
             setBoard(result.newBoard); setSelectedSquare(null); setPossibleMoves([]);
             setTimeout(() => { 
@@ -1339,7 +1339,7 @@ export default function DungeonPage() {
             }
             const res = applyMove(board, { from: selectedSquare!, to: alg, type: moveType }, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, false);
             setBoard(res.newBoard); setSelectedSquare(null); setPossibleMoves([]);
-            if (res.anvilDroppedSquares) res.anvilDroppedSquares.forEach(s => { setTimeout(() => { addEffect('focus', s); audioManager.playAnvil(); }, 300); });
+            if (res.anvilDroppedSquares) res.anvilDroppedSquares.forEach((s, idx) => { setTimeout(() => { addEffect('focus', s); audioManager.playAnvil(); }, 300 + (idx * 150)); });
             setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; setIsAwaitingWindScrollTarget(false); setIsAwaitingAnvilScrollTarget(false); setIsAwaitingEarthquakeScrollTarget(false); setIsAwaitingOilSlickTarget(false); processMoveEnd(res.newBoard, capturedPieces, killStreaks, currentPlayer, false, null, false, movedType, nextTracks.white, nextTracks.black, nextTracks.global); }, 800);
         }
         return;
@@ -1488,7 +1488,7 @@ export default function DungeonPage() {
                    else if (item === 'ice_blast' || item === 'ice_scroll') audioManager.playFreeze();
                    else if (item === 'detonation_scroll') audioManager.playExplosion();
                    else if (item === 'life_leach') audioManager.playDrain();
-                   else if (item === 'soul_harvest') audioManager.playDrain();
+                   else if (item === 'soul_harvest') audioManager.playSoulHarvest();
                    else if (item === 'rally_scroll') audioManager.playRally();
                    else if (item === 'antidote') audioManager.playAntidote();
                    else if (item === 'demonic_possession') audioManager.playPossession();
@@ -1631,7 +1631,7 @@ export default function DungeonPage() {
           if (res.phoenixResurrection) { addEffect('light-beam', res.phoenixResurrection.square); audioManager.playResurrect(); }
           if (res.resurrectionScrollEvent) { addEffect('light-beam', res.resurrectionScrollEvent.square); audioManager.playResurrect(); }
           if (res.signalHornEvent) { addLog(`Signal Horn! ${res.signalHornEvent.piece.type} gains a level.`); }
-          if (res.anvilDroppedSquares) res.anvilDroppedSquares.forEach(sq => { setTimeout(() => { addEffect('focus', sq); audioManager.playAnvil(); }, 300); });
+          if (res.anvilDroppedSquares) res.anvilDroppedSquares.forEach((sq, idx) => { setTimeout(() => { addEffect('focus', sq); audioManager.playAnvil(); }, 300 + (idx * 150)); });
           let nextBoardState = res.newBoard;
           const nxtG = { white: Array.isArray(capturedPieces.white) ? [...capturedPieces.white] : [], black: Array.isArray(capturedPieces.black) ? [...capturedPieces.black] : [] }; 
           if (res.stolenItem) {
@@ -1829,7 +1829,7 @@ export default function DungeonPage() {
         if (appRes.phoenixResurrection) { addEffect('light-beam', appRes.phoenixResurrection.square); audioManager.playResurrect(); }
         if (appRes.resurrectionScrollEvent) { addEffect('light-beam', appRes.resurrectionScrollEvent.square); audioManager.playResurrect(); }
         if (appRes.signalHornEvent) { addLog(`Signal Horn! ${appRes.signalHornEvent.piece.type} gains a level.`); }
-        if (appRes.anvilDroppedSquares) appRes.anvilDroppedSquares.forEach(sq => { setTimeout(() => { addEffect('focus', sq); audioManager.playAnvil(); }, 300); });
+        if (appRes.anvilDroppedSquares) appRes.anvilDroppedSquares.forEach((sq, idx) => { setTimeout(() => { addEffect('focus', sq); audioManager.playAnvil(); }, 300 + (idx * 150)); });
         let nextB = appRes.newBoard;
 
         if (oH === 'antidote') {
@@ -2089,7 +2089,7 @@ export default function DungeonPage() {
            <VibeChessTitle className="h-12 w-auto" suffix="-desk" />
         </div>
         <div className={cn("text-center text-[0.8rem] font-bold h-6 uppercase w-full", gameInfo.isCheck && !gameInfo.gameOver && "text-destructive animate-pulse")}> {statMsg} </div>
-        <div className="w-full"> <ChessBoard boardState={board} selectedSquare={selectedSquare} possibleMoves={possibleMoves} enemySelectedSquare={enemySelectedSquare} enemyPossibleMoves={enemyPossibleMoves} onSquareClick={handleSquareClick} playerColor="white" currentPlayerColor={currentPlayer} isInteractionDisabled={isMoveProcessing || gameInfo.gameOver || (isAiThinking && currentPlayer === 'white') || (isSpec && currentPlayer === 'white')} playerInCheck={gameInfo.playerWithKingInCheck} viewMode="flipping" animatedSquareTo(animatedSquareTo) lastMoveFrom={lastMoveFrom} lastMoveTo={lastMoveTo} isAwaitingPawnSacrifice={isAwaitingPawnSacrifice} playerToSacrificePawn={playerToSacrificePawn} isEnPassantTarget={enPassantTargetSquare} onPieceHover={handlePieceHover} effects={effects} promotingSquare={promotionSquare} isAwaitingAnvilDrop={isAwaitingAnvilDrop || isAwaitingAnvilScrollTarget} playerToDropAnvil={playerToDropAnvil} isInventoryOpen={isInventoryOpen} selectedInventoryItemType={selectedInventoryItemType} localPlayerColor="white" isAwaitingHolyShield={isAwaitingHolyShield} isAwaitingArcherSnipe={isAwaitingArcherSnipe} isAwaitingGrappleThrow={isAwaitingGrappleThrow} isAwaitingDanceTarget={isAwaitingDanceTarget} dancerToDance={dancerToDance} grappledPieceSubject={grappledPieceSubject} isAwaitingEarthquakeScrollTarget={isAwaitingEarthquakeScrollTarget} isSelectingMycoSpell={isSelectingMycoSpell} isSelectingTeleportAlly={isSelectingTeleportAlly} isSelectingTeleportShroom={isSelectingTeleportShroom} isSelectingSporeBombShroom={isSelectingSporeBombShroom} isAwaitingCommanderPromotion={isAwaitingCommanderPromotion} playerToPromoteCommander={playerWhoGotFirstBlood} isAwaitingWindScrollTarget={isAwaitingWindScrollTarget} isAwaitingAnvilScrollTarget={isAwaitingAnvilScrollTarget} isAwaitingShieldScrollTarget={isAwaitingShieldScrollTarget} isAwaitingSwapScrollTarget={isAwaitingSwapScrollTarget} isAwaitingDecreeTarget={isAwaitingDecreeTarget} isAwaitingOilSlickTarget={isAwaitingOilSlickTarget} isAwaitingRayTarget={isAwaitingRayTarget} lastMoveWhite={lastMoveWhite} lastMoveBlack={lastMoveBlack} lastMoveGlobal={lastMoveGlobal} applyBoardOpacityEffect={isOmenActive} /> </div>
+        <div className="w-full"> <ChessBoard boardState={board} selectedSquare={selectedSquare} possibleMoves={possibleMoves} enemySelectedSquare={enemySelectedSquare} enemyPossibleMoves={enemyPossibleMoves} onSquareClick={handleSquareClick} playerColor="white" currentPlayerColor={currentPlayer} isInteractionDisabled={isMoveProcessing || gameInfo.gameOver || (isAiThinking && currentPlayer === 'white') || (isSpec && currentPlayer === 'white')} playerInCheck={gameInfo.playerWithKingInCheck} viewMode="flipping" animatedSquareTo={animatedSquareTo} lastMoveFrom={lastMoveFrom} lastMoveTo={lastMoveTo} isAwaitingPawnSacrifice={isAwaitingPawnSacrifice} playerToSacrificePawn={playerToSacrificePawn} isEnPassantTarget={enPassantTargetSquare} onPieceHover={handlePieceHover} effects={effects} promotingSquare={promotionSquare} isAwaitingAnvilDrop={isAwaitingAnvilDrop || isAwaitingAnvilScrollTarget} playerToDropAnvil={playerToDropAnvil} isInventoryOpen={isInventoryOpen} selectedInventoryItemType={selectedInventoryItemType} localPlayerColor="white" isAwaitingHolyShield={isAwaitingHolyShield} isAwaitingArcherSnipe={isAwaitingArcherSnipe} isAwaitingGrappleThrow={isAwaitingGrappleThrow} isAwaitingDanceTarget={isAwaitingDanceTarget} dancerToDance={dancerToDance} grappledPieceSubject={grappledPieceSubject} isAwaitingEarthquakeScrollTarget={isAwaitingEarthquakeScrollTarget} isSelectingMycoSpell={isSelectingMycoSpell} isSelectingTeleportAlly={isSelectingTeleportAlly} isSelectingTeleportShroom={isSelectingTeleportShroom} isSelectingSporeBombShroom={isSelectingSporeBombShroom} isAwaitingCommanderPromotion={isAwaitingCommanderPromotion} playerToPromoteCommander={playerWhoGotFirstBlood} isAwaitingWindScrollTarget={isAwaitingWindScrollTarget} isAwaitingAnvilScrollTarget={isAwaitingAnvilScrollTarget} isAwaitingShieldScrollTarget={isAwaitingShieldScrollTarget} isAwaitingSwapScrollTarget={isAwaitingSwapScrollTarget} isAwaitingDecreeTarget={isAwaitingDecreeTarget} isAwaitingOilSlickTarget={isAwaitingOilSlickTarget} isAwaitingRayTarget={isAwaitingRayTarget} lastMoveWhite={lastMoveWhite} lastMoveBlack={lastMoveBlack} lastMoveGlobal={lastMoveGlobal} applyBoardOpacityEffect={isOmenActive} /> </div>
       </div>
       <div className="w-1/4 flex-col gap-4"> 
         <AuthWidget /> 

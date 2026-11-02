@@ -494,7 +494,7 @@ wss.on('connection', (ws: UserConnection) => {
 
                     if (cmd === '/friend' && targetUid) {
                         const targetRef = admin.firestore().doc(`users/${ws.userId}/friends/${targetUid}`);
-                        await targetRef.set({ id: targetUid, username: targetName, status: 'accepted', createdAt: new Date().toISOString() });
+                        await targetRef.set({ id: targetUid, username: friendName, status: 'accepted', createdAt: new Date().toISOString() });
                         sendResponse(`Successfully added ${targetName} to your friends list.`);
                     } else if (cmd === '/unfriend' && targetUid) {
                         await admin.firestore().doc(`users/${ws.userId}/friends/${targetUid}`).delete();
@@ -765,7 +765,7 @@ wss.on('connection', (ws: UserConnection) => {
                     const { row, col } = algebraicToCoords(data.square);
                     if (isValidSquare(row, col) && !room.gameState.board[row][col].piece && !room.gameState.board[row][col].item) {
                         room.gameState.board[row][col].item = { type: 'anvil' };
-                        broadcastToRoom(ws.roomId!, { type: 'game-move', gameState: room.gameState, events: { anvilDrop: true, dropPos: data.square } });
+                        broadcastToRoom(ws.roomId!, { type: 'game-move', gameState: room.gameState, events: { anvilDrop: true, dropPos: data.square, anvilDroppedSquares: [data.square] } });
                     }
                     break;
                 }
@@ -1007,7 +1007,8 @@ wss.on('connection', (ws: UserConnection) => {
                             soulLink: result.obliteratedPieces?.some(p => p.id.includes('_linked_')),
                             soulLinkCount: result.obliteratedPieces?.filter(p => p.id.includes('_linked_')).length,
                             shroomSpawned: shroomSpawnedEvent, shroomPos: shroomSpawnedEvent ? shroomSpawnPos : null,
-                            possession: movePayload.type === 'demonic-possession'
+                            possession: movePayload.type === 'demonic-possession',
+                            anvilDroppedSquares: result.anvilDroppedSquares || []
                         };
                         broadcastToRoom(ws.roomId!, { type: 'game-move', gameState: gs, move: movePayload, events: evs });
                     }

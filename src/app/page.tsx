@@ -508,7 +508,7 @@ export default function EvolvingChessPage() {
   const handleUndo = useCallback(() => {
     if (historyStack.length === 0 || isMoveProcessing || isAiThinking || onlineStatus !== 'disconnected' || gameInfo.gameOver) return;
     const prevState = historyStack[historyStack.length - 1]; setHistoryStack(prev => prev.slice(0, -1));
-    setBoard(prevState.board); setCurrentPlayer(prevState.currentPlayer); setGameInfo(prevState.gameInfo); setCapturedPieces(prevState.capturedPieces); setKillStreaks(prevState.killStreaks); setBoardOrientation(prevState.boardOrientation); setViewMode(prevState.viewMode); setIsWhiteAI(prevState.isWhiteAI); setIsBlackAI(prevState.isBlackAI); setPositionHistory(prevState.positionHistory); setLastMoveFrom(prevState.lastMoveFrom); setLastMoveTo(prevState.lastMoveTo); setGameMoveCounter(prevState.gameMoveCounter); setEnPassantTargetSquare(prevState.enPassantTargetSquare); 
+    setBoard(prevState.board); setCurrentPlayer(prevState.currentPlayer); setGameInfo(prevState.gameInfo); setCapturedPieces(prevState.capturedPieces); setKillStreaks(prevState.killStreaks); setBoardOrientation(prevState.boardOrientation); setViewMode(prevState.viewMode); setIsWhiteAI(prevState.isWhiteAI); setIsBlackAI(prevState.isBlackAI); setPositionHistory(prevState.positionHistory); setLastMoveFrom(prevState.lastMoveFrom); setLastMoveTo(prevState.lastMoveTo); setGameMoveCounter(prevState.gameMoveCounter); setEnPassantTargetSquare(prevState.enPassantSquare); 
     setLastMoveWhite(prevState.lastMoveWhite); setLastMoveBlack(prevState.lastMoveBlack); setLastMoveGlobal(prevState.lastMoveGlobal);
     setIsAwaitingPawnSacrifice(prevState.isAwaitingPawnSacrifice); setPlayerToSacrificePawn(prevState.playerToSacrificePawn); setBoardForPostSacrifice(prevState.boardForPostSacrifice); setPlayerWhoMadeQueenMove(prevState.boardOrientation as any); setIsExtraTurnFromQueenMove(prevState.isExtraTurnFromQueenMove); setFirstBloodAchieved(prevState.firstBloodAchieved); setPlayerWhoGotFirstBlood(prevState.playerWhoGotFirstBlood); setIsAwaitingCommanderPromotion(prevState.isAwaitingCommanderPromotion); setResurrectedSquares(prevState.resurrectedSquares); setWhiteTimeouts(prevState.whiteTimeouts); setBlackTimeouts(prevState.blackTimeouts); setIsAwaitingAnvilDrop(prevState.isAwaitingAnvilDrop); setPlayerToDropAnvil(prevState.playerToDropAnvil || null); setSpecialActionContext(prevState.anvilDropContext as any); if (prevState.inventory) setInventory(prevState.inventory);
     setSelectedSquare(null); setPossibleMoves([]); audioManager.playMove(); addLog("Move Undone.");
@@ -1116,8 +1116,8 @@ export default function EvolvingChessPage() {
       
       if (applyResult.selfDestructCaptures) { applyResult.selfDestructCaptures.forEach(vic => { const pile = vic.color; updatedG[pile] = [...updatedG[pile], { ...vic }]; }); }
       if (applyResult.ralliedSquares) applyResult.ralliedSquares.forEach(sq => addEffectCallback('level-change', sq, currentPlayer, 1, undefined));
-      if (applyResult.anvilDroppedSquares) applyResult.anvilDroppedSquares.forEach(sq => {
-          setTimeout(() => { addEffectCallback('poof', sq); audioManager.playAnvil(); }, 300);
+      if (applyResult.anvilDroppedSquares) applyResult.anvilDroppedSquares.forEach((sq, idx) => {
+          setTimeout(() => { addEffectCallback('poof', sq); audioManager.playAnvil(); }, 300 + (idx * 150));
       });
       const oS = killStreaks[currentPlayer], nS = streakGain > 0 ? oS + streakGain : 0, currentKs = { ...killStreaks, [currentPlayer]: nS }; setKillStreaks(currentKs);
       let rookResResult: RookResurrectionResult | null = null;
@@ -1142,7 +1142,7 @@ export default function EvolvingChessPage() {
         for (let i = 1; i <= 4; i++) {
           const nr = aiMove.from[0] + i * dr;
           const nc = aiMove.from[1] + i * dc;
-          if (!isValidSquare(nr, nc)) break;
+          if (!isValidSquareUtil(nr, nc)) break;
           const targetAlg = coordsToAlgebraic(nr, nc);
           setTimeout(() => {
             addEffectCallback('explosion', targetAlg);
@@ -1914,7 +1914,7 @@ export default function EvolvingChessPage() {
               if (applyRes.phoenixResurrection) { addEffectCallback('light-beam', applyRes.phoenixResurrection.square); audioManager.playResurrect(); }
               if (applyRes.resurrectionScrollEvent) { addEffectCallback('light-beam', applyRes.resurrectionScrollEvent.square); audioManager.playResurrect(); }
               if (applyRes.signalHornEvent) { addLog(`Signal Horn! ${applyRes.signalHornEvent.piece.type} gains a level.`); }
-              if (applyRes.anvilDroppedSquares) applyRes.anvilDroppedSquares.forEach(sq => { setTimeout(() => { addEffectCallback('poof', sq); audioManager.playAnvil(); }, 300); });
+              if (applyRes.anvilDroppedSquares) applyRes.anvilDroppedSquares.forEach((sq, idx) => { setTimeout(() => { addEffectCallback('poof', sq); audioManager.playAnvil(); }, 300 + (idx * 150)); });
               let rookResResult: RookResurrectionResult | null = null;
               const wasCap = streakGain > 0;
               if ((moving.type === 'rook' || moving.type === 'palace') && wasCap) {
@@ -2025,6 +2025,7 @@ export default function EvolvingChessPage() {
                 if (remoteEvents.soulLink) { addLog(`Soul Link! ${remoteEvents.soulLinkCount} bound units collapsed.`); }
                 if (remoteEvents.shroomSpawned) { audioManager.playShroom(); addLog("A mystical Shroom 🍄 has appeared!"); }
                 if (remoteEvents.possession) { audioManager.playPossession(); }
+                if (remoteEvents.anvilDroppedSquares) { remoteEvents.anvilDroppedSquares.forEach((sq: AlgebraicSquare, idx: number) => { setTimeout(() => { addEffectCallback('poof', sq); audioManager.playAnvil(); }, 300 + (idx * 150)); }); }
                 
                 remoteEvents.levelChanges?.forEach((lc: any) => {
                     addEffectCallback('level-change', lc.square, actingColor, lc.delta, undefined);
