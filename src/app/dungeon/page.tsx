@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -1357,7 +1358,7 @@ export default function DungeonPage() {
               if (lastInfo?.type === 'archer') return true;
             }
             const crds = board.flat().find(sq => sq.piece?.id === pt.id); 
-            if ((pt.type === 'knight' || pt.type === 'mimic') && pt.heldItem === 'shortbow' && crds && getEffectiveLevel(board, crds.rowIndex, crds.colIndex) >= 3) return true; 
+            if ((pt.type === 'knight' || pt.type === 'mimic') && pt.heldItem === 'shortbow' && crds && getEffectiveLevel(board, crds.rowIndex, coords.colIndex) >= 3) return true; 
             return false; 
         });
         if (snips.find(a => a.level >= piece.level)) {
@@ -1469,12 +1470,18 @@ export default function DungeonPage() {
                    else if (item === 'faith_scroll') audioManager.playConversion();
                    else if (item === 'ice_blast' || item === 'ice_scroll') audioManager.playFreeze();
                    else if (item === 'detonation_scroll') audioManager.playExplosion();
+                   else if (item === 'life_leach') audioManager.playDrain();
 
                    setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(selectedSquare);
                    if (currentPlayer === 'white') setLastMoveWhite(newMoveInfo); else setLastMoveBlack(newMoveInfo);
                    setLastMoveGlobal(newMoveInfo);
                    const res = applyMove(board, move, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, false);
                    
+                   res.levelChanges?.forEach(lc => {
+                      addEffect('level-change', lc.square, currentPlayer, lc.delta);
+                      if (lc.reason) addLog(`${getPlayerDisplayName(currentPlayer)}: ${lc.reason} (${lc.delta > 0 ? '+' : ''}${lc.delta})`);
+                   });
+
                    if (res.conversionEvents && res.conversionEvents.length > 0) {
                        audioManager.playConversion();
                        res.conversionEvents.forEach((e: ConversionEvent) => {
@@ -1606,7 +1613,7 @@ export default function DungeonPage() {
           }
           if (res.smokeBombEvent) {
               addLog(`Smoke Bomb! ${res.smokeBombEvent.piece.type} escaped to back rank!`);
-              addEffect('poof', res.smokeBombEvent.square);
+              addEffectCallback('poof', res.smokeBombEvent.square);
           } else if (res.capturedPiece) { 
               const pile = res.capturedPiece.color; nxtG[pile] = [...nxtG[pile], res.capturedPiece]; 
           }
@@ -1950,7 +1957,7 @@ export default function DungeonPage() {
     setIsInventoryOpen(false);
     setSelectedInventoryItemType(null);
 
-    // Trigger Boss battle dialog if warping to a boss floor
+    // Trigger Boss battle dialog on load if warping to a boss floor
     if (targetFloor % 10 === 0) {
         const isHidden = (userData as any)?.[`hideBossDialog_${targetFloor}`];
         if (!isHidden) setIsBossBattleOpen(true);
