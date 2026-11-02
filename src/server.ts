@@ -884,6 +884,7 @@ wss.on('connection', (ws: UserConnection) => {
                     const result = applyMove(gs.board, movePayload, gs.enPassantTargetSquare, gs.capturedPieces, room.historyTracks.white, room.historyTracks.black, room.historyTracks.global, gs.didOpponentCaptureLastTurn);
                     gs.board = result.newBoard; gs.enPassantTargetSquare = result.enPassantTargetSet;
                     let resurrectionEvent = null;
+                    let actingStreak = gs.killStreaks[playerColor];
                     if (result.capturedPiece) {
                         const targetPile = result.capturedPiece.color;
                         if (!Array.isArray(gs.capturedPieces[targetPile])) gs.capturedPieces[targetPile] = [];
@@ -901,6 +902,18 @@ wss.on('connection', (ws: UserConnection) => {
                     } else if (!isRewardMove) {
                         gs.killStreaks[playerColor] = 0; gs.didOpponentCaptureLastTurn = false;
                     }
+                    
+                    const newStreak = gs.killStreaks[playerColor];
+                    let milestoneReached = null;
+                    if (newStreak > actingStreak) {
+                        if (newStreak === 1) milestoneReached = 'Dance (KS 1)';
+                        else if (newStreak === 2) milestoneReached = 'Holy Shield (KS 2)';
+                        else if (newStreak === 3) milestoneReached = 'Anvil Drop (KS 3)';
+                        else if (newStreak === 4) milestoneReached = 'Resurrection (KS 4)';
+                        else if (newStreak === 5) milestoneReached = 'Archer Snipe (KS 5)';
+                        else if (newStreak === 6) milestoneReached = 'Extra Turn (KS 6)';
+                    }
+
                     const wasCapture = !!(result.capturedPiece || result.selfDestructCaptures?.length || (result.obliteratedPieces && result.obliteratedPieces.length > 0) || result.smokeBombEvent);
                     const toCoords = algebraicToCoords(movePayload.to);
                     const landedPiece = gs.board[toCoords.row][toCoords.col].piece;
@@ -1018,7 +1031,10 @@ wss.on('connection', (ws: UserConnection) => {
                             anvilDroppedSquares: result.anvilDroppedSquares || [],
                             trap: movePayload.type === 'trap-net' || !!result.trapAffectedSquares?.length,
                             trapPos: movePayload.type === 'trap-net' ? movePayload.from : null,
-                            trapAffectedSquares: result.trapAffectedSquares || []
+                            trapAffectedSquares: result.trapAffectedSquares || [],
+                            killstreak: wasCapture ? newStreak : 0,
+                            milestone: milestoneReached,
+                            consumable: moveTypeToItem[movePayload.type || ''] ? ITEM_METADATA[moveTypeToItem[movePayload.type!]!].name : null
                         };
                         broadcastToRoom(ws.roomId!, { type: 'game-move', gameState: gs, move: movePayload, events: evs });
                     }

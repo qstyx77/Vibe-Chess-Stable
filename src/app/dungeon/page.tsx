@@ -679,6 +679,15 @@ export default function DungeonPage() {
     const isAI = actP === 'black'; const sil = bCh.flat().find(sq => sq.piece?.color === actP && isSilenced(bCh, sq.rowIndex, sq.colIndex, actP));
     let nG = { white: Array.isArray(cG.white) ? [...cG.white] : [], black: Array.isArray(cG.black) ? [...cG.black] : [] };
     
+    // Killstreak Logging
+    if (wasCap && newS > 0) {
+        addLog(`${getPlayerDisplayName(actP)}: Killstreak ${newS}!`);
+    }
+
+    if (isEx) {
+        addLog(`${getPlayerDisplayName(actP)}: EXTRA TURN (KS 6)!`);
+    }
+
     const effWhite = trackWhite !== undefined ? trackWhite : lastMoveWhite;
     const effBlack = trackBlack !== undefined ? trackBlack : lastMoveBlack;
     const effGlobal = trackGlobal !== undefined ? trackGlobal : lastMoveGlobal;
@@ -733,7 +742,7 @@ export default function DungeonPage() {
 
                         if (targetItem?.type === 'shroom') { 
                             const oldL = dP.level;
-                            nextBoard[best.r][best.c].piece = { ...dP, hasMoved: true, level: (dP.level || 1) + 1, isShielded: false }; 
+                            nextBoard[best.r][best.hIndex].piece = { ...dP, hasMoved: true, level: (dP.level || 1) + 1, isShielded: false }; 
                             if (nextBoard[best.r][best.c].piece!.level > oldL) addEffect('level-change', coordsToAlgebraic(best.r, best.c), actP, 1);
                         } else { nextBoard[best.r][best.c].piece = { ...dP, hasMoved: true, isShielded: false }; }
                         nextBoard[best.r][best.c].item = null; nextBoard[r][c].piece = tP ? { ...tP, hasMoved: true, isShielded: false } : null; nextBoard[r][c].item = targetItem?.type === 'shroom' ? null : targetItem;
@@ -758,7 +767,7 @@ export default function DungeonPage() {
                 triggerSpecialsChain(nextBoard, nG, cKs, oldS, newS, isEx, nEp, actP, [...compM, 'dance'], capId, wasCap, movedT, effWhite, effBlack, effGlobal); return;
             } else {
                 setSpecialActionContext({ boardForNextStep: bCh, playerWhoseTurnCompleted: actP, isExtraTurn: isEx, newEnPassantTarget: nEp, oldStreak: oldS, newStreak: newS, completedMilestones: [...compM, 'dance'], currentGraveyard: nG, currentKs: cKs, capturingPieceId: sil ? null : capId, trackWhite: effWhite, trackBlack: effBlack, trackGlobal: effGlobal });
-                setIsAwaitingDanceTarget(true); addLog("Dancer Skill: The Dance is ready!"); return;
+                setIsAwaitingDanceTarget(true); addLog(`${getPlayerDisplayName(actP)}: The Dance is ready (KS 1)!`); return;
             }
         }
     }
@@ -772,7 +781,7 @@ export default function DungeonPage() {
         } else {
             const hasFL1 = bCh.flat().some(sq => sq.piece && sq.piece.color === actP && FRONTLINE_TYPES.includes(sq.piece.type) && sq.piece.type !== 'commander' && sq.piece.type !== 'infiltrator' && sq.piece.level === 1);
             if (hasFL1) {
-                setSpecialActionContext({ boardForNextStep: bCh, playerWhoseTurnCompleted: actP, isExtraTurn: isExtraTurn, newEnPassantTarget: nEp, oldStreak: oldS, newStreak: newS, completedMilestones: [...compM, 'firstBlood'], currentGraveyard: nG, currentKs: cKs, capturingPieceId: capId, trackWhite: effWhite, trackBlack: effBlack, trackGlobal: effGlobal });
+                setSpecialActionContext({ boardForNextStep: bCh, playerWhoseTurnCompleted: actP, isExtraTurn: isEx, newEnPassantTarget: nEp, oldStreak: oldS, newStreak: newS, completedMilestones: [...compM, 'firstBlood'], currentGraveyard: nG, currentKs: cKs, capturingPieceId: capId, trackWhite: effWhite, trackBlack: effBlack, trackGlobal: effGlobal });
                 setIsAwaitingCommanderPromotion(true); addLog("First Blood! Choose a unit to promote to Commander."); return;
             }
         }
@@ -804,13 +813,13 @@ export default function DungeonPage() {
                     }
                     addLog(`${getPlayerDisplayName(actP)} Archbishop applied a Holy Shield!`); 
                 }
-                triggerSpecialsChain(nxtB, nG, cKs, oldS, newS, iEx, nEp, actP, [...compM, 'shield'], capId, wasCap, movedT, effWhite, effBlack, effGlobal); return;
+                triggerSpecialsChain(nxtB, nG, cKs, oldS, newS, isEx, nEp, actP, [...compM, 'shield'], capId, wasCap, movedT, effWhite, effBlack, effGlobal); return;
             } else {
                 const hasElig = bCh.flat().some(sq => sq.piece && sq.piece.color === actP && sq.piece.type !== 'king' && sq.piece.type !== 'queen' && !sq.piece.isShielded && sq.piece.id !== capId);
                 if (hasElig) {
-                    setSpecialActionContext({ boardForNextStep: bCh, playerWhoseTurnCompleted: actP, isExtraTurn: isExtraTurn, newEnPassantTarget: nEp, oldStreak: oldS, newStreak: newS, completedMilestones: [...compM, 'shield'], currentGraveyard: nG, currentKs: cKs, capturingPieceId: capId, trackWhite: effWhite, trackBlack: effBlack, trackGlobal: effGlobal });
-                    setIsAwaitingHolyShield(true); addLog("Holy Shield ready!"); return;
-                } else { triggerSpecialsChain(bCh, nG, cKs, oldS, newS, iEx, nEp, actP, [...compM, 'shield'], capId, wasCap, movedT, effWhite, effBlack, effGlobal); return; }
+                    setSpecialActionContext({ boardForNextStep: bCh, playerWhoseTurnCompleted: actP, isExtraTurn: isEx, newEnPassantTarget: nEp, oldStreak: oldS, newStreak: newS, completedMilestones: [...compM, 'shield'], currentGraveyard: nG, currentKs: cKs, capturingPieceId: capId, trackWhite: effWhite, trackBlack: effBlack, trackGlobal: effGlobal });
+                    setIsAwaitingHolyShield(true); addLog(`${getPlayerDisplayName(actP)}: Holy Shield is ready (KS 2)!`); return;
+                } else { triggerSpecialsChain(bCh, nG, cKs, oldS, newS, isEx, nEp, actP, [...compM, 'shield'], capId, wasCap, movedT, effWhite, effBlack, effGlobal); return; }
             }
         }
     }
@@ -828,12 +837,12 @@ export default function DungeonPage() {
                   addEffect('poof', target.algebraic);
                   audioManager.playAnvil();
                 }, 300);
-                addLog(`${getPlayerDisplayName(actP)} dropped a defensive Anvil!`);
+                addLog(`${getPlayerDisplayName(actP)} dropped an Anvil!`);
             }
-            triggerSpecialsChain(nxtB, nG, cKs, oldS, newS, iEx, nEp, actP, [...compM, 'anvil'], capId, wasCap, movedT, effWhite, effBlack, effGlobal); return;
+            triggerSpecialsChain(nxtB, nG, cKs, oldS, newS, isEx, nEp, actP, [...compM, 'anvil'], capId, wasCap, movedT, effWhite, effBlack, effGlobal); return;
         } else {
-            setSpecialActionContext({ boardForNextStep: bCh, playerWhoseTurnCompleted: actP, isExtraTurn: iEx, newEnPassantTarget: nEp, oldStreak: oldS, newStreak: newS, completedMilestones: [...compM, 'anvil'], currentGraveyard: nG, currentKs: cKs, capturingPieceId: capId, trackWhite: effWhite, trackBlack: effBlack, trackGlobal: effGlobal });
-            setPlayerToDropAnvil(actP); setIsAwaitingAnvilDrop(true); addLog("Anvil Drop ready!"); return;
+            setSpecialActionContext({ boardForNextStep: bCh, playerWhoseTurnCompleted: actP, isExtraTurn: isEx, newEnPassantTarget: nEp, oldStreak: oldS, newStreak: newS, completedMilestones: [...compM, 'anvil'], currentGraveyard: nG, currentKs: cKs, capturingPieceId: capId, trackWhite: effWhite, trackBlack: effBlack, trackGlobal: effGlobal });
+            setPlayerToDropAnvil(actP); setIsAwaitingAnvilDrop(true); addLog(`${getPlayerDisplayName(actP)}: Anvil Drop ready (KS 3)!`); return;
         }
     }
     if (newS >= 4 && oldS < 4 && !compM.includes('resurrection')) {
@@ -848,7 +857,7 @@ export default function DungeonPage() {
                 nxtB[rr][rc].piece = { ...choice, level: resLevel, id: `res_${choice.id}_${Date.now()}`, hasMoved: true, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 }; 
                 if (actP === 'white') nG.white = nG.white.filter(p => p.id !== choice.id); else nG.black = nG.black.filter(p => p.id !== choice.id);
                 addEffect('light-beam', sq.algebraic); audioManager.playResurrect(); addLog(`${actP === 'white' ? "Hero" : "Dungeon"} resurrected a ${choice.type}!`);
-                triggerSpecialsChain(nxtB, nG, cKs, oldS, newS, iEx, nEp, actP, [...compM, 'resurrection'], capId, wasCap, movedT, effWhite, effBlack, effGlobal); return;
+                triggerSpecialsChain(nxtB, nG, cKs, oldS, newS, isEx, nEp, actP, [...compM, 'resurrection'], capId, wasCap, movedT, effWhite, effBlack, effGlobal); return;
             }
         }
     }
@@ -885,7 +894,7 @@ export default function DungeonPage() {
             if (isAI) {
                 const nxtB = bCh.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null})));
                 const vSrt = vics.sort((a,b) => (VAL_MAP[b.piece!.type]||0) - (VAL_MAP[a.piece!.type]||0));
-                const v = vSrt[0]; const {rowIndex: row, colindex: col} = v; const sniped = { ...nxtB[row][col].piece!, id: nxtB[row][col].piece!.id }; nxtB[row][col].piece = null; 
+                const v = vSrt[0]; const {rowIndex: row, colIndex: col} = v; const sniped = { ...nxtB[row][col].piece!, id: nxtB[row][col].piece!.id }; nxtB[row][col].piece = null; 
                 if (sniped.id?.startsWith('boss-hydra')) {
                     const adj = []; for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
                         if (dr === 0 && dc === 0) continue; const nr = row + dr, nc = col + dc;
@@ -901,14 +910,14 @@ export default function DungeonPage() {
                 }
                 addLog(`${actP === 'white' ? "Hero" : "Dungeon"} sniped a Level ${sniped.level} ${sniped.type}!`); audioManager.playSnipe(); addEffect('poof', coordsToAlgebraic(row, col));
                 const targetP = sniped.color; nG[targetP] = [...(nG[targetP]||[]), sniped];
-                triggerSpecialsChain(nxtB, nG, cKs, oldS, newS, iEx, nEp, actP, [...compM, 'snipe'], capId, wasCap, movedT, nextAITracks.white, nextAITracks.black, nextAITracks.global, trapAffectedSquares); return;
+                triggerSpecialsChain(nxtB, nG, cKs, oldS, newS, isEx, nEp, actP, [...compM, 'snipe'], capId, wasCap, movedT, effWhite, effBlack, effGlobal, trapAffectedSquares); return;
             } else {
-                setSpecialActionContext({ boardForNextStep: bCh, playerWhoseTurnCompleted: actP, isExtraTurn: iEx, newEnPassantTarget: nEp, oldStreak: oldS, newStreak: newS, completedMilestones: [...compM, 'snipe'], currentGraveyard: nG, currentKs: cKs, capturingPieceId: capId, trackWhite: effWhite, trackBlack: effBlack, trackGlobal: effGlobal });
-                setIsAwaitingArcherSnipe(true); addLog("Sniper active! Select a target to snipe."); return;
+                setSpecialActionContext({ boardForNextStep: bCh, playerWhoseTurnCompleted: actP, isExtraTurn: isEx, newEnPassantTarget: nEp, oldStreak: oldS, newStreak: newS, completedMilestones: [...compM, 'snipe'], currentGraveyard: nG, currentKs: cKs, capturingPieceId: capId, trackWhite: effWhite, trackBlack: effBlack, trackGlobal: effGlobal });
+                setIsAwaitingArcherSnipe(true); addLog(`${getPlayerDisplayName(actP)}: Sniper active (KS 5)!`); return;
             }
         }
     }
-    processMoveEnd(bCh, nG, cKs, actP, iEx, nEp, wasCap, movedT, effWhite, effBlack, effGlobal, trapAffectedSquares);
+    processMoveEnd(bCh, nG, cKs, actP, isEx, nEp, wasCap, movedT, effWhite, effBlack, effGlobal, trapAffectedSquares);
   }, [board, level, inventory, lastMoveWhite, lastMoveBlack, lastMoveGlobal, addLog, getPlayerDisplayName, addEffect, processMoveEnd, firstBloodAchieved]);
 
   const processPawnSacrificeCheck = useCallback((bAf: BoardState, g: { white: Piece[], black: Piece[] }, cKs: { white: number, black: number }, p: PlayerColor, m: Move | null, oL: number | undefined, oT: PieceType | undefined, iEx: boolean, ep: AlgebraicSquare | null, oS: number, nS: number, cId: string | null = null, wC: boolean = false, mT?: PieceType | null, trackWhite?: LastMoveInfo | null, trackBlack?: LastMoveInfo | null, trackGlobal?: LastMoveInfo | null, trapAffectedSquares?: AlgebraicSquare[]) => {
@@ -974,6 +983,7 @@ export default function DungeonPage() {
           setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(selectedSquare);
           if (currentPlayer === 'white') setLastMoveWhite(newMoveInfo); else setLastMoveBlack(newMoveInfo);
           setLastMoveGlobal(newMoveInfo);
+          addLog(`${getPlayerDisplayName(currentPlayer)} cast Mushroomancy: Propagate!`);
           const res = applyMove(board, move, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, false);
           setBoard(res.newBoard);
           setTimeout(() => {
@@ -991,6 +1001,7 @@ export default function DungeonPage() {
           setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(selectedSquare);
           if (currentPlayer === 'white') setLastMoveWhite(newMoveInfo); else setLastMoveBlack(newMoveInfo);
           setLastMoveGlobal(newMoveInfo);
+          addLog(`${getPlayerDisplayName(currentPlayer)} cast Mushroomancy: Raise Myceli-Men!`);
           const res = applyMove(board, move, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, false);
           const nextB = res.newBoard;
           const updatedG = { white: [...capturedPieces.white], black: [...capturedPieces.black] };
@@ -1006,7 +1017,7 @@ export default function DungeonPage() {
               }
           }, 800);
       }
-  }, [board, selectedSquare, enPassantTargetSquare, capturedPieces, lastMoveWhite, lastMoveBlack, lastMoveGlobal, killStreaks, currentPlayer, processMoveEnd, addLog]);
+  }, [board, selectedSquare, enPassantTargetSquare, capturedPieces, lastMoveWhite, lastMoveBlack, lastMoveGlobal, killStreaks, currentPlayer, processMoveEnd, addLog, getPlayerDisplayName]);
 
   const handlePieceHover = useCallback((p: Piece | null) => {
     setPieceForInfoDisplay(p);
@@ -1052,6 +1063,7 @@ export default function DungeonPage() {
         const move: Move = { from: selectedSquare!, to: alg, type: 'shield-scroll' };
         
         deductConsumable('shield_scroll');
+        addLog(`${getPlayerDisplayName(currentPlayer)} activated Shield Scroll!`);
         addEffect('magic-burst', selectedSquare!, undefined, undefined, 'shield_scroll');
         audioManager.playShield();
         setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(alg);
@@ -1073,6 +1085,7 @@ export default function DungeonPage() {
         const move: Move = { from: selectedSquare!, to: alg, type: 'swap-scroll' };
         
         deductConsumable('swap_scroll');
+        addLog(`${getPlayerDisplayName(currentPlayer)} activated Swap Scroll!`);
         addEffect('magic-burst', selectedSquare!, undefined, undefined, 'swap_scroll');
         audioManager.playTeleport();
         setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(alg);
@@ -1094,6 +1107,7 @@ export default function DungeonPage() {
         const move: Move = { from: selectedSquare!, to: alg, type: 'kings-decree' };
         
         deductConsumable('kings_decree');
+        addLog(`${getPlayerDisplayName(currentPlayer)} activated King's Decree!`);
         addEffect('magic-burst', selectedSquare!, undefined, undefined, 'kings_decree');
         audioManager.playLevelUp();
         setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(alg);
@@ -1125,6 +1139,7 @@ export default function DungeonPage() {
         clickGuard.current = true; setIsMoveProcessing(true); setAnimatedSquareTo(alg);
         if (currentPlayer === 'white') setLastMoveWhite(newMoveInfo); else setLastMoveBlack(newMoveInfo);
         setLastMoveGlobal(newMoveInfo);
+        addLog(`${getPlayerDisplayName(currentPlayer)} cast Tele-portobello!`);
         const move: Move = { from: selectedSquare!, to: alg, type: 'tele-portobello', teleportPieceId: teleportAllyPieceId! };
         const result = applyMove(board, move, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, false);
         setBoard(result.newBoard); setSelectedSquare(null); setPossibleMoves([]);
@@ -1142,6 +1157,7 @@ export default function DungeonPage() {
         clickGuard.current = true; setIsMoveProcessing(true); setAnimatedSquareTo(alg);
         if (currentPlayer === 'white') setLastMoveWhite(newMoveInfo); else setLastMoveBlack(newMoveInfo);
         setLastMoveGlobal(newMoveInfo);
+        addLog(`${getPlayerDisplayName(currentPlayer)} cast Spore Bomb!`);
         const move: Move = { from: selectedSquare!, to: alg, type: 'spore-bomb' };
         const result = applyMove(board, move, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, false);
         setBoard(result.newBoard); setSelectedSquare(null); setPossibleMoves([]);
@@ -1223,6 +1239,7 @@ export default function DungeonPage() {
             clickGuard.current = true; setIsMoveProcessing(true); setAnimatedSquareTo(alg);
             if (currentPlayer === 'white') setLastMoveWhite(newMoveInfo); else setLastMoveBlack(newMoveInfo);
             setLastMoveGlobal(newMoveInfo);
+            addLog(`${getPlayerDisplayName(currentPlayer)}'s Grappler tossed ${grappledPieceSubject ? grappledPieceSubject.piece.type : 'an Anvil'}!`);
             const move: Move = { from: selectedSquare!, to: alg, type: 'grapple-throw', thrownPiece: grappledPieceSubject?.piece, thrownItem: grappledItemSubject?.type, grappledFrom: (grappledPieceSubject?.from || grappledItemSubject?.from) };
             const res = applyMove(board, move, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, false);
             setBoard(res.newBoard); setSelectedSquare(null); setPossibleMoves([]);
@@ -1288,6 +1305,7 @@ export default function DungeonPage() {
         if ((row === fR || col === fC) && alg !== selectedSquare) {
             const type = isAwaitingRayTarget === 'glacial' ? 'glacial-ray' : 'burning-ray';
             deductConsumable(isAwaitingRayTarget === 'glacial' ? 'glacial_ray' : 'burning_ray');
+            addLog(`${getPlayerDisplayName(currentPlayer)} activated ${ITEM_METADATA[movingP.heldItem as InventoryItemType].name}!`);
             addEffect('magic-burst', selectedSquare!, undefined, undefined, isAwaitingRayTarget === 'glacial' ? 'glacial_ray' : 'burning_ray');
             if (isAwaitingRayTarget === 'glacial') audioManager.playFreeze(); else audioManager.playExplosion();
             clickGuard.current = true; setIsMoveProcessing(true); setAnimatedSquareTo(alg);
@@ -1332,6 +1350,7 @@ export default function DungeonPage() {
                 if (currentPlayer === 'white') setLastMoveWhite(newMoveInfo); else setLastMoveBlack(newMoveInfo);
                 setLastMoveGlobal(newMoveInfo);
                 movedType = movingP.type;
+                addLog(`${getPlayerDisplayName(currentPlayer)} activated ${ITEM_METADATA[movingP.heldItem as InventoryItemType].name}!`);
                 addEffect('magic-burst', selectedSquare!, undefined, undefined, movingP.heldItem as InventoryItemType);
             }
             let moveType: Move['type'] = 'move';
@@ -1357,6 +1376,7 @@ export default function DungeonPage() {
                 clickGuard.current = false; setIsMoveProcessing(false); setAnimatedSquareTo(null);
                 const nextB = specialActionContext!.boardForNextStep.map((r:any) => r.map((s:any) => ({ ...s }))); 
                 nextB[row][col].item = { type: 'anvil' }; setBoard(nextB); setIsAwaitingAnvilDrop(false); 
+                addLog(`${getPlayerDisplayName(currentPlayer)} dropped an Anvil!`);
                 setTimeout(() => { addEffect('poof', alg); audioManager.playAnvil(); }, 300);
                 triggerSpecialsChain(nextB, specialActionContext!.currentGraveyard, specialActionContext!.currentKs, specialActionContext!.oldStreak, specialActionContext!.newStreak, specialActionContext!.isExtraTurn, specialActionContext!.newEnPassantTarget, 'white', [...(specialActionContext!.completedMilestones || []), 'anvil'], specialActionContext!.capturingPieceId, false, movedType, nextTracks.white, nextTracks.black, nextTracks.global);
                 return;
@@ -1371,10 +1391,11 @@ export default function DungeonPage() {
     if (isAwaitingPawnSacrifice && piece && FRONTLINE_TYPES.includes(piece.type) && piece.color === 'white') {
         let nB = boardForPostSacrifice!.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null })));
         const sac = { ...nB[row][col].piece! }; nB[row][col].piece = null; const nG = { white: Array.isArray(specialActionContext.currentGraveyard.white) ? [...specialActionContext.currentGraveyard.white] : [], black: Array.isArray(specialActionContext.currentGraveyard.black) ? [...specialActionContext.currentGraveyard.black] : [] }; nG[sac.color] = [...nG[sac.color], sac];
+        addLog(`${getPlayerDisplayName(currentPlayer)} sacrificed a ${sac.type} for the Queen!`);
         setBoard(nB); setCapturedPieces(nG); setIsAwaitingPawnSacrifice(false); triggerSpecialsChain(nB, nG, specialActionContext.currentKs, specialActionContext.oldStreak, specialActionContext.newStreak, specialActionContext.isExtraTurn, specialActionContext.newEnPassantTarget, 'white', [], specialActionContext.capturingPieceId, false, specialActionContext.trackGlobal?.type || null, specialActionContext.trackWhite, specialActionContext.trackBlack, specialActionContext.trackGlobal);
         return;
     }
-    if (isAwaitingCommanderPromotion && piece && piece.color === 'white' && FRONTLINE_TYPES.includes(piece.type) && piece.type !== 'commander' && piece.type !== 'infiltrator' && piece.level === 1) { const nxtB = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null}))); nxtB[row][col].piece!.type = 'commander'; setBoard(nxtB); setIsAwaitingCommanderPromotion(false); triggerSpecialsChain(nxtB, specialActionContext.currentGraveyard, specialActionContext.currentKs, specialActionContext.oldStreak, specialActionContext.newStreak, specialActionContext.isExtraTurn, specialActionContext.newEnPassantTarget, 'white', [...(specialActionContext.completedMilestones || []), 'firstBlood'], specialActionContext.capturingPieceId, false, specialActionContext.trackGlobal?.type || null, specialActionContext.trackWhite, specialActionContext.trackBlack, specialActionContext.trackGlobal); return; }
+    if (isAwaitingCommanderPromotion && piece && piece.color === 'white' && FRONTLINE_TYPES.includes(piece.type) && piece.type !== 'commander' && piece.type !== 'infiltrator' && piece.level === 1) { const nxtB = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null}))); nxtB[row][col].piece!.type = 'commander'; setBoard(nxtB); addLog(`${getPlayerDisplayName(currentPlayer)} promoted a Commander!`); setIsAwaitingCommanderPromotion(false); triggerSpecialsChain(nxtB, specialActionContext.currentGraveyard, specialActionContext.currentKs, specialActionContext.oldStreak, specialActionContext.newStreak, specialActionContext.isExtraTurn, specialActionContext.newEnPassantTarget, 'white', [...(specialActionContext.completedMilestones || []), 'firstBlood'], specialActionContext.capturingPieceId, false, specialActionContext.trackGlobal?.type || null, specialActionContext.trackWhite, specialActionContext.trackBlack, specialActionContext.trackGlobal); return; }
     if (isAwaitingHolyShield && piece && piece.color === 'white' && piece.type !== 'king' && piece.type !== 'queen' && !piece.isShielded && piece.id !== specialActionContext?.capturingPieceId) { 
         const nxtB = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null}))); 
         const ally = nxtB[row][col].piece!;
@@ -1385,7 +1406,7 @@ export default function DungeonPage() {
             ally.level = Math.min(ally.type === 'queen' ? 7 : 99, (ally.level || 1) + 1);
             if (ally.level > oldAL) addEffect('level-change', alg, 'white', 1);
         }
-        setBoard(nxtB); setIsAwaitingHolyShield(false); triggerSpecialsChain(nxtB, specialActionContext.currentGraveyard, specialActionContext.currentKs, specialActionContext.oldStreak, specialActionContext.newStreak, specialActionContext.isExtraTurn, specialActionContext.newEnPassantTarget, 'white', [...(specialActionContext.completedMilestones || []), 'shield'], specialActionContext.capturingPieceId, false, specialActionContext.trackGlobal?.type || null, specialActionContext.trackWhite, specialActionContext.trackBlack, specialActionContext.trackGlobal); return; 
+        setBoard(nxtB); setIsAwaitingHolyShield(false); addLog(`${getPlayerDisplayName(currentPlayer)} applied a Holy Shield!`); triggerSpecialsChain(nxtB, specialActionContext.currentGraveyard, specialActionContext.currentKs, specialActionContext.oldStreak, specialActionContext.newStreak, specialActionContext.isExtraTurn, specialActionContext.newEnPassantTarget, 'white', [...(specialActionContext.completedMilestones || []), 'shield'], specialActionContext.capturingPieceId, false, specialActionContext.trackGlobal?.type || null, specialActionContext.trackWhite, specialActionContext.trackBlack, specialActionContext.trackGlobal); return; 
     }
     if (isAwaitingArcherSnipe && piece && piece.color === 'black' && piece.type !== 'king' && piece.type !== 'queen' && piece.heldItem !== 'weighted_helm') {
         const ps = board.flat().filter(sq => sq.piece && sq.piece.color === 'white').map(sq => sq.piece!);
@@ -1418,6 +1439,7 @@ export default function DungeonPage() {
                 audioManager.playResurrect(); addLog("The Hydra regrows its heads!");
             }
             const nG = { white: Array.isArray(specialActionContext.currentGraveyard.white) ? [...specialActionContext.currentGraveyard.white] : [], black: Array.isArray(specialActionContext.currentGraveyard.black) ? [...specialActionContext.currentGraveyard.black] : [] }; nG[sniped.color] = [...nG[sniped.color], sniped];
+            addLog(`${getPlayerDisplayName(currentPlayer)} triggered a Snipe!`);
             addLog(`Hero sniped a Level ${sniped.level} ${sniped.type}!`); audioManager.playSnipe(); addEffect('poof', coordsToAlgebraic(row, col));
             setBoard(nxtB); setCapturedPieces(nG); setIsAwaitingArcherSnipe(false); 
             triggerSpecialsChain(nxtB, nG, specialActionContext.currentKs, specialActionContext.newStreak, specialActionContext.newStreak, specialActionContext.isExtraTurn, specialActionContext.newEnPassantTarget, 'white', [...(specialActionContext.completedMilestones || []), 'snipe'], specialActionContext.capturingPieceId, false, specialActionContext.trackGlobal?.type || null, specialActionContext.trackWhite, specialActionContext.trackBlack, specialActionContext.trackGlobal);
@@ -1452,6 +1474,7 @@ export default function DungeonPage() {
             if (currentPlayer === 'white') setLastMoveWhite(dancerMoveInfo); else setLastMoveBlack(dancerMoveInfo);
             setLastMoveGlobal(dancerMoveInfo);
             audioManager.playTeleport();
+            addLog(`${getPlayerDisplayName(currentPlayer)} performed the Dance!`);
 
             const backRank = currentPlayer === 'white' ? 0 : 7;
             let q = [];
@@ -1506,6 +1529,7 @@ export default function DungeonPage() {
                    };
 
                    if (ITEM_METADATA[item].isConsumable) deductConsumable(item);
+                   addLog(`${getPlayerDisplayName(currentPlayer)} activated ${ITEM_METADATA[item].name}!`);
                    addEffect('magic-burst', selectedSquare, undefined, undefined, item);
                    if (item === 'shield_scroll') audioManager.playShield();
                    else if (item === 'resurrection_scroll') audioManager.playResurrect();
@@ -1583,6 +1607,7 @@ export default function DungeonPage() {
                    };
 
                    deductConsumable(item);
+                   addLog(`${getPlayerDisplayName(currentPlayer)} activated Detonation Scroll!`);
                    addEffect('magic-burst', selectedSquare, undefined, undefined, item);
                    audioManager.playExplosion();
                    setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(selectedSquare);
@@ -1745,7 +1770,7 @@ export default function DungeonPage() {
         setSelectedSquare(null); setPossibleMoves([]); 
         setClickedEnemySquare(null); setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
     }
-  }, [board, currentPlayer, selectedSquare, enPassantTargetSquare, lastMoveWhite, lastMoveBlack, lastMoveGlobal, capturedPieces, killStreaks, isInventoryOpen, selectedInventoryItemType, handlePieceHover, triggerSpecialsChain, boardForPostSacrifice, specialActionContext, isAwaitingPawnSacrifice, isAwaitingCommanderPromotion, isAwaitingAnvilDrop, isAwaitingAnvilScrollTarget, isAwaitingWindScrollTarget, isAwaitingEarthquakeScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget, playerToDropAnvil, isAwaitingHolyShield, isAwaitingArcherSnipe, dancerToDance, isAwaitingDanceTarget, processPawnSacrificeCheck, didCaptureLastTurn, addEffect, promotionQueue, promotionTargetLevel, isAwaitingGrappleThrow, grappledPieceSubject, grappledItemSubject, isSelectingMycoSpell, isAwaitingOilSlickTarget, isAwaitingRayTarget, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, playerWhoGotFirstBlood, teleportAllyPieceId, addLog, clickedEnemySquare, isSpec, processMoveEnd, attunementSlots, usedSlots, saveDungeonState, level, inventory, deductConsumable, wraithSpawnTimer]);
+  }, [board, currentPlayer, selectedSquare, enPassantTargetSquare, lastMoveWhite, lastMoveBlack, lastMoveGlobal, capturedPieces, killStreaks, isInventoryOpen, selectedInventoryItemType, handlePieceHover, triggerSpecialsChain, boardForPostSacrifice, specialActionContext, isAwaitingPawnSacrifice, isAwaitingCommanderPromotion, isAwaitingAnvilDrop, isAwaitingAnvilScrollTarget, isAwaitingWindScrollTarget, isAwaitingEarthquakeScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget, playerToDropAnvil, isAwaitingHolyShield, isAwaitingArcherSnipe, dancerToDance, isAwaitingDanceTarget, processPawnSacrificeCheck, didCaptureLastTurn, addEffect, promotionQueue, promotionTargetLevel, isAwaitingGrappleThrow, grappledPieceSubject, grappledItemSubject, isSelectingMycoSpell, isAwaitingOilSlickTarget, isAwaitingRayTarget, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, playerWhoGotFirstBlood, teleportAllyPieceId, addLog, clickedEnemySquare, isSpec, processMoveEnd, attunementSlots, usedSlots, saveDungeonState, level, inventory, deductConsumable, wraithSpawnTimer, getPlayerDisplayName]);
 
   // --- INITIALIZERS & LOOPS ---
 
@@ -1858,16 +1883,17 @@ export default function DungeonPage() {
           promoteTo: move.promoteTo
         }, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, didCaptureLastTurn.white);
         
-        if (oH === 'life_leach') audioManager.playDrain();
-        if (oH === 'soul_harvest') audioManager.playSoulHarvest();
-        if (oH === 'rally_scroll') audioManager.playRally();
-        if (oH === 'antidote') audioManager.playAntidote();
-        if (oH === 'demonic_possession') audioManager.playPossession();
-        if (oH === 'phase_out') audioManager.playPhaseOut();
-        if (oH === 'lose_faith_scroll') audioManager.playLoseFaith();
-        if (oH === 'trap_net') audioManager.playTrap();
+        if (oH === 'life_leach') { audioManager.playDrain(); addLog(`${getPlayerDisplayName('black')} activated Life Leach!`); }
+        if (oH === 'soul_harvest') { audioManager.playSoulHarvest(); addLog(`${getPlayerDisplayName('black')} activated Soul Harvest!`); }
+        if (oH === 'rally_scroll') { audioManager.playRally(); addLog(`${getPlayerDisplayName('black')} activated Rally Scroll!`); }
+        if (oH === 'antidote') { audioManager.playAntidote(); addLog(`${getPlayerDisplayName('black')} activated Antidote!`); }
+        if (oH === 'demonic_possession') { audioManager.playPossession(); addLog(`${getPlayerDisplayName('black')} activated Demonic Possession!`); }
+        if (oH === 'phase_out') { audioManager.playPhaseOut(); addLog(`${getPlayerDisplayName('black')} activated Phase Out!`); }
+        if (oH === 'lose_faith_scroll') { audioManager.playLoseFaith(); addLog(`${getPlayerDisplayName('black')} activated Lose Thy Faith!`); }
+        if (oH === 'trap_net') { audioManager.playTrap(); addLog(`${getPlayerDisplayName('black')} activated Trap Net!`); }
         if (oH === 'oil_slick') {
             audioManager.playSlick();
+            addLog(`${getPlayerDisplayName('black')} activated Oil Slick!`);
             const { row: tr, col: tc } = algebraicToCoords(toAlg);
             for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
                 const nr = tr + dr; const nc = tc + dc;
@@ -2136,7 +2162,7 @@ export default function DungeonPage() {
                 <div className="space-y-0.5"> <p className="text-[0.55rem] font-bold text-destructive leading-none uppercase">W-Streak: {killStreaks.white}</p> <p className="text-[0.55rem] font-bold text-destructive uppercase">B-Streak: {killStreaks.black}</p> </div>
             </div>
             <div className="w-full mb-1"> <h3 className="text-[0.6rem] font-bold text-muted-foreground uppercase mb-0.5 leading-none">Captured Black</h3> <div className="flex flex-wrap gap-0.5 bg-background rounded-none min-h-[1.5rem] p-0.5 border border-border/20"> {capturedPieces.black.length === 0 ? <span className="text-[0.5rem] text-muted-foreground">None</span> : capturedPieces.black.map(p => <div key={p.id} className="w-5 h-5"><ChessPieceDisplay piece={p} isMini /></div>)} </div> </div>
-            <div className="w-full mb-1"> <h3 className="text-[0.6rem] font-bold text-muted-foreground uppercase mb-0.5 leading-none">Captured White</h3> <div className="flex flex-wrap gap-0.5 bg-background rounded-none min-h-[1.5rem] p-0.5 border border-border/20"> {capturedPieces.white.length === 0 ? <span className="text-[0.5rem] text-muted-foreground">None</span> : capturedPieces.white.map(p => key={p.id} className="w-5 h-5"><ChessPieceDisplay piece={p} isMini /></div>)} </div> </div>
+            <div className="w-full mb-1"> <h3 className="text-[0.6rem] font-bold text-muted-foreground uppercase mb-0.5 leading-none">Captured White</h3> <div className="flex flex-wrap gap-0.5 bg-background rounded-none min-h-[1.5rem] p-0.5 border border-border/20"> {capturedPieces.white.length === 0 ? <span className="text-[0.5rem] text-muted-foreground">None</span> : capturedPieces.white.map(p => <div key={p.id} className="w-5 h-5"><ChessPieceDisplay piece={p} isMini /></div>)} </div> </div>
             <div className="flex-grow flex flex-col justify-center min-h-[4.5rem] pt-1"> {pieceForInfoDisplay ? ( <PieceAbilitiesInfo piece={pieceForInfoDisplay} /> ) : ( <div className="text-center text-[0.6rem] text-muted-foreground leading-tight uppercase font-pixel opacity-50"> Hover for Info </div> )} </div>
         </div>
       )}
@@ -2171,7 +2197,7 @@ export default function DungeonPage() {
            <VibeChessTitle className="h-12 w-auto" suffix="-desk" />
         </div>
         <div className={cn("text-center text-[0.8rem] font-bold h-6 uppercase w-full", gameInfo.isCheck && !gameInfo.gameOver && "text-destructive animate-pulse")}> {statMsg} </div>
-        <div className="w-full"> <ChessBoard boardState={board} selectedSquare={selectedSquare} possibleMoves={possibleMoves} enemySelectedSquare={enemySelectedSquare} enemyPossibleMoves={enemyPossibleMoves} onSquareClick={handleSquareClick} playerColor="white" currentPlayerColor={currentPlayer} isInteractionDisabled={isMoveProcessing || gameInfo.gameOver || (isAiThinking && currentPlayer === 'white') || (isSpec && currentPlayer === 'white')} playerInCheck={gameInfo.playerWithKingInCheck} viewMode="flipping" animatedSquareTo={animatedSquareTo} lastMoveFrom={lastMoveFrom} lastMoveTo={lastMoveTo} isAwaitingPawnSacrifice={isAwaitingPawnSacrifice} playerToSacrificePawn={playerToSacrificePawn} isEnPassantTarget={enPassantTargetSquare} onPieceHover={handlePieceHover} effects={effects} promotingSquare={promotionSquare} isAwaitingAnvilDrop={isAwaitingAnvilDrop || isAwaitingAnvilScrollTarget} playerToDropAnvil={playerToDropAnvil} isInventoryOpen={isInventoryOpen} selectedInventoryItemType={selectedInventoryItemType} localPlayerColor="white" isAwaitingHolyShield={isAwaitingHolyShield} isAwaitingArcherSnipe={isAwaitingArcherSnipe} isAwaitingGrappleThrow={isAwaitingArcherSnipe} isAwaitingDanceTarget={isAwaitingDanceTarget} dancerToDance={dancerToDance} grappledPieceSubject={grappledPieceSubject} isAwaitingEarthquakeScrollTarget={isAwaitingEarthquakeScrollTarget} isSelectingMycoSpell={isSelectingMycoSpell} isSelectingTeleportAlly={isSelectingTeleportAlly} isSelectingTeleportShroom={isSelectingTeleportShroom} isSelectingSporeBombShroom={isSelectingSporeBombShroom} isAwaitingCommanderPromotion={isAwaitingCommanderPromotion} playerToPromoteCommander={playerWhoGotFirstBlood} isAwaitingWindScrollTarget={isAwaitingWindScrollTarget} isAwaitingAnvilScrollTarget={isAwaitingAnvilScrollTarget} isAwaitingShieldScrollTarget={isAwaitingShieldScrollTarget} isAwaitingSwapScrollTarget={isAwaitingSwapScrollTarget} isAwaitingDecreeTarget={isAwaitingDecreeTarget} isAwaitingOilSlickTarget={isAwaitingOilSlickTarget} isAwaitingRayTarget={isAwaitingRayTarget} lastMoveWhite={lastMoveWhite} lastMoveBlack={lastMoveBlack} lastMoveGlobal={lastMoveGlobal} applyBoardOpacityEffect={isOmenActive} /> </div>
+        <div className="w-full"> <ChessBoard boardState={board} selectedSquare={selectedSquare} possibleMoves={possibleMoves} enemySelectedSquare={enemySelectedSquare} enemyPossibleMoves={enemyPossibleMoves} onSquareClick={handleSquareClick} playerColor="white" currentPlayerColor={currentPlayer} isInteractionDisabled={isMoveProcessing || gameInfo.gameOver || (isAiThinking && currentPlayer === 'white') || (isSpec && currentPlayer === 'white')} playerInCheck={gameInfo.playerWithKingInCheck} viewMode="flipping" animatedSquareTo={animatedSquareTo} lastMoveFrom={lastMoveFrom} lastMoveTo={lastMoveTo} isAwaitingPawnSacrifice={isAwaitingPawnSacrifice} playerToSacrificePawn={playerToSacrificePawn} isEnPassantTarget={enPassantTargetSquare} onPieceHover={handlePieceHover} effects={effects} promotingSquare={promotionSquare} isAwaitingAnvilDrop={isAwaitingAnvilDrop || isAwaitingAnvilScrollTarget} playerToDropAnvil={playerToDropAnvil} isInventoryOpen={isInventoryOpen} selectedInventoryItemType={selectedInventoryItemType} localPlayerColor="white" isAwaitingHolyShield={isAwaitingHolyShield} isAwaitingArcherSnipe={isAwaitingArcherSnipe} isAwaitingGrappleThrow={isAwaitingGrappleThrow} isAwaitingDanceTarget={isAwaitingDanceTarget} dancerToDance={dancerToDance} grappledPieceSubject={grappledPieceSubject} isAwaitingEarthquakeScrollTarget={isAwaitingEarthquakeScrollTarget} isSelectingMycoSpell={isSelectingMycoSpell} isSelectingTeleportAlly={isSelectingTeleportAlly} isSelectingTeleportShroom={isSelectingTeleportShroom} isSelectingSporeBombShroom={isSelectingSporeBombShroom} isAwaitingCommanderPromotion={isAwaitingCommanderPromotion} playerToPromoteCommander={playerWhoGotFirstBlood} isAwaitingWindScrollTarget={isAwaitingWindScrollTarget} isAwaitingAnvilScrollTarget={isAwaitingAnvilScrollTarget} isAwaitingShieldScrollTarget={isAwaitingShieldScrollTarget} isAwaitingSwapScrollTarget={isAwaitingSwapScrollTarget} isAwaitingDecreeTarget={isAwaitingDecreeTarget} isAwaitingOilSlickTarget={isAwaitingOilSlickTarget} isAwaitingRayTarget={isAwaitingRayTarget} lastMoveWhite={lastMoveWhite} lastMoveBlack={lastMoveBlack} lastMoveGlobal={lastMoveGlobal} applyBoardOpacityEffect={isOmenActive} /> </div>
       </div>
       <div className="w-1/4 flex-col gap-4"> 
         <AuthWidget /> 
