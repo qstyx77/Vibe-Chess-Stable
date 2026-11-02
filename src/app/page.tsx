@@ -44,7 +44,7 @@ import {
   isSquareAttacked,
   getActiveSets
 } from '@/lib/chess-utils';
-import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus, GameSnapshot, ViewMode, ApplyMoveResult, AIGameState, AIBoardState, AISquareState, AIMove as AIMoveType, ResurrectedSquareInfo, Effect, ChatMessage, InventoryItem, InventoryItemType, ItemType, PieceType, LastMoveInfo, LevelChangeEvent } from '@/types';
+import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus, GameSnapshot, ViewMode, ApplyMoveResult, AIGameState, AIBoardState, AISquareState, AIMove as AIMoveType, ResurrectedSquareInfo, Effect, ChatMessage, MessageCategory, InventoryItem, InventoryItemType, ItemType, PieceType, LastMoveInfo, LevelChangeEvent } from '@/types';
 import { ITEM_METADATA, ITEM_SETS } from '@/types';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
@@ -1070,6 +1070,7 @@ export default function EvolvingChessPage() {
       if (oldH === 'soul_harvest') audioManager.playSoulHarvest();
       if (oldH === 'rally_scroll') audioManager.playRally();
       if (oldH === 'antidote') audioManager.playAntidote();
+      if (oldH === 'demonic_possession') audioManager.playPossession();
       
       if (applyResult.itemReturned) { setInventory(prev => { const next = [...prev]; const existing = next.find(i => i.type === applyResult.itemReturned); if (existing) existing.count++; else next.push({ type: applyResult.itemReturned!, count: 1 }); return next; }); addLog(`AI returned equipment: ${ITEM_METADATA[applyResult.itemReturned].name}`); }
       if (applyResult.reflectionOccurred) { 
@@ -1141,7 +1142,7 @@ export default function EvolvingChessPage() {
         for (let i = 1; i <= 4; i++) {
           const nr = aiMove.from[0] + i * dr;
           const nc = aiMove.from[1] + i * dc;
-          if (!isValidSquareUtil(nr, nc)) break;
+          if (!isValidSquare(nr, nc)) break;
           const targetAlg = coordsToAlgebraic(nr, nc);
           setTimeout(() => {
             addEffectCallback('explosion', targetAlg);
@@ -1445,7 +1446,7 @@ export default function EvolvingChessPage() {
                   for (let i = 1; i <= 4; i++) {
                     const nr = fR + i * dr;
                     const nc = fC + i * dc;
-                    if (!isValidSquareUtil(nr, nc)) break;
+                    if (!isValidSquare(nr, nc)) break;
                     const targetAlg = coordsToAlgebraic(nr, nc);
                     setTimeout(() => {
                       addEffectCallback('explosion', targetAlg);
@@ -1460,7 +1461,7 @@ export default function EvolvingChessPage() {
         }
         return;
     }
-    if (isSelectingTeleportAlly) { if (piece && piece.color === currentPlayer && piece.type !== 'king' && piece.type !== 'queen' && piece.id !== (selectedSquare ? boardState[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece?.id : null)) { setTeleportAllyPieceId(piece.id); setIsSelectingTeleportAlly(false); setIsSelectingTeleportShroom(true); addLog("Select a shroom to teleport to!"); } return; }
+    if (isSelectingTeleportAlly) { if (piece && piece.color === currentPlayer && piece.type !== 'king' && piece.type !== 'queen' && piece.id !== (selectedSquare ? board[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece?.id : null)) { setTeleportAllyPieceId(piece.id); setIsSelectingTeleportAlly(false); setIsSelectingTeleportShroom(true); addLog("Select a shroom to teleport to!"); } return; }
     if (isSelectingTeleportShroom && sq?.item?.type === 'shroom') {
         const mage = board[algebraicToCoords(selectedSquare!).row][algebraicToCoords(selectedSquare!).col].piece!;
         const newMoveInfo: LastMoveInfo = { type: mage.type, level: mage.level, item: mage.heldItem || null };
@@ -1502,7 +1503,7 @@ export default function EvolvingChessPage() {
           return; 
         }
         if (algebraic === dancerToDance) { setIsAwaitingDanceTarget(false); setDancerToDance(null); if (specialActionContext) triggerSpecialsChain(board, specialActionContext.currentGraveyard, specialActionContext.currentKs, specialActionContext.oldStreak, specialActionContext.newStreak, specialActionContext.isExtraTurn, specialActionContext.newEnPassantTarget, currentPlayer, specialActionContext.completedMilestones, specialActionContext.capturingPieceId, false, lastMoveGlobal?.type, specialActionContext.trackWhite, specialActionContext.trackBlack, specialActionContext.trackGlobal); return; }
-        const {row: fr, col: fC} = algebraicToCoords(dancerToDance); const isAdjacent = Math.abs(actualRowIndex - fr) <= 1 && Math.abs(actualColIndex - fc) <= 1;
+        const {row: fr, col: fC} = algebraicToCoords(dancerToDance); const isAdjacent = Math.abs(row - fr) <= 1 && Math.abs(col - fC) <= 1;
         const targetP = board[row][col].piece;
         const targetItem = board[row][col].item;
         const activeD = board[fr][fC].piece!;
@@ -1515,7 +1516,7 @@ export default function EvolvingChessPage() {
         };
 
         const dir = currentPlayer === 'white' ? -1 : 1;
-        const isForward = (row === fr + dir) && (col === fc);
+        const isForward = (row === fr + dir) && (col === fC);
         if (isAdjacent && (targetP || (targetItem?.type === 'anvil' && dp?.heldItem === 'dancers_ribbon') || ((!targetItem || targetItem.type === 'shroom') && isForward))) {
             if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: { from: dancerToDance, to: algebraic, type: 'dance-swap' } })); setIsAwaitingDanceTarget(false); setDancerToDance(null); }
             else {
@@ -1726,9 +1727,10 @@ export default function EvolvingChessPage() {
                        else if (item === 'ice_blast' || item === 'ice_scroll') audioManager.playFreeze();
                        else if (item === 'detonation_scroll') audioManager.playExplosion();
                        else if (item === 'life_leach') audioManager.playDrain();
-                       else if (item === 'soul_harvest') audioManager.playDrain();
+                       else if (item === 'soul_harvest') audioManager.playSoulHarvest();
                        else if (item === 'rally_scroll') audioManager.playRally();
                        else if (item === 'antidote') audioManager.playAntidote();
+                       else if (item === 'demonic_possession') audioManager.playPossession();
 
                        if (item === 'antidote') {
                            board.flat().forEach(sq => {
@@ -2022,6 +2024,7 @@ export default function EvolvingChessPage() {
                 if (remoteEvents.signal_horn) { addLog(`Signal Horn! ${remoteEvents.signalHornTargetType} gains a level.`); }
                 if (remoteEvents.soulLink) { addLog(`Soul Link! ${remoteEvents.soulLinkCount} bound units collapsed.`); }
                 if (remoteEvents.shroomSpawned) { audioManager.playShroom(); addLog("A mystical Shroom 🍄 has appeared!"); }
+                if (remoteEvents.possession) { audioManager.playPossession(); }
                 
                 remoteEvents.levelChanges?.forEach((lc: any) => {
                     addEffectCallback('level-change', lc.square, actingColor, lc.delta, undefined);

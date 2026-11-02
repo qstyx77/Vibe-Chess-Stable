@@ -315,6 +315,25 @@ class AudioManager {
     });
   }
 
+  playPossession() {
+    this.init();
+    this.resume();
+    if (!this.ctx || !this.masterGain) return;
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(60, now);
+    osc.frequency.exponentialRampToValueAtTime(20, now + 0.8);
+    gain.gain.setValueAtTime(0.6, now);
+    gain.gain.linearRampToValueAtTime(0, now + 0.8);
+    osc.connect(gain);
+    gain.connect(this.masterGain);
+    osc.start();
+    osc.stop(now + 0.8);
+    this.playNoise(0.8, 0.5, 'low');
+  }
+
   playVictory() {
     this.init();
     this.resume();

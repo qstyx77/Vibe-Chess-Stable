@@ -1,3 +1,4 @@
+
 import WebSocket from 'ws';
 import http from 'http';
 import { URL } from 'url';
@@ -871,7 +872,7 @@ wss.on('connection', (ws: UserConnection) => {
                     const movePayload = data.payload as Move;
                     const gs = room.gameState;
                     const playerColor = gs.players.white?.userId === ws.userId ? 'white' : 'black';
-                    const isRewardMove = ['dance-swap', 'dance-move', 'anvil-drop', 'holy-shield', 'archer-snipe', 'pawn-sacrifice', 'ks-resurrection', 'myco-propagate', 'tele-portobello', 'spore-bomb', 'raise-mycelimen'].includes(movePayload.type || '');
+                    const isRewardMove = ['dance-swap', 'dance-move', 'anvil-drop', 'holy-shield', 'archer-snipe', 'pawn-sacrifice', 'ks-resurrection', 'myco-propagate', 'tele-portobello', 'spore-bomb', 'raise-mycelimen', 'demonic-possession'].includes(movePayload.type || '');
                     if (gs.currentPlayer !== playerColor && !isRewardMove) break;
                     const fromSq = algebraicToCoords(movePayload.from);
                     const movingPiece = gs.board[fromSq.row][fromSq.col].piece;
@@ -1005,7 +1006,8 @@ wss.on('connection', (ws: UserConnection) => {
                             signalHornTargetType: result.signalHornEvent?.piece.type,
                             soulLink: result.obliteratedPieces?.some(p => p.id.includes('_linked_')),
                             soulLinkCount: result.obliteratedPieces?.filter(p => p.id.includes('_linked_')).length,
-                            shroomSpawned: shroomSpawnedEvent, shroomPos: shroomSpawnedEvent ? shroomSpawnPos : null
+                            shroomSpawned: shroomSpawnedEvent, shroomPos: shroomSpawnedEvent ? shroomSpawnPos : null,
+                            possession: movePayload.type === 'demonic-possession'
                         };
                         broadcastToRoom(ws.roomId!, { type: 'game-move', gameState: gs, move: movePayload, events: evs });
                     }
