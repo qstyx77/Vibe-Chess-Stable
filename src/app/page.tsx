@@ -1126,7 +1126,7 @@ export default function EvolvingChessPage() {
         for (let i = 1; i <= 4; i++) {
           const nr = aiMove.from[0] + i * dr;
           const nc = aiMove.from[1] + i * dc;
-          if (!isValidSquare(nr, nc)) break;
+          if (!isValidSquareUtil(nr, nc)) break;
           const targetAlg = coordsToAlgebraic(nr, nc);
           setTimeout(() => {
             addEffectCallback('explosion', targetAlg);
@@ -1291,6 +1291,12 @@ export default function EvolvingChessPage() {
 
         const dist = Math.max(Math.abs(fr - row), Math.abs(fC - col));
         if (algebraic === (grappledPieceSubject?.from || grappledItemSubject?.from) && grappledPieceSubject?.piece.color !== currentPlayer) {
+            const moveDir = currentPlayer === 'white' ? -1 : 1;
+            const isGrappleCaptureForwardDiagonal = (row === fr + moveDir) && (Math.abs(col - fC) === 1);
+            if (!isGrappleCaptureForwardDiagonal) {
+                addLog("Grappler: Capture must be forward-diagonal!");
+                return;
+            }
             const move: Move = { from: selectedSquare!, to: algebraic, type: 'capture' };
             if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: move })); setSelectedSquare(null); setPossibleMoves([]); }
             else {
@@ -1424,7 +1430,7 @@ export default function EvolvingChessPage() {
                   for (let i = 1; i <= 4; i++) {
                     const nr = fR + i * dr;
                     const nc = fC + i * dc;
-                    if (!isValidSquare(nr, nc)) break;
+                    if (!isValidSquareUtil(nr, nc)) break;
                     const targetAlg = coordsToAlgebraic(nr, nc);
                     setTimeout(() => {
                       addEffectCallback('explosion', targetAlg);
@@ -1494,7 +1500,7 @@ export default function EvolvingChessPage() {
         };
 
         const dir = currentPlayer === 'white' ? -1 : 1;
-        const isForward = (row === fr + dir) && (col === fC);
+        const isForward = (row === fr + dir) && (actualColIndex === fc);
         if (isAdjacent && (targetP || (targetItem?.type === 'anvil' && dp?.heldItem === 'dancers_ribbon') || ((!targetItem || targetItem.type === 'shroom') && isForward))) {
             if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: { from: dancerToDance, to: algebraic, type: 'dance-swap' } })); setIsAwaitingDanceTarget(false); setDancerToDance(null); }
             else {

@@ -649,9 +649,6 @@ export class VibeChessAI {
                                 });
                             }
                         });
-                        if (targetPiece && targetPiece.color !== p.color) {
-                            moves.push({ from: [r, c], to: [pr, pc], type: 'capture' });
-                        }
                     }
                 }
             }
