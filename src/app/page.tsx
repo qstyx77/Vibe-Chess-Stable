@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -1465,7 +1466,7 @@ export default function EvolvingChessPage() {
         }
         return;
     }
-    if (isSelectingTeleportAlly) { if (piece && piece.color === currentPlayer && piece.type !== 'king' && piece.type !== 'queen' && piece.id !== (selectedSquare ? board[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece?.id : null)) { setTeleportAllyPieceId(piece.id); setIsSelectingTeleportAlly(false); setIsSelectingTeleportShroom(true); addLog("Select a shroom to teleport to!"); } return; }
+    if (isSelectingTeleportAlly) { if (piece && piece.color === currentPlayer && piece.type !== 'king' && piece.type !== 'queen' && piece.id !== (selectedSquare ? boardState[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece?.id : null)) { setTeleportAllyPieceId(piece.id); setIsSelectingTeleportAlly(false); setIsSelectingTeleportShroom(true); addLog("Select a shroom to teleport to!"); } return; }
     if (isSelectingTeleportShroom && sq?.item?.type === 'shroom') {
         const mage = board[algebraicToCoords(selectedSquare!).row][algebraicToCoords(selectedSquare!).col].piece!;
         const newMoveInfo: LastMoveInfo = { type: mage.type, level: mage.level, item: mage.heldItem || null };
@@ -1614,6 +1615,14 @@ export default function EvolvingChessPage() {
 
               if (isAwaitingWindScrollTarget || isAwaitingEarthquakeScrollTarget) {
                   if (isAwaitingWindScrollTarget) audioManager.playWind();
+                  if (isAwaitingEarthquakeScrollTarget) {
+                      audioManager.playExplosion();
+                      addEffectCallback('tremble', algebraic);
+                      for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+                          const nr = row + dr; const nc = col + dc;
+                          if (isValidSquare(nr, nc)) addEffectCallback('magic-burst', coordsToAlgebraic(nr, nc), undefined, undefined, 'earthquake_scroll');
+                      }
+                  }
                   const res = applyMove(board, { from: selectedSquare!, to: algebraic, type: moveType }, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, false);
                   setBoard(res.newBoard);
                   setTimeout(() => { setIsMoveProcessing(false); setIsAwaitingWindScrollTarget(false); setIsAwaitingEarthquakeScrollTarget(false); setSelectedSquare(null); processMoveEnd(res.newBoard, capturedPieces, killStreaks, currentPlayer, false, null, false, movedType, nextTracks.white, nextTracks.black, nextTracks.global); }, 800);
