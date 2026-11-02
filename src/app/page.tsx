@@ -1065,6 +1065,10 @@ export default function EvolvingChessPage() {
       
       let nextB = applyResult.newBoard; const updatedG = { white: Array.isArray(capturedPieces?.white) ? [...capturedPieces.white] : [], black: Array.isArray(capturedPieces?.black) ? [...capturedPieces.black] : [] };
       applyResult.levelChanges?.forEach(lc => addEffectCallback('level-change', lc.square, currentPlayer, lc.delta, undefined));
+      
+      if (oldH === 'life_leach') audioManager.playDrain();
+      if (oldH === 'rally_scroll') audioManager.playRally();
+      
       if (applyResult.itemReturned) { setInventory(prev => { const next = [...prev]; const existing = next.find(i => i.type === applyResult.itemReturned); if (existing) existing.count++; else next.push({ type: applyResult.itemReturned!, count: 1 }); return next; }); addLog(`AI returned equipment: ${ITEM_METADATA[applyResult.itemReturned].name}`); }
       if (applyResult.reflectionOccurred) { 
           const victim = applyResult.capturedPiece!; const targetPile = victim.color; 
@@ -1446,7 +1450,7 @@ export default function EvolvingChessPage() {
         }
         return;
     }
-    if (isSelectingTeleportAlly) { if (piece && piece.color === currentPlayer && piece.type !== 'king' && piece.type !== 'queen' && piece.id !== (selectedSquare ? board[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece?.id : null)) { setTeleportAllyPieceId(piece.id); setIsSelectingTeleportAlly(false); setIsSelectingTeleportShroom(true); addLog("Select a shroom to teleport to!"); } return; }
+    if (isSelectingTeleportAlly) { if (piece && piece.color === currentPlayer && piece.type !== 'king' && piece.type !== 'queen' && piece.id !== (selectedSquare ? boardState[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece?.id : null)) { setTeleportAllyPieceId(piece.id); setIsSelectingTeleportAlly(false); setIsSelectingTeleportShroom(true); addLog("Select a shroom to teleport to!"); } return; }
     if (isSelectingTeleportShroom && sq?.item?.type === 'shroom') {
         const mage = board[algebraicToCoords(selectedSquare!).row][algebraicToCoords(selectedSquare!).col].piece!;
         const newMoveInfo: LastMoveInfo = { type: mage.type, level: mage.level, item: mage.heldItem || null };
@@ -1712,6 +1716,7 @@ export default function EvolvingChessPage() {
                        else if (item === 'ice_blast' || item === 'ice_scroll') audioManager.playFreeze();
                        else if (item === 'detonation_scroll') audioManager.playExplosion();
                        else if (item === 'life_leach') audioManager.playDrain();
+                       else if (item === 'rally_scroll') audioManager.playRally();
 
                        const res = applyMove(board, move, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, false);
                        

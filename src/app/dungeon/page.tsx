@@ -1471,6 +1471,7 @@ export default function DungeonPage() {
                    else if (item === 'ice_blast' || item === 'ice_scroll') audioManager.playFreeze();
                    else if (item === 'detonation_scroll') audioManager.playExplosion();
                    else if (item === 'life_leach') audioManager.playDrain();
+                   else if (item === 'rally_scroll') audioManager.playRally();
 
                    setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(selectedSquare);
                    if (currentPlayer === 'white') setLastMoveWhite(newMoveInfo); else setLastMoveBlack(newMoveInfo);
@@ -1770,6 +1771,9 @@ export default function DungeonPage() {
           promoteTo: move.promoteTo
         }, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, didCaptureLastTurn.white);
         
+        if (oH === 'life_leach') audioManager.playDrain();
+        if (oH === 'rally_scroll') audioManager.playRally();
+
         if (appRes.conversionEvents && appRes.conversionEvents.length > 0) {
             audioManager.playConversion();
             appRes.conversionEvents.forEach((e: ConversionEvent) => {
