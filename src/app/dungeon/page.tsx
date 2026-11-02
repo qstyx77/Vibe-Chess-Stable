@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -742,7 +743,7 @@ export default function DungeonPage() {
 
                         if (targetItem?.type === 'shroom') { 
                             const oldL = dP.level;
-                            nextBoard[best.r][best.hIndex].piece = { ...dP, hasMoved: true, level: (dP.level || 1) + 1, isShielded: false }; 
+                            nextBoard[best.r][best.c].piece = { ...dP, hasMoved: true, level: (dP.level || 1) + 1, isShielded: false }; 
                             if (nextBoard[best.r][best.c].piece!.level > oldL) addEffect('level-change', coordsToAlgebraic(best.r, best.c), actP, 1);
                         } else { nextBoard[best.r][best.c].piece = { ...dP, hasMoved: true, isShielded: false }; }
                         nextBoard[best.r][best.c].item = null; nextBoard[r][c].piece = tP ? { ...tP, hasMoved: true, isShielded: false } : null; nextBoard[r][c].item = targetItem?.type === 'shroom' ? null : targetItem;
@@ -910,7 +911,7 @@ export default function DungeonPage() {
                 }
                 addLog(`${actP === 'white' ? "Hero" : "Dungeon"} sniped a Level ${sniped.level} ${sniped.type}!`); audioManager.playSnipe(); addEffect('poof', coordsToAlgebraic(row, col));
                 const targetP = sniped.color; nG[targetP] = [...(nG[targetP]||[]), sniped];
-                triggerSpecialsChain(nxtB, nG, cKs, oldS, newS, isEx, nEp, actP, [...compM, 'snipe'], capId, wasCap, movedT, effWhite, effBlack, effGlobal, trapAffectedSquares); return;
+                triggerSpecialsChain(nxtB, nG, cKs, oldS, newS, isEx, nEp, actP, [...compM, 'snipe'], capId, wasCap, movedT, nextAITracks.white, nextAITracks.black, nextAITracks.global, trapAffectedSquares); return;
             } else {
                 setSpecialActionContext({ boardForNextStep: bCh, playerWhoseTurnCompleted: actP, isExtraTurn: isEx, newEnPassantTarget: nEp, oldStreak: oldS, newStreak: newS, completedMilestones: [...compM, 'snipe'], currentGraveyard: nG, currentKs: cKs, capturingPieceId: capId, trackWhite: effWhite, trackBlack: effBlack, trackGlobal: effGlobal });
                 setIsAwaitingArcherSnipe(true); addLog(`${getPlayerDisplayName(actP)}: Sniper active (KS 5)!`); return;
@@ -1451,7 +1452,7 @@ export default function DungeonPage() {
         if (!dancerToDance) { if (piece && piece.color === 'white' && piece.type === 'dancer') { setDancerToDance(alg); } return; }
         if (alg === dancerToDance) { setIsAwaitingDanceTarget(false); setDancerToDance(null); triggerSpecialsChain(board, specialActionContext.currentGraveyard, specialActionContext.currentKs, specialActionContext.oldStreak, specialActionContext.newStreak, specialActionContext.isExtraTurn, specialActionContext.newEnPassantTarget, 'white', specialActionContext.completedMilestones, specialActionContext.capturingPieceId, false, lastMoveGlobal?.type, specialActionContext.trackWhite, specialActionContext.trackBlack, specialActionContext.trackGlobal); return; }
         const {row: fr, col: fC} = algebraicToCoords(dancerToDance); const isAdj = Math.abs(row - fr) <= 1 && Math.abs(col - fC) <= 1;
-        const activeD = board[fr][fC].piece!;
+        const activeD = board[fr][fr].piece!;
         const dancerMoveInfo: LastMoveInfo = { type: activeD.type, level: activeD.level, item: activeD.heldItem || null };
         const nextTracks = {
             white: currentPlayer === 'white' ? dancerMoveInfo : specialActionContext!.trackWhite,
@@ -1978,7 +1979,7 @@ export default function DungeonPage() {
             landed.type = 'queen'; landed.level = Math.min(7, targetL); aiPromoted = true;
         }
         
-        let aiLogMsg = `Dungeon: ${mP.type} to ${toAlg}${aiPromoted ? " (PROMOTED)" : ""}`;
+        let aiLogMsg = `Dungeon: ${mP.type} from ${fromAlg} to ${toAlg}${aiPromoted ? " (PROMOTED)" : ""}`;
         if (move.type === 'grapple-throw') aiLogMsg = `Dungeon: Grappler tossed piece to ${toAlg}`;
         else if (move.type === 'self-destruct') aiLogMsg = `Dungeon: Knight self-destructed at ${toAlg}`;
         else if (move.type === 'swap') aiLogMsg = `Dungeon: Ally swap to ${toAlg}`;
