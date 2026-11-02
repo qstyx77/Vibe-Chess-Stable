@@ -1,3 +1,4 @@
+
 import WebSocket from 'ws';
 import http from 'http';
 import { URL } from 'url';
@@ -1002,7 +1003,7 @@ wss.on('connection', (ws: UserConnection) => {
                             const { newBoard: bAP, levelChanges: pCh } = processPoisonDamage(gs.board, gs.currentPlayer);
                             gs.board = bAP; result.levelChanges = [...(result.levelChanges || []), ...pCh];
                         }
-                        const isSwap = movePayload.type === 'swap' || movePayload.type === 'dance-swap' || movePayload.type === 'grapple-hook-swap' || (movingPiece?.heldItem === 'swap_scroll');
+                        const isSwap = movePayload.type === 'swap' || movePayload.type === 'dance-swap' || movePayload.type === 'grapple-hook-swap' || (movePayload.type === 'swap-scroll');
                         const evs = {
                             captured: wasCapture,
                             capturedType: (result.capturedPiece || result.obliteratedPieces?.[0] || result.smokeBombEvent?.piece)?.type,
@@ -1023,7 +1024,7 @@ wss.on('connection', (ws: UserConnection) => {
                             shroomSpawned: shroomSpawnedEvent, shroomPos: shroomSpawnedEvent ? shroomSpawnPos : null,
                             possession: movePayload.type === 'demonic-possession',
                             phaseOut: movePayload.type === 'phase-out',
-                            windPush: movePayload.type === 'wind-scroll' || result.obliteratedPieces?.length > 0 || wasCapture,
+                            windPush: movePayload.type === 'wind-scroll' || (movingPiece?.heldItem === 'wind_sword' && wasCapture) || movingPiece?.heldItem === 'wind_cloak',
                             teleport: isSwap,
                             oilSlick: movePayload.type === 'oil-slick',
                             slickPos: movePayload.type === 'oil-slick' ? movePayload.to : null,
@@ -1034,7 +1035,7 @@ wss.on('connection', (ws: UserConnection) => {
                             trapAffectedSquares: result.trapAffectedSquares || [],
                             killstreak: wasCapture ? newStreak : 0,
                             milestone: milestoneReached,
-                            consumable: moveTypeToItem[movePayload.type || ''] ? ITEM_METADATA[moveTypeToItem[movePayload.type!]!].name : null
+                            consumable: moveTypeToItem[movePayload.type || ''] ? ITEM_META_INFO[moveTypeToItem[movePayload.type!]!].name : null
                         };
                         broadcastToRoom(ws.roomId!, { type: 'game-move', gameState: gs, move: movePayload, events: evs });
                     }

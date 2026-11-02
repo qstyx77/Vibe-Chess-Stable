@@ -39,7 +39,7 @@ import {
   triggerDefiantSparks,
 } from '@/lib/chess-utils';
 import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus, PieceType, Effect, InventoryItem, InventoryItemType, AIGameState, AIBoardState, AISquareState, SquareState, ItemType, ChatMessage, MessageCategory, RookResurrectionResult, AIMove as AIMoveType, ConversionEvent, LastMoveInfo } from '@/types';
-import { ITEM_METADATA } from '@/types';
+import { ITEM_METADATA, ITEM_METADATA as ITEM_META_INFO } from '@/types';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -401,7 +401,7 @@ export default function DungeonPage() {
         const drops: InventoryItemType[] = [];
         const allItems = Object.keys(ITEM_METADATA) as InventoryItemType[];
         allItems.forEach(type => {
-            const meta = ITEM_METADATA[type];
+            const meta = ITEM_META_INFO[type];
             if (!meta) return;
             if (type.startsWith('portal_scroll_')) {
                 const scrollFloor = parseInt(type.split('_')[2]);
@@ -898,7 +898,7 @@ export default function DungeonPage() {
                 const v = vSrt[0]; const {rowIndex: row, colIndex: col} = v; const sniped = { ...nxtB[row][col].piece!, id: nxtB[row][col].piece!.id }; nxtB[row][col].piece = null; 
                 if (sniped.id?.startsWith('boss-hydra')) {
                     const adj = []; for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
-                        if (dr === 0 && dc === 0) continue; const nr = row + dr, nc = col + dc;
+                        if (dr === 0 && dc === 0) continue; const nr = row + dr; const nc = col + dc;
                         if (isValidSquare(nr, nc) && !nxtB[nr][nc].piece && (!nxtB[nr][nc].item || nxtB[nr][nc].item?.type === 'shroom')) adj.push({ r: nr, c: nc });
                     }
                     const sc = Math.min(adj.length, 2); const sh = adj.sort(() => Math.random() - 0.5);
@@ -1208,7 +1208,7 @@ export default function DungeonPage() {
                 if (existing) existing.count++;
                 else newInv.push({ type: result.stolenItem, count: 1 });
                 setInventory(newInv);
-                addLog(`STOLEN: ${ITEM_METADATA[result.stolenItem].name}!`);
+                addLog(`STOLEN: ${ITEM_META_INFO[result.stolenItem].name}!`);
             }
             if (result.glassShardTriggered) addLog("Glass Shard! Capturer is exhausted.");
             if (result.smokeBombEvent) {
@@ -1250,7 +1250,7 @@ export default function DungeonPage() {
     }
     if (isInventoryOpen) {
         if (selectedInventoryItemType && !selectedInventoryItemType.startsWith('portal_scroll_')) {
-          const itemMeta = ITEM_METADATA[selectedInventoryItemType];
+          const itemMeta = ITEM_META_INFO[selectedInventoryItemType];
           if (itemMeta.rarity === 'rare' && board.flat().some(sq => sq.piece?.heldItem === selectedInventoryItemType)) {
               if (piece?.heldItem !== selectedInventoryItemType) {
                   addLog(`LIMIT REACHED: Only one ${itemMeta.name} allowed!`); return;
@@ -1270,7 +1270,7 @@ export default function DungeonPage() {
                 const existingOld = newInv.find(i => i.type === oldItem);
                 if (existingOld) existingOld.count++;
                 else newInv.push({ type: oldItem, count: 1 });
-                addLog(`Swapped: ${ITEM_METADATA[oldItem].name} returned to bag.`);
+                addLog(`Swapped: ${ITEM_META_INFO[oldItem].name} returned to bag.`);
             }
             const itemInBag = newInv.find(i => i.type === selectedInventoryItemType);
             if (itemInBag) { 
@@ -1281,7 +1281,7 @@ export default function DungeonPage() {
             saveDungeonState(level, nextBoard, currentPlayer, killStreaks, capturedPieces, shroomSpawnCounter, nextShroomSpawnTurn, enPassantTargetSquare, necroResurrectionCounter, newInv);
             setSelectedInventoryItemType(null); 
             audioManager.playLevelUp(); 
-            addLog(`Equipped ${ITEM_METADATA[selectedInventoryItemType].name}`);
+            addLog(`Equipped ${ITEM_META_INFO[selectedInventoryItemType].name}`);
           }
         } else if (piece && piece.heldItem && piece.color === 'white') {
             const removed = piece.heldItem; const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null, phasedPiece: s.phasedPiece ? { ...s.phasedPiece } : null })));
@@ -1289,7 +1289,7 @@ export default function DungeonPage() {
             const nextInv = [...inventory]; const item = nextInv.find(i => i.type === removed); if (item) item.count++; else nextInv.push({ type: removed, count: 1 });
             setInventory(nextInv);
             saveDungeonState(level, nextBoard, currentPlayer, killStreaks, capturedPieces, shroomSpawnCounter, nextShroomSpawnTurn, enPassantTargetSquare, necroResurrectionCounter, nextInv);
-            audioManager.playMove(); addLog(`Unequipped ${ITEM_METADATA[removed].name}`);
+            audioManager.playMove(); addLog(`Unequipped ${ITEM_META_INFO[removed].name}`);
         }
         return;
       }
@@ -1306,7 +1306,7 @@ export default function DungeonPage() {
         if ((row === fR || col === fC) && alg !== selectedSquare) {
             const type = isAwaitingRayTarget === 'glacial' ? 'glacial-ray' : 'burning-ray';
             deductConsumable(isAwaitingRayTarget === 'glacial' ? 'glacial_ray' : 'burning_ray');
-            addLog(`${getPlayerDisplayName(currentPlayer)} activated ${ITEM_METADATA[movingP.heldItem as InventoryItemType].name}!`);
+            addLog(`${getPlayerDisplayName(currentPlayer)} activated ${ITEM_META_INFO[movingP.heldItem as InventoryItemType].name}!`);
             addEffect('magic-burst', selectedSquare!, undefined, undefined, isAwaitingRayTarget === 'glacial' ? 'glacial_ray' : 'burning_ray');
             if (isAwaitingRayTarget === 'glacial') audioManager.playFreeze(); else audioManager.playExplosion();
             clickGuard.current = true; setIsMoveProcessing(true); setAnimatedSquareTo(alg);
@@ -1351,7 +1351,7 @@ export default function DungeonPage() {
                 if (currentPlayer === 'white') setLastMoveWhite(newMoveInfo); else setLastMoveBlack(newMoveInfo);
                 setLastMoveGlobal(newMoveInfo);
                 movedType = movingP.type;
-                addLog(`${getPlayerDisplayName(currentPlayer)} activated ${ITEM_METADATA[movingP.heldItem as InventoryItemType].name}!`);
+                addLog(`${getPlayerDisplayName(currentPlayer)} activated ${ITEM_META_INFO[movingP.heldItem as InventoryItemType].name}!`);
                 addEffect('magic-burst', selectedSquare!, undefined, undefined, movingP.heldItem as InventoryItemType);
             }
             let moveType: Move['type'] = 'move';
@@ -1421,7 +1421,7 @@ export default function DungeonPage() {
               if (lastInfo?.type === 'archer') return true;
             }
             const crds = board.flat().find(sq => sq.piece?.id === pt.id); 
-            if ((pt.type === 'knight' || pt.type === 'mimic') && pt.heldItem === 'shortbow' && crds && getEffectiveLevel(board, crds.rowIndex, coords.colIndex) >= 3) return true; 
+            if ((pt.type === 'knight' || pt.type === 'mimic') && pt.heldItem === 'shortbow' && crds && getEffectiveLevel(board, crds.rowIndex, crds.colIndex) >= 3) return true; 
             return false; 
         });
         if (snips.find(a => a.level >= piece.level)) {
@@ -1452,7 +1452,7 @@ export default function DungeonPage() {
         if (!dancerToDance) { if (piece && piece.color === 'white' && piece.type === 'dancer') { setDancerToDance(alg); } return; }
         if (alg === dancerToDance) { setIsAwaitingDanceTarget(false); setDancerToDance(null); triggerSpecialsChain(board, specialActionContext.currentGraveyard, specialActionContext.currentKs, specialActionContext.oldStreak, specialActionContext.newStreak, specialActionContext.isExtraTurn, specialActionContext.newEnPassantTarget, 'white', specialActionContext.completedMilestones, specialActionContext.capturingPieceId, false, lastMoveGlobal?.type, specialActionContext.trackWhite, specialActionContext.trackBlack, specialActionContext.trackGlobal); return; }
         const {row: fr, col: fC} = algebraicToCoords(dancerToDance); const isAdj = Math.abs(row - fr) <= 1 && Math.abs(col - fC) <= 1;
-        const activeD = board[fr][fr].piece!;
+        const activeD = board[fr][fC].piece!;
         const dancerMoveInfo: LastMoveInfo = { type: activeD.type, level: activeD.level, item: activeD.heldItem || null };
         const nextTracks = {
             white: currentPlayer === 'white' ? dancerMoveInfo : specialActionContext!.trackWhite,
@@ -1497,7 +1497,7 @@ export default function DungeonPage() {
        
        if (selectedSquare === alg) {
            if (moving?.type === 'myco_mage') { setIsSelectingMycoSpell(true); return; }
-           if (moving?.heldItem && (ITEM_METADATA[moving.heldItem].isConsumable || moving.heldItem === 'trap_net')) {
+           if (moving?.heldItem && (ITEM_META_INFO[moving.heldItem].isConsumable || moving.heldItem === 'trap_net')) {
                const item = moving.heldItem;
                const effLevel = getEffectiveLevel(board, fR, fC);
                const unitSilenced = isSilenced(board, fR, fC, currentPlayer);
@@ -1529,8 +1529,8 @@ export default function DungeonPage() {
                        global: newMoveInfo 
                    };
 
-                   if (ITEM_METADATA[item].isConsumable) deductConsumable(item);
-                   addLog(`${getPlayerDisplayName(currentPlayer)} activated ${ITEM_METADATA[item].name}!`);
+                   if (ITEM_META_INFO[item].isConsumable) deductConsumable(item);
+                   addLog(`${getPlayerDisplayName(currentPlayer)} activated ${ITEM_META_INFO[item].name}!`);
                    addEffect('magic-burst', selectedSquare, undefined, undefined, item);
                    if (item === 'shield_scroll') audioManager.playShield();
                    else if (item === 'resurrection_scroll') audioManager.playResurrect();
@@ -1708,8 +1708,11 @@ export default function DungeonPage() {
           if (res.signalHornEvent) { addLog(`Signal Horn! ${res.signalHornEvent.piece.type} gains a level.`); }
           if (res.anvilDroppedSquares) res.anvilDroppedSquares.forEach((sq, idx) => { setTimeout(() => { addEffect('focus', sq); audioManager.playAnvil(); }, 300 + (idx * 150)); });
           
-          if (oH === 'wind_sword' || oH === 'wind_cloak') audioManager.playWind();
-          if (mType === 'swap' || mType === 'dance-swap' || mType === 'grapple-hook-swap' || oH === 'swap_scroll') audioManager.playTeleport();
+          if (mType === 'move' || mType === 'capture') {
+              if (oH === 'wind_sword' && (res.capturedPiece || res.obliteratedPieces?.length)) audioManager.playWind();
+              if (oH === 'wind_cloak') audioManager.playWind();
+          }
+          if (mType === 'swap' || mType === 'dance-swap' || mType === 'grapple-hook-swap') audioManager.playTeleport();
           
           let nextBoardState = res.newBoard;
           const nxtG = { white: Array.isArray(capturedPieces.white) ? [...capturedPieces.white] : [], black: Array.isArray(capturedPieces.black) ? [...capturedPieces.black] : [] }; 
@@ -1717,7 +1720,7 @@ export default function DungeonPage() {
               const newInv = [...inventory];
               const existing = newInv.find(i => i.type === res.stolenItem);
               if (existing) existing.count++; else newInv.push({ type: res.stolenItem, count: 1 });
-              setInventory(newInv); addLog(`STOLEN: ${ITEM_METADATA[res.stolenItem].name}!`);
+              setInventory(newInv); addLog(`STOLEN: ${ITEM_META_INFO[res.stolenItem].name}!`);
           }
           if (res.smokeBombEvent) {
               addLog(`Smoke Bomb! ${res.smokeBombEvent.piece.type} escaped to back rank!`);
@@ -1884,15 +1887,15 @@ export default function DungeonPage() {
           promoteTo: move.promoteTo
         }, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, didCaptureLastTurn.white);
         
-        if (oH === 'life_leach') { audioManager.playDrain(); addLog(`${getPlayerDisplayName('black')} activated Life Leach!`); }
-        if (oH === 'soul_harvest') { audioManager.playSoulHarvest(); addLog(`${getPlayerDisplayName('black')} activated Soul Harvest!`); }
-        if (oH === 'rally_scroll') { audioManager.playRally(); addLog(`${getPlayerDisplayName('black')} activated Rally Scroll!`); }
-        if (oH === 'antidote') { audioManager.playAntidote(); addLog(`${getPlayerDisplayName('black')} activated Antidote!`); }
-        if (oH === 'demonic_possession') { audioManager.playPossession(); addLog(`${getPlayerDisplayName('black')} activated Demonic Possession!`); }
-        if (oH === 'phase_out') { audioManager.playPhaseOut(); addLog(`${getPlayerDisplayName('black')} activated Phase Out!`); }
-        if (oH === 'lose_faith_scroll') { audioManager.playLoseFaith(); addLog(`${getPlayerDisplayName('black')} activated Lose Thy Faith!`); }
-        if (oH === 'trap_net') { audioManager.playTrap(); addLog(`${getPlayerDisplayName('black')} activated Trap Net!`); }
-        if (oH === 'oil_slick') {
+        if (move.type === 'life-leach') { audioManager.playDrain(); addLog(`${getPlayerDisplayName('black')} activated Life Leach!`); }
+        if (move.type === 'soul-harvest') { audioManager.playSoulHarvest(); addLog(`${getPlayerDisplayName('black')} activated Soul Harvest!`); }
+        if (move.type === 'rally-scroll') { audioManager.playRally(); addLog(`${getPlayerDisplayName('black')} activated Rally Scroll!`); }
+        if (move.type === 'antidote') { audioManager.playAntidote(); addLog(`${getPlayerDisplayName('black')} activated Antidote!`); }
+        if (move.type === 'demonic-possession') { audioManager.playPossession(); addLog(`${getPlayerDisplayName('black')} activated Demonic Possession!`); }
+        if (move.type === 'phase-out') { audioManager.playPhaseOut(); addLog(`${getPlayerDisplayName('black')} activated Phase Out!`); }
+        if (move.type === 'lose-thy-faith') { audioManager.playLoseFaith(); addLog(`${getPlayerDisplayName('black')} activated Lose Thy Faith!`); }
+        if (move.type === 'trap-net') { audioManager.playTrap(); addLog(`${getPlayerDisplayName('black')} activated Trap Net!`); }
+        if (move.type === 'oil-slick') {
             audioManager.playSlick();
             addLog(`${getPlayerDisplayName('black')} activated Oil Slick!`);
             const { row: tr, col: tc } = algebraicToCoords(toAlg);
@@ -1901,8 +1904,8 @@ export default function DungeonPage() {
                 if (isValidSquareUtil(nr, nc)) addEffect('magic-burst', coordsToAlgebraic(nr, nc), undefined, undefined, 'oil_slick');
             }
         }
-        if (oH === 'wind_scroll' || oH === 'wind_sword' || oH === 'wind_cloak') audioManager.playWind();
-        if (move.type === 'swap' || move.type === 'dance-swap' || move.type === 'grapple-hook-swap' || oH === 'swap_scroll') audioManager.playTeleport();
+        if (move.type === 'wind-scroll' || (oH === 'wind_sword' && (move.type === 'capture' || appRes.capturedPiece)) || oH === 'wind_cloak') audioManager.playWind();
+        if (move.type === 'swap' || move.type === 'dance-swap' || move.type === 'grapple-hook-swap' || move.type === 'swap-scroll') audioManager.playTeleport();
 
         if (appRes.conversionEvents && appRes.conversionEvents.length > 0) {
             audioManager.playConversion();
@@ -1912,7 +1915,7 @@ export default function DungeonPage() {
             });
         }
 
-        if (oH === 'lose_faith_scroll' && appRes.loseFaithAffectedSquares) {
+        if (move.type === 'lose-thy-faith' && appRes.loseFaithAffectedSquares) {
             appRes.loseFaithAffectedSquares.forEach(sq => addEffect('poof', sq));
         }
 
@@ -1935,7 +1938,7 @@ export default function DungeonPage() {
         if (appRes.anvilDroppedSquares) appRes.anvilDroppedSquares.forEach((sq, idx) => { setTimeout(() => { addEffect('focus', sq); audioManager.playAnvil(); }, 300 + (idx * 150)); });
         let nextB = appRes.newBoard;
 
-        if (oH === 'antidote') {
+        if (move.type === 'antidote') {
             nextB.flat().forEach(sq => {
                 if (sq.piece && sq.piece.color === 'black' && (sq.piece.isPoisoned || sq.piece.isExhausted)) {
                     addEffect('magic-burst', sq.algebraic, undefined, undefined, 'antidote');
