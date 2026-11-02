@@ -1330,7 +1330,7 @@ export default function DungeonPage() {
                 addEffect('magic-burst', selectedSquare!, undefined, undefined, movingP.heldItem as InventoryItemType);
             }
             let moveType: Move['type'] = 'move';
-            if (isAwaitingWindScrollTarget) { moveType = 'wind-scroll'; deductConsumable('wind_scroll'); audioManager.playAnvil(); }
+            if (isAwaitingWindScrollTarget) { moveType = 'wind-scroll'; deductConsumable('wind_scroll'); audioManager.playWind(); }
             else if (isAwaitingAnvilScrollTarget) { moveType = 'summon-anvil'; deductConsumable('summon_anvil'); audioManager.playAnvil(); }
             else if (isAwaitingEarthquakeScrollTarget) { moveType = 'earthquake-scroll'; deductConsumable('earthquake_scroll'); audioManager.playExplosion(); }
             else if (isAwaitingOilSlickTarget) { moveType = 'oil-slick'; deductConsumable('oil_slick'); audioManager.playShroom(); }
@@ -1499,6 +1499,7 @@ export default function DungeonPage() {
                    else if (item === 'demonic_possession') audioManager.playPossession();
                    else if (item === 'phase_out') audioManager.playPhaseOut();
                    else if (item === 'lose_faith_scroll') audioManager.playLoseFaith();
+                   else if (item === 'wind_scroll') audioManager.playWind();
 
                    if (item === 'antidote') {
                        board.flat().forEach(sq => {
@@ -1646,10 +1647,13 @@ export default function DungeonPage() {
               audioManager.playResurrect(); addLog("The Hydra regrows its heads!"); 
               if (res.hydraSpawnSquares) res.hydraSpawnSquares.forEach(sq => addEffect('light-beam', sq));
           }
-          if (res.phoenixResurrection) { addEffect('light-beam', res.phoenixResurrection.square); audioManager.playResurrect(); }
-          if (res.resurrectionScrollEvent) { addEffect('light-beam', res.resurrectionScrollEvent.square); audioManager.playResurrect(); }
+          if (res.phoenixResurrection) { addEffect('light-beam', result.phoenixResurrection.square); audioManager.playResurrect(); }
+          if (res.resurrectionScrollEvent) { addEffect('light-beam', result.resurrectionScrollEvent.square); audioManager.playResurrect(); }
           if (res.signalHornEvent) { addLog(`Signal Horn! ${res.signalHornEvent.piece.type} gains a level.`); }
           if (res.anvilDroppedSquares) res.anvilDroppedSquares.forEach((sq, idx) => { setTimeout(() => { addEffect('focus', sq); audioManager.playAnvil(); }, 300 + (idx * 150)); });
+          
+          if (oH === 'wind_sword' || oH === 'wind_cloak') audioManager.playWind();
+          
           let nextBoardState = res.newBoard;
           const nxtG = { white: Array.isArray(capturedPieces.white) ? [...capturedPieces.white] : [], black: Array.isArray(capturedPieces.black) ? [...capturedPieces.black] : [] }; 
           if (res.stolenItem) {
@@ -1824,6 +1828,7 @@ export default function DungeonPage() {
         if (oH === 'demonic_possession') audioManager.playPossession();
         if (oH === 'phase_out') audioManager.playPhaseOut();
         if (oH === 'lose_faith_scroll') audioManager.playLoseFaith();
+        if (oH === 'wind_scroll' || oH === 'wind_sword' || oH === 'wind_cloak') audioManager.playWind();
 
         if (appRes.conversionEvents && appRes.conversionEvents.length > 0) {
             audioManager.playConversion();

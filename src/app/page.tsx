@@ -1073,6 +1073,7 @@ export default function EvolvingChessPage() {
       if (oldH === 'demonic_possession') audioManager.playPossession();
       if (oldH === 'phase_out') audioManager.playPhaseOut();
       if (oldH === 'lose_faith_scroll') audioManager.playLoseFaith();
+      if (oldH === 'wind_scroll' || oldH === 'wind_sword' || oldH === 'wind_cloak') audioManager.playWind();
       
       if (applyResult.itemReturned) { setInventory(prev => { const next = [...prev]; const existing = next.find(i => i.type === applyResult.itemReturned); if (existing) existing.count++; else next.push({ type: applyResult.itemReturned!, count: 1 }); return next; }); addLog(`AI returned equipment: ${ITEM_METADATA[applyResult.itemReturned].name}`); }
       if (applyResult.reflectionOccurred) { 
@@ -1463,7 +1464,7 @@ export default function EvolvingChessPage() {
         }
         return;
     }
-    if (isSelectingTeleportAlly) { if (piece && piece.color === currentPlayer && piece.type !== 'king' && piece.type !== 'queen' && piece.id !== (selectedSquare ? boardState[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece?.id : null)) { setTeleportAllyPieceId(piece.id); setIsSelectingTeleportAlly(false); setIsSelectingTeleportShroom(true); addLog("Select a shroom to teleport to!"); } return; }
+    if (isSelectingTeleportAlly) { if (piece && piece.color === currentPlayer && piece.type !== 'king' && piece.type !== 'queen' && piece.id !== (selectedSquare ? board[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece?.id : null)) { setTeleportAllyPieceId(piece.id); setIsSelectingTeleportAlly(false); setIsSelectingTeleportShroom(true); addLog("Select a shroom to teleport to!"); } return; }
     if (isSelectingTeleportShroom && sq?.item?.type === 'shroom') {
         const mage = board[algebraicToCoords(selectedSquare!).row][algebraicToCoords(selectedSquare!).col].piece!;
         const newMoveInfo: LastMoveInfo = { type: mage.type, level: mage.level, item: mage.heldItem || null };
@@ -1611,6 +1612,7 @@ export default function EvolvingChessPage() {
               }
 
               if (isAwaitingWindScrollTarget || isAwaitingEarthquakeScrollTarget) {
+                  if (isAwaitingWindScrollTarget) audioManager.playWind();
                   const res = applyMove(board, { from: selectedSquare!, to: algebraic, type: moveType }, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, false);
                   setBoard(res.newBoard);
                   setTimeout(() => { setIsMoveProcessing(false); setIsAwaitingWindScrollTarget(false); setIsAwaitingEarthquakeScrollTarget(false); setSelectedSquare(null); processMoveEnd(res.newBoard, capturedPieces, killStreaks, currentPlayer, false, null, false, movedType, nextTracks.white, nextTracks.black, nextTracks.global); }, 800);
@@ -1735,6 +1737,7 @@ export default function EvolvingChessPage() {
                        else if (item === 'demonic_possession') audioManager.playPossession();
                        else if (item === 'phase_out') audioManager.playPhaseOut();
                        else if (item === 'lose_faith_scroll') audioManager.playLoseFaith();
+                       else if (item === 'wind_scroll') audioManager.playWind();
 
                        if (item === 'antidote') {
                            board.flat().forEach(sq => {
@@ -1926,6 +1929,9 @@ export default function EvolvingChessPage() {
               if (applyRes.resurrectionScrollEvent) { addEffectCallback('light-beam', applyRes.resurrectionScrollEvent.square); audioManager.playResurrect(); }
               if (applyRes.signalHornEvent) { addLog(`Signal Horn! ${applyRes.signalHornEvent.piece.type} gains a level.`); }
               if (applyRes.anvilDroppedSquares) applyRes.anvilDroppedSquares.forEach((sq, idx) => { setTimeout(() => { addEffectCallback('poof', sq); audioManager.playAnvil(); }, 300 + (idx * 150)); });
+              
+              if (effectiveHeldItem === 'wind_sword' || effectiveHeldItem === 'wind_cloak') audioManager.playWind();
+              
               let rookResResult: RookResurrectionResult | null = null;
               const wasCap = streakGain > 0;
               if ((moving.type === 'rook' || moving.type === 'palace') && wasCap) {
@@ -2037,6 +2043,7 @@ export default function EvolvingChessPage() {
                 if (remoteEvents.shroomSpawned) { audioManager.playShroom(); addLog("A mystical Shroom 🍄 has appeared!"); }
                 if (remoteEvents.possession) { audioManager.playPossession(); }
                 if (remoteEvents.phaseOut) { audioManager.playPhaseOut(); }
+                if (remoteEvents.windPush) { audioManager.playWind(); }
                 if (remoteEvents.loseFaithAffectedSquares?.length > 0) {
                     audioManager.playLoseFaith();
                     remoteEvents.loseFaithAffectedSquares.forEach((sq: AlgebraicSquare) => addEffectCallback('poof', sq));

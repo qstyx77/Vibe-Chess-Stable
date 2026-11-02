@@ -358,6 +358,39 @@ class AudioManager {
     setTimeout(() => this.playShatter(), 100);
   }
 
+  playWind() {
+    this.init();
+    this.resume();
+    if (!this.ctx || !this.masterGain) return;
+    const now = this.ctx.currentTime;
+    
+    // Create noise for the "whoosh"
+    const bufferSize = this.ctx.sampleRate * 0.3;
+    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = Math.random() * 2 - 1;
+    }
+
+    const noise = this.ctx.createBufferSource();
+    noise.buffer = buffer;
+
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(1000, now);
+    filter.frequency.exponentialRampToValueAtTime(100, now + 0.3);
+
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(0.5, now);
+    gain.gain.linearRampToValueAtTime(0, now + 0.3);
+
+    noise.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.masterGain);
+
+    noise.start();
+  }
+
   playVictory() {
     this.init();
     this.resume();

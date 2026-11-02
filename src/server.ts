@@ -1009,6 +1009,7 @@ wss.on('connection', (ws: UserConnection) => {
                             shroomSpawned: shroomSpawnedEvent, shroomPos: shroomSpawnedEvent ? shroomSpawnPos : null,
                             possession: movePayload.type === 'demonic-possession',
                             phaseOut: movePayload.type === 'phase-out',
+                            windPush: movePayload.type === 'wind-scroll' || result.obliteratedPieces?.length > 0 || wasCapture,
                             loseFaithAffectedSquares: result.loseFaithAffectedSquares || [],
                             anvilDroppedSquares: result.anvilDroppedSquares || []
                         };
