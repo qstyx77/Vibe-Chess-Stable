@@ -203,7 +203,7 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'phase_out': { name: 'Phase Out Scroll', description: 'Uncommon scroll (L2+). Non-Royal. Unit and adjacent units phase out for 3 turns.', isConsumable: true, rarity: 'uncommon' },
   'ice_breaker': { name: 'Ice Breaker', description: 'Passive. Allows unit to capture Frozen units. Frozen units captured by Ice Breaker shatter and are obliterated.', isConsumable: false, rarity: 'common' },
   'glacial_ray': { name: 'Glacial Ray Scroll', description: 'Consumable. Target a cardinal line of 4 squares. All units in line become Frozen.', isConsumable: true, rarity: 'rare' },
-  'burning_ray': { name: 'Burning Ray Scroll', description: 'Consumable. Target a cardinal line of 4 squares. All units and objects in line are destroyed.', isConsumable: true, rarity: 'rare' },
+  'burning_ray': { name: 'Burning Ray Scroll', description: 'Consumable (L3+). Target a cardinal line of 4 squares. All units and objects in line are destroyed.', isConsumable: true, rarity: 'rare' },
   'coffee_bean': { name: 'Coffee Bean', description: 'Common Consumable. Automatically heals Exhaustion the moment it is applied.', isConsumable: true, rarity: 'common' },
   'filter_mask': { name: 'Filter Mask', description: 'Common Passive. Equipped unit is completely immune to Poison.', isConsumable: false, rarity: 'common' },
   'thermal_socks': { name: 'Thermal Socks', description: 'Common Passive. Equipped unit cannot be Frozen.', isConsumable: false, rarity: 'common' },

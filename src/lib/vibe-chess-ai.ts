@@ -145,6 +145,11 @@ export class VibeChessAI {
         if (player === 'white') next.lastMoveWhite = moveInfo; else next.lastMoveBlack = moveInfo;
         next.lastMoveGlobal = moveInfo;
 
+        const XP_MAP: Record<string, number> = {
+          pawn: 1, dancer: 1, mimic: 1, grappler: 1, commander: 1, infiltrator: 1, myco_mage: 1, 
+          knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2
+        };
+
         if (move.type === 'earthquake-scroll') {
             for (let dr = -1; dr <= 1; dr++) {
                 for (let dc = -1; dc <= 1; dc++) {
@@ -188,7 +193,7 @@ export class VibeChessAI {
                 if (tSq.piece) {
                     if (tSq.piece.type === 'king') break;
                     obliterationCount++;
-                    totalGain += (VAL_MAP[tSq.piece.type] || 1);
+                    totalGain += (XP_MAP[tSq.piece.type] || 1);
                     tSq.piece = null;
                 }
                 if (tSq.item?.type === 'anvil') tSq.item = null;
@@ -592,11 +597,14 @@ export class VibeChessAI {
             }
 
             if (item === 'burning_ray' || item === 'glacial_ray') {
-                const rayType = item === 'burning_ray' ? 'burning-ray' : 'glacial-ray';
-                [[0,1],[0,-1],[1,0],[-1,0]].forEach(([dr,dc]) => {
-                    const tr = r + dr, tc = c + dc;
-                    if (isValidSquareUtil(tr, tc)) moves.push({from:[r,c], to:[tr,tc], type: rayType});
-                });
+                if (item === 'burning_ray' && effLevel < 3) { /* Restricted */ }
+                else {
+                    const rayType = item === 'burning_ray' ? 'burning-ray' : 'glacial-ray';
+                    [[0,1],[0,-1],[1,0],[-1,0]].forEach(([dr,dc]) => {
+                        const tr = r + dr, tc = c + dc;
+                        if (isValidSquareUtil(tr, tc)) moves.push({from:[r,c], to:[tr,tc], type: rayType});
+                    });
+                }
             }
         }
 

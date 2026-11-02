@@ -3,6 +3,11 @@ import { VAL_MAP, FRONTLINE_TYPES } from './constants';
 import { algebraicToCoords, coordsToAlgebraic, isValidSquare, getEffectiveLevel, isSilenced, getPromotionLevel, findKing, isItemValidForPiece, getActiveSets } from './utils';
 import { triggerPushBack, triggerConversion, applyRally, applyKingDominion, syncSoulLink, triggerPoisonSplash, triggerToxicCloud, triggerMushroomMagnet, triggerPull, triggerExhaustion, applyOilSlide, performExtendedDisplacement, applyReapersTithe, triggerDefiantSparks, handleRemovalReactions, syncLevelsAndSets } from './effects';
 
+const CAPTURE_XP_MAP: Record<string, number> = {
+  pawn: 1, dancer: 1, mimic: 1, grappler: 1, commander: 1, infiltrator: 1, myco_mage: 1, 
+  knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2
+};
+
 export function createEmptyBoard(): BoardState {
   const board: BoardState = [];
   for (let r = 0; r < 8; r++) {
@@ -504,7 +509,7 @@ export function applyMove(
           const tSq = newBoard[nr][nc];
           if (tSq.piece) {
               if (tSq.piece.type === 'king') break;
-              totalGain += (VAL_MAP[tSq.piece.type] || 1);
+              totalGain += (CAPTURE_XP_MAP[tSq.piece.type] || 1);
               const extraOblits = handleRemovalReactions(newBoard, nr, nc, tSq.piece, movingPiece.color, levelChanges);
               obliteratedPieces.push({ ...tSq.piece, id: `${tSq.piece.id}_burn_${Date.now()}` }, ...extraOblits);
               tSq.piece = null;
@@ -989,7 +994,7 @@ export function applyMove(
     }
     if (['pawn', 'dancer', 'mimic', 'grappler', 'myco_mage'].includes(pieceLanded.type) && captured.type === 'commander') pieceLanded.type = 'commander';
     
-    let baseGain = effectiveHeldItem === 'berserkers_mask' ? 3 : ({pawn: 1, dancer: 1, mimic: 1, grappler: 1, commander: 1, infiltrator: 1, myco_mage: 1, knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2}[captured.type] || 0);
+    let baseGain = effectiveHeldItem === 'berserkers_mask' ? 3 : (CAPTURE_XP_MAP[captured.type] || 0);
     
     for(let dr=-1; dr<=1; dr++) for(let dc=-1; dc<=1; dc++) {
         if(dr===0 && dc===0) continue;
@@ -1012,7 +1017,7 @@ export function applyMove(
             if (isValidSquare(behindRow, behindCol)) {
                 const bSq = newBoard[behindRow][behindCol];
                 if (bSq.piece && bSq.piece.color !== movingPiece.color && bSq.piece.type !== 'king') {
-                    const extraG = ({pawn: 1, dancer: 1, mimic: 1, grappler: 1, commander: 1, infiltrator: 1, myco_mage: 1, knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2}[bSq.piece.type] || 0);
+                    const extraG = (CAPTURE_XP_MAP[bSq.piece.type] || 0);
                     baseGain += extraG;
                     const extraOblitsCleave = handleRemovalReactions(newBoard, behindRow, behindCol, bSq.piece, movingPiece.color, levelChanges);
                     obliteratedPieces.push({ ...bSq.piece, id: `${bSq.piece.id}_cleave_${Date.now()}` }, ...extraOblitsCleave);
@@ -1125,7 +1130,7 @@ export function applyMove(
               const vSq = newBoard[nrH][ncH];
               if (vSq.piece && vSq.piece.color !== pieceLanded.color && vSq.piece.type !== 'king') {
                   const victim = vSq.piece;
-                  hammerGain += ({ pawn: 1, dancer: 1, mimic: 1, grappler: 1, commander: 1, infiltrator: 1, myco_mage: 1, knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2 }[victim.type] || 0);
+                  hammerGain += (CAPTURE_XP_MAP[victim.type] || 0);
                   const extraOblits = handleRemovalReactions(newBoard, nrH, ncH, victim, pieceLanded.color, levelChanges);
                   obliteratedPieces.push({ ...victim, id: `${victim.id}_hammer_${Date.now()}` }, ...extraOblits);
                   newBoard[nrH][ncH].piece = null;

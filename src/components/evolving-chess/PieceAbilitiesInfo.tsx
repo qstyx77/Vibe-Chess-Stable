@@ -93,7 +93,6 @@ const getPieceAbilities = (piece: Piece, board?: BoardState): string[] => {
   if (heldItem === 'ice_blast') abilities.push("spell: freeze all adjacent enemies.");
   if (heldItem === 'soul_harvest') abilities.push("spell: absorb adjacent pieces' power.");
   if (heldItem === 'aura_silence') abilities.push("silence: enemies nearby cannot use skills.");
-  if (heldItem === 'aura_silence') abilities.push("silence: enemies nearby cannot use skills.");
   if (heldItem === 'grappling_hook') abilities.push("grappling hook: swap with distant allies.");
   if (heldItem === 'battering_ram') abilities.push("ram: push adjacent anvils to crush enemies.");
   if (heldItem === 'knights_boots') abilities.push("boots: use Knight movement pattern.");
@@ -118,10 +117,10 @@ const getPieceAbilities = (piece: Piece, board?: BoardState): string[] => {
   if (heldItem === 'gamblers_coin') abilities.push("gambit: 50/50 chance for 2x or 0x level gain.");
   if (heldItem === 'sweet_revenge') abilities.push("revenge: +1 level gain if opponent captured last turn.");
   if (heldItem === 'chameleon_cloak') abilities.push("mimicry: unit transforms into its capture victim.");
-  if (heldItem === 'phase_out') abilities.push("spell: phases out adjacent entities for 3 turns.");
+  if (heldItem === 'phase_out') abilities.push("spell (L2+): phases out adjacent entities for 3 turns.");
   if (heldItem === 'ice_breaker') abilities.push("shatter: unit can capture and destroy Frozen entities.");
   if (heldItem === 'glacial_ray') abilities.push("spell: targets a line for total flash-freeze.");
-  if (heldItem === 'burning_ray') abilities.push("spell: targets a line for total destruction.");
+  if (heldItem === 'burning_ray') abilities.push("spell (L3+): targets a line for total destruction.");
   if (heldItem === 'coffee_bean') abilities.push("pick-me-up: automatically clears Exhaustion on application.");
   if (heldItem === 'filter_mask') abilities.push("safety: piece is completely immune to Poison.");
   if (heldItem === 'thermal_socks') abilities.push("warmth: piece cannot be Frozen.");

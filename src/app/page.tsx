@@ -885,7 +885,7 @@ export default function EvolvingChessPage() {
             }
             triggerSpecialsChain(nextBoard, nextGraveyard, currentKs, oldStreak, newStreak, isExtraTurn, nextEp, actingPlayer, [...completedMilestones, 'anvil'], capturingPieceId, wasCaptureThisTurn, movedPieceType, effWhite, effBlack, effGlobal); return;
         } else if (!localPlayerColor || actingPlayer === localPlayerColor) {
-            setSpecialActionContext({ boardForNextStep: boardToChain, playerWhoseTurnCompleted: actingPlayer, isExtraTurn: isExtraTurn, newEnPassantTarget: nextEp, oldStreak: oldStreak, newStreak: newStreak, completedMilestones: [...completedMilestones, 'anvil'], currentGraveyard: nextGraveyard, currentKs, capturingPieceId: capturingPieceId, trackWhite: effWhite, trackBlack: effBlack, trackGlobal: effGlobal });
+            setSpecialActionContext({ boardForNextStep: boardToChain, playerWhoseTurnCompleted: actingPlayer, isExtraTurn: isExtraTurn, newEnPassantTarget: nextEp, oldStreak: oldStreak, newStreak: newStreak, completedMilestones: [...completedMilestones, 'anvil'], currentGraveyard: nextGraveyard, currentKs, capturingPieceId, trackWhite: effWhite, trackBlack: effBlack, trackGlobal: effGlobal });
             setPlayerToDropAnvil(actingPlayer); setIsAwaitingAnvilDrop(true); addLog("Anvil Drop ready!"); return;
         }
     }
@@ -1119,6 +1119,23 @@ export default function EvolvingChessPage() {
           const rp = nextB[rr][rc].piece; if (rp) { rp.type = 'queen'; addLog("AI resurrected unit auto-promoted!"); }
       }
       setBoard(nextB); setCapturedPieces(updatedG);
+      
+      if (aiMove.type === 'burning-ray') {
+        const dr = Math.sign(aiMove.to[0] - aiMove.from[0]);
+        const dc = Math.sign(aiMove.to[1] - aiMove.from[1]);
+        for (let i = 1; i <= 4; i++) {
+          const nr = aiMove.from[0] + i * dr;
+          const nc = aiMove.from[1] + i * dc;
+          if (!isValidSquare(nr, nc)) break;
+          const targetAlg = coordsToAlgebraic(nr, nc);
+          setTimeout(() => {
+            addEffectCallback('explosion', targetAlg);
+            audioManager.playExplosion();
+          }, i * 150);
+          if (nextB[nr][nc].piece?.type === 'king') break;
+        }
+      }
+
       setTimeout(() => {
         setIsAiThinking(false); setIsMoveProcessing(false); clickGuardRef.current = false; if (gameOverRef.current) return;
         if (applyResult.infiltrationWin) {
@@ -1396,9 +1413,27 @@ export default function EvolvingChessPage() {
                 if (currentPlayer === 'white') setLastMoveWhite(newMoveInfo); else setLastMoveBlack(newMoveInfo);
                 setLastMoveGlobal(newMoveInfo);
                 addEffectCallback('magic-burst', selectedSquare!, undefined, undefined, movingP.heldItem as InventoryItemType);
+                
                 if (isAwaitingRayTarget === 'glacial') audioManager.playFreeze(); else audioManager.playExplosion();
                 const result = applyMove(board, { from: selectedSquare!, to: algebraic, type }, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, false);
                 setBoard(result.newBoard); setSelectedSquare(null); setPossibleMoves([]);
+                
+                if (type === 'burning-ray') {
+                  const dr = Math.sign(row - fR);
+                  const dc = Math.sign(col - fC);
+                  for (let i = 1; i <= 4; i++) {
+                    const nr = fR + i * dr;
+                    const nc = fC + i * dc;
+                    if (!isValidSquare(nr, nc)) break;
+                    const targetAlg = coordsToAlgebraic(nr, nc);
+                    setTimeout(() => {
+                      addEffectCallback('explosion', targetAlg);
+                      audioManager.playExplosion();
+                    }, i * 150);
+                    if (result.newBoard[nr][nc].piece?.type === 'king') break;
+                  }
+                }
+
                 setTimeout(() => { setIsMoveProcessing(false); clickGuardRef.current = false; setIsAwaitingRayTarget(null); processMoveEnd(result.newBoard, capturedPieces, killStreaks, currentPlayer, false, null, false, movingP.type, nextTracks.white, nextTracks.black, nextTracks.global); }, 800);
             }
         }
@@ -1711,7 +1746,7 @@ export default function EvolvingChessPage() {
                if (item === 'earthquake_scroll') { setIsAwaitingEarthquakeScrollTarget(true); addLog("Earthquake: Select center."); return; }
                if (item === 'oil_slick') { setIsAwaitingOilSlickTarget(true); addLog("Oil Slick: Select area."); return; }
                if (item === 'glacial_ray') { setIsAwaitingRayTarget('glacial'); addLog("Glacial Ray: Select direction."); return; }
-               if (item === 'burning_ray') { setIsAwaitingRayTarget('burning'); addLog("Burning Ray: Select direction."); return; }
+               if (item === 'burning_ray' && level >= 3) { setIsAwaitingRayTarget('burning'); addLog("Burning Ray: Select direction."); return; }
            }
 
            if (!silencedUnit && (moving.type === 'knight' || moving.type === 'hero' || moving.type === 'archer') && getEffectiveLevel(board, fR, fC) >= 5) {
@@ -2084,7 +2119,7 @@ export default function EvolvingChessPage() {
         </div>
         <div className={cn("text-center text-[0.6rem] font-bold h-4 uppercase w-full", (gameInfo.isCheck || isTournamentIntermission) && !gameInfo.gameOver && "text-primary animate-pulse")}> {statusMessage} </div>
         <div className="w-full">
-          <ChessBoard boardState={board} selectedSquare={isAnySpecialModeActive ? (isAwaitingDanceTarget ? dancerToDance : (isAwaitingGrappleThrow ? selectedSquare : (isAwaitingRayTarget ? selectedSquare : null))) : selectedSquare} possibleMoves={isAnySpecialModeActive ? [] : possibleMoves} enemySelectedSquare={isAnySpecialModeActive ? null : enemySelectedSquare} enemyPossibleMoves={isAnySpecialModeActive ? [] : enemyPossibleMoves} onSquareClick={handleSquareClick} playerColor={boardOrientation} currentPlayerColor={currentPlayer} isInteractionDisabled={isMoveProcessing || gameInfo.gameOver || (isAnySpecialModeActive && currentPlayer === (localPlayerColor || 'white'))} playerInCheck={gameInfo.playerWithKingInCheck} viewMode={viewMode} animatedSquareTo={animatedSquareTo} lastMoveFrom={lastMoveFrom} lastMoveTo={lastMoveTo} isAwaitingPawnSacrifice={isAwaitingPawnSacrifice} playerToSacrificePawn={playerToSacrificePawn} isEnPassantTarget={enPassantTargetSquare} onPieceHover={handlePieceHover} effects={effects} promotingSquare={promotionSquare} isAwaitingAnvilDrop={isAwaitingAnvilDrop} playerToDropAnvil={playerToDropAnvil || null} isInventoryOpen={isInventoryOpen} selectedInventoryItemType={selectedInventoryItemType} localPlayerColor={localPlayerColor} isAwaitingHolyShield={isAwaitingHolyShield} isAwaitingArcherSnipe={isAwaitingArcherSnipe} isAwaitingGrappleThrow={isAwaitingGrappleThrow} isAwaitingDanceTarget={isAwaitingDanceTarget} dancerToDance={dancerToDance} grappledPieceSubject={grappledPieceSubject} isAwaitingEarthquakeScrollTarget={isAwaitingEarthquakeScrollTarget} isSelectingMycoSpell={isSelectingMycoSpell} isSelectingTeleportAlly={isSelectingTeleportAlly} isSelectingTeleportShroom={isSelectingTeleportShroom} isSelectingSporeBombShroom={isSelectingSporeBombShroom} isAwaitingCommanderPromotion={isAwaitingCommanderPromotion} playerToPromoteCommander={playerWhoGotFirstBlood} isAwaitingWindScrollTarget={isAwaitingWindScrollTarget} isAwaitingAnvilScrollTarget={isAwaitingAnvilScrollTarget} isAwaitingShieldScrollTarget={isAwaitingShieldScrollTarget} isAwaitingSwapScrollTarget={isAwaitingSwapScrollTarget} isAwaitingDecreeTarget={isAwaitingDecreeTarget} isAwaitingOilSlickTarget={isAwaitingOilSlickTarget} isAwaitingRayTarget={isAwaitingRayTarget} lastMoveWhite={lastMoveWhite} lastMoveBlack={lastMoveBlack} lastMoveGlobal={lastMoveGlobal} />
+          <ChessBoard boardState={board} selectedSquare={isAnySpecialModeActive ? (isAwaitingDanceTarget ? dancerToDance : (isAwaitingGrappleThrow ? selectedSquare : (isAwaitingRayTarget ? selectedSquare : null))) : selectedSquare} possibleMoves={isAnySpecialModeActive ? [] : possibleMoves} enemySelectedSquare={isAnySpecialModeActive ? null : enemySelectedSquare} enemyPossibleMoves={isAnySpecialModeActive ? [] : enemyPossibleMoves} onSquareClick={handleSquareClick} playerColor={boardOrientation} currentPlayerColor={currentPlayer} isInteractionDisabled={isMoveProcessing || gameInfo.gameOver || (isAnySpecialModeActive && currentPlayer === (localPlayerColor || 'white'))} playerInCheck={gameInfo.playerWithKingInCheck} viewMode={viewMode} animatedSquareTo={animatedSquareTo} lastMoveFrom={lastMoveFrom} lastMoveTo={lastMoveTo} isAwaitingPawnSacrifice={isAwaitingPawnSacrifice} playerToSacrificePawn={playerToSacrificePawn} isEnPassantTarget={enPassantTargetSquare} onPieceHover={handlePieceHover} effects={effects} promotingSquare={promotionSquare} isAwaitingAnvilDrop={isAwaitingAnvilDrop} playerToDropAnvil={playerToDropAnvil || null} isInventoryOpen={isInventoryOpen} selectedInventoryItemType={selectedInventoryItemType} localPlayerColor={localPlayerColor} isAwaitingHolyShield={isAwaitingHolyShield} isAwaitingArcherSnipe={isAwaitingHolyShield} isAwaitingGrappleThrow={isAwaitingGrappleThrow} isAwaitingDanceTarget={isAwaitingDanceTarget} dancerToDance={dancerToDance} grappledPieceSubject={grappledPieceSubject} isAwaitingEarthquakeScrollTarget={isAwaitingEarthquakeScrollTarget} isSelectingMycoSpell={isSelectingMycoSpell} isSelectingTeleportAlly={isSelectingTeleportAlly} isSelectingTeleportShroom={isSelectingTeleportShroom} isSelectingSporeBombShroom={isSelectingSporeBombShroom} isAwaitingCommanderPromotion={isAwaitingCommanderPromotion} playerToPromoteCommander={playerWhoGotFirstBlood} isAwaitingWindScrollTarget={isAwaitingWindScrollTarget} isAwaitingAnvilScrollTarget={isAwaitingAnvilScrollTarget} isAwaitingShieldScrollTarget={isAwaitingShieldScrollTarget} isAwaitingSwapScrollTarget={isAwaitingSwapScrollTarget} isAwaitingDecreeTarget={isAwaitingDecreeTarget} isAwaitingOilSlickTarget={isAwaitingOilSlickTarget} isAwaitingRayTarget={isAwaitingRayTarget} lastMoveWhite={lastMoveWhite} lastMoveBlack={lastMoveBlack} lastMoveGlobal={lastMoveGlobal} />
         </div>
         <div className="flex-grow w-full mt-0.5">
            <GameControls currentPlayer={currentPlayer} capturedPieces={capturedPieces} isGameOver={gameInfo.gameOver} killStreaks={killStreaks} pieceForInfoDisplay={pieceForInfoDisplay} localPlayerColor={localPlayerColor} getPlayerDisplayName={getPlayerDisplayName} onlineStatus={onlineStatus} turnTimer={turnTimer} activeTimerPlayer={null} board={board} />
