@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -734,6 +733,7 @@ export default function DungeonPage() {
                         } else { nextBoard[best.r][best.c].piece = { ...dP, hasMoved: true, isShielded: false }; }
                         nextBoard[best.r][best.c].item = null; nextBoard[r][c].piece = tP ? { ...tP, hasMoved: true, isShielded: false } : null; nextBoard[r][c].item = targetItem?.type === 'shroom' ? null : targetItem;
                         addLog(`${getPlayerDisplayName(actP)} Dancer performed a free ${tP ? 'swap' : (targetItem ? 'anvil swap' : 'move')}!`);
+                        audioManager.playTeleport();
 
                         const oppBackRank = actP === 'white' ? 0 : 7;
                         let multiPromotions: any[] = [];
@@ -745,12 +745,12 @@ export default function DungeonPage() {
                            setPromotionQueue(multiPromotions); setIsPromotingPawn(true); setPromotionSquare(multiPromotions[0].square); setPromotionTargetLevel(multiPromotions[0].targetLevel);
                            setSpecialActionContext({ boardForNextStep: nextBoard, playerWhoseTurnCompleted: actP, isExtraTurn: isEx, newEnPassantTarget: nEp, oldStreak: oldS, newStreak: newS, completedMilestones: [...compM, 'dance'], currentGraveyard: nG, currentKs: cKs, capturingPieceId: sil ? null : capId, trackWhite: nextAITracks.white, trackBlack: nextAITracks.black, trackGlobal: nextAITracks.global });
                         } else {
-                           triggerSpecialsChain(nextBoard, nG, cKs, oldS, newS, iEx, nEp, actP, [...compM, 'dance'], capId, wasCap, movedT, nextAITracks.white, nextAITracks.black, nextAITracks.global);
+                           triggerSpecialsChain(nextBoard, nG, cKs, oldS, newS, isEx, nEp, actP, [...compM, 'dance'], capId, wasCap, movedT, nextAITracks.white, nextAITracks.black, nextAITracks.global);
                         }
                         return;
                     }
                 }
-                triggerSpecialsChain(nextBoard, nG, cKs, oldS, newS, iEx, nEp, actP, [...compM, 'dance'], capId, wasCap, movedT, effWhite, effBlack, effGlobal); return;
+                triggerSpecialsChain(nextBoard, nG, cKs, oldS, newS, isEx, nEp, actP, [...compM, 'dance'], capId, wasCap, movedT, effWhite, effBlack, effGlobal); return;
             } else {
                 setSpecialActionContext({ boardForNextStep: bCh, playerWhoseTurnCompleted: actP, isExtraTurn: isEx, newEnPassantTarget: nEp, oldStreak: oldS, newStreak: newS, completedMilestones: [...compM, 'dance'], currentGraveyard: nG, currentKs: cKs, capturingPieceId: sil ? null : capId, trackWhite: effWhite, trackBlack: effBlack, trackGlobal: effGlobal });
                 setIsAwaitingDanceTarget(true); addLog("Dancer Skill: The Dance is ready!"); return;
@@ -763,7 +763,7 @@ export default function DungeonPage() {
             const nextBoard = bCh.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null})));
             const flSq = nextBoard.flat().find(sq => sq.piece && sq.piece.color === actP && sq.piece.level === 1 && FRONTLINE_TYPES.includes(sq.piece.type) && sq.piece.type !== 'commander' && sq.piece.type !== 'infiltrator');
             if (flSq) { const {row: pr, col: pc} = algebraicToCoords(flSq.algebraic); nextBoard[pr][pc].piece!.type = 'commander'; addLog(`${getPlayerDisplayName(actP)} promoted a Commander!`); }
-            triggerSpecialsChain(nextBoard, nG, cKs, oldS, newS, iEx, nEp, actP, [...compM, 'firstBlood'], capId, wasCap, movedT, effWhite, effBlack, effGlobal); return;
+            triggerSpecialsChain(nextBoard, nG, cKs, oldS, newS, isEx, nEp, actP, [...compM, 'firstBlood'], capId, wasCap, movedT, effWhite, effBlack, effGlobal); return;
         } else {
             const hasFL1 = bCh.flat().some(sq => sq.piece && sq.piece.color === actP && FRONTLINE_TYPES.includes(sq.piece.type) && sq.piece.type !== 'commander' && sq.piece.type !== 'infiltrator' && sq.piece.level === 1);
             if (hasFL1) {
@@ -787,7 +787,7 @@ export default function DungeonPage() {
         if (hasA) {
             if (isAI) {
                 const nxtB = bCh.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null})));
-                const targs = nxtB.flat().filter(sq => sq.piece && sq.piece.color === actP && sq.piece.type !== ' king' && sq.piece.type !== 'queen' && !sq.piece.isShielded && sq.piece.id !== capId).sort((a, b) => (b.piece?.level || 0) - (a.piece?.level || 0));
+                const targs = nxtB.flat().filter(sq => sq.piece && sq.piece.color === actP && sq.piece.type !== 'king' && sq.piece.type !== 'queen' && !sq.piece.isShielded && sq.piece.id !== capId).sort((a, b) => (b.piece?.level || 0) - (a.piece?.level || 0));
                 if (targs.length > 0) { 
                     const ally = targs[0].piece!;
                     ally.isShielded = true; 
@@ -880,7 +880,7 @@ export default function DungeonPage() {
             if (isAI) {
                 const nxtB = bCh.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null})));
                 const vSrt = vics.sort((a,b) => (VAL_MAP[b.piece!.type]||0) - (VAL_MAP[a.piece!.type]||0));
-                const v = vSrt[0]; const {rowIndex: row, colIndex: col} = v; const sniped = { ...nxtB[row][col].piece!, id: nxtB[row][col].piece!.id }; nxtB[row][col].piece = null; 
+                const v = vSrt[0]; const {rowIndex: row, colindex: col} = v; const sniped = { ...nxtB[row][col].piece!, id: nxtB[row][col].piece!.id }; nxtB[row][col].piece = null; 
                 if (sniped.id?.startsWith('boss-hydra')) {
                     const adj = []; for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
                         if (dr === 0 && dc === 0) continue; const nr = row + dr, nc = col + dc;
@@ -1069,7 +1069,7 @@ export default function DungeonPage() {
         
         deductConsumable('swap_scroll');
         addEffect('magic-burst', selectedSquare!, undefined, undefined, 'swap_scroll');
-        audioManager.playMove();
+        audioManager.playTeleport();
         setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(alg);
         if (currentPlayer === 'white') setLastMoveWhite(newMoveInfo); else setLastMoveBlack(newMoveInfo);
         setLastMoveGlobal(newMoveInfo);
@@ -1432,6 +1432,7 @@ export default function DungeonPage() {
             setBoard(nxtB); setIsAwaitingDanceTarget(false); setDancerToDance(null); audioManager.playMove(); 
             if (currentPlayer === 'white') setLastMoveWhite(dancerMoveInfo); else setLastMoveBlack(dancerMoveInfo);
             setLastMoveGlobal(dancerMoveInfo);
+            audioManager.playTeleport();
 
             const backRank = currentPlayer === 'white' ? 0 : 7;
             let q = [];
@@ -1647,12 +1648,13 @@ export default function DungeonPage() {
               audioManager.playResurrect(); addLog("The Hydra regrows its heads!"); 
               if (res.hydraSpawnSquares) res.hydraSpawnSquares.forEach(sq => addEffect('light-beam', sq));
           }
-          if (res.phoenixResurrection) { addEffect('light-beam', result.phoenixResurrection.square); audioManager.playResurrect(); }
-          if (res.resurrectionScrollEvent) { addEffect('light-beam', result.resurrectionScrollEvent.square); audioManager.playResurrect(); }
+          if (res.phoenixResurrection) { addEffect('light-beam', res.phoenixResurrection.square); audioManager.playResurrect(); }
+          if (res.resurrectionScrollEvent) { addEffect('light-beam', res.resurrectionScrollEvent.square); audioManager.playResurrect(); }
           if (res.signalHornEvent) { addLog(`Signal Horn! ${res.signalHornEvent.piece.type} gains a level.`); }
           if (res.anvilDroppedSquares) res.anvilDroppedSquares.forEach((sq, idx) => { setTimeout(() => { addEffect('focus', sq); audioManager.playAnvil(); }, 300 + (idx * 150)); });
           
           if (oH === 'wind_sword' || oH === 'wind_cloak') audioManager.playWind();
+          if (mType === 'swap' || mType === 'dance-swap' || mType === 'grapple-hook-swap' || oH === 'swap_scroll') audioManager.playTeleport();
           
           let nextBoardState = res.newBoard;
           const nxtG = { white: Array.isArray(capturedPieces.white) ? [...capturedPieces.white] : [], black: Array.isArray(capturedPieces.black) ? [...capturedPieces.black] : [] }; 
@@ -1664,7 +1666,7 @@ export default function DungeonPage() {
           }
           if (res.smokeBombEvent) {
               addLog(`Smoke Bomb! ${res.smokeBombEvent.piece.type} escaped to back rank!`);
-              addEffectCallback('poof', res.smokeBombEvent.square);
+              addEffect('poof', res.smokeBombEvent.square);
           } else if (res.capturedPiece) { 
               const pile = res.capturedPiece.color; nxtG[pile] = [...nxtG[pile], res.capturedPiece]; 
           }
@@ -1829,6 +1831,7 @@ export default function DungeonPage() {
         if (oH === 'phase_out') audioManager.playPhaseOut();
         if (oH === 'lose_faith_scroll') audioManager.playLoseFaith();
         if (oH === 'wind_scroll' || oH === 'wind_sword' || oH === 'wind_cloak') audioManager.playWind();
+        if (move.type === 'swap' || move.type === 'dance-swap' || move.type === 'grapple-hook-swap' || oH === 'swap_scroll') audioManager.playTeleport();
 
         if (appRes.conversionEvents && appRes.conversionEvents.length > 0) {
             audioManager.playConversion();

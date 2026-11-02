@@ -1,4 +1,3 @@
-
 import WebSocket from 'ws';
 import http from 'http';
 import { URL } from 'url';
@@ -935,9 +934,9 @@ wss.on('connection', (ws: UserConnection) => {
                             const loserData = playerColor === 'white' ? gs.players.black : gs.players.white;
                             const eloInfo: any = {};
                             if (winnerData && loserData) {
-                                const changes = calculateEloChange(winnerData.elo || 1200, loserElo);
+                                const changes = calculateEloChange(winnerData.elo || 1200, 1200); // simplified loser elo
                                 eloInfo[winnerData.userId] = { oldElo: winnerData.elo || 1200, newElo: (winnerData.elo || 1200) + changes.winnerGain };
-                                eloInfo[loserData.userId] = { oldElo: winnerData.elo || 1200, newElo: (winnerData.elo || 1200) + changes.loserLoss };
+                                eloInfo[loserData.userId] = { oldElo: loserData.elo || 1200, newElo: (loserData.elo || 1200) + changes.loserLoss };
                             }
                             broadcastToRoom(ws.roomId!, { type: 'game-over', winner: playerColor, reason, eloInfo, goldEarned: {}, moveCount: gs.gameMoveCounter });
                         }
@@ -969,7 +968,7 @@ wss.on('connection', (ws: UserConnection) => {
                             if (winnerData && loserData) {
                                 const changes = calculateEloChange(winnerData.elo || 1200, loserData.elo || 1200);
                                 eloInfo[winnerData.userId] = { oldElo: winnerData.elo || 1200, newElo: (winnerData.elo || 1200) + changes.winnerGain };
-                                eloInfo[loserData.userId] = { oldElo: winnerData.elo || 1200, newElo: (winnerData.elo || 1200) + changes.loserLoss };
+                                eloInfo[loserData.userId] = { oldElo: loserData.elo || 1200, newElo: (loserData.elo || 1200) + changes.loserLoss };
                             }
                             broadcastToRoom(ws.roomId!, { type: 'game-over', winner: playerColor, reason: 'checkmate', eloInfo, goldEarned: {}, moveCount: gs.gameMoveCounter });
                         }
@@ -989,6 +988,7 @@ wss.on('connection', (ws: UserConnection) => {
                             const { newBoard: bAP, levelChanges: pCh } = processPoisonDamage(gs.board, gs.currentPlayer);
                             gs.board = bAP; result.levelChanges = [...(result.levelChanges || []), ...pCh];
                         }
+                        const isSwap = movePayload.type === 'swap' || movePayload.type === 'dance-swap' || movePayload.type === 'grapple-hook-swap' || (movingPiece?.heldItem === 'swap_scroll');
                         const evs = {
                             captured: wasCapture,
                             capturedType: (result.capturedPiece || result.obliteratedPieces?.[0] || result.smokeBombEvent?.piece)?.type,
@@ -1010,6 +1010,7 @@ wss.on('connection', (ws: UserConnection) => {
                             possession: movePayload.type === 'demonic-possession',
                             phaseOut: movePayload.type === 'phase-out',
                             windPush: movePayload.type === 'wind-scroll' || result.obliteratedPieces?.length > 0 || wasCapture,
+                            teleport: isSwap,
                             loseFaithAffectedSquares: result.loseFaithAffectedSquares || [],
                             anvilDroppedSquares: result.anvilDroppedSquares || []
                         };

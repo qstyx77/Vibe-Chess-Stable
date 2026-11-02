@@ -391,6 +391,11 @@ class AudioManager {
     noise.start();
   }
 
+  playTeleport() {
+    this.playTone(600, 'sine', 0.1, 0.4);
+    setTimeout(() => this.playTone(900, 'sine', 0.15, 0.3), 40);
+  }
+
   playVictory() {
     this.init();
     this.resume();
