@@ -1,4 +1,3 @@
-
 /**
  * Programmatic 8-bit Audio Manager for Vibe Chess.
  * Uses Web Audio API to synthesize sounds without external assets.
@@ -332,6 +331,26 @@ class AudioManager {
     osc.start();
     osc.stop(now + 0.8);
     this.playNoise(0.8, 0.5, 'low');
+  }
+
+  playPhaseOut() {
+    this.init();
+    this.resume();
+    if (!this.ctx || !this.masterGain) return;
+    const now = this.ctx.currentTime;
+    for (let i = 0; i < 5; i++) {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(1000 + (i * 200), now);
+      osc.frequency.exponentialRampToValueAtTime(2000 + (i * 100), now + 0.5);
+      gain.gain.setValueAtTime(0.2, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+      osc.connect(gain);
+      gain.connect(this.masterGain);
+      osc.start();
+      osc.stop(now + 0.5);
+    }
   }
 
   playVictory() {

@@ -1071,6 +1071,7 @@ export default function EvolvingChessPage() {
       if (oldH === 'rally_scroll') audioManager.playRally();
       if (oldH === 'antidote') audioManager.playAntidote();
       if (oldH === 'demonic_possession') audioManager.playPossession();
+      if (oldH === 'phase_out') audioManager.playPhaseOut();
       
       if (applyResult.itemReturned) { setInventory(prev => { const next = [...prev]; const existing = next.find(i => i.type === applyResult.itemReturned); if (existing) existing.count++; else next.push({ type: applyResult.itemReturned!, count: 1 }); return next; }); addLog(`AI returned equipment: ${ITEM_METADATA[applyResult.itemReturned].name}`); }
       if (applyResult.reflectionOccurred) { 
@@ -1461,7 +1462,7 @@ export default function EvolvingChessPage() {
         }
         return;
     }
-    if (isSelectingTeleportAlly) { if (piece && piece.color === currentPlayer && piece.type !== 'king' && piece.type !== 'queen' && piece.id !== (selectedSquare ? board[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece?.id : null)) { setTeleportAllyPieceId(piece.id); setIsSelectingTeleportAlly(false); setIsSelectingTeleportShroom(true); addLog("Select a shroom to teleport to!"); } return; }
+    if (isSelectingTeleportAlly) { if (piece && piece.color === currentPlayer && piece.type !== 'king' && piece.type !== 'queen' && piece.id !== (selectedSquare ? boardState[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece?.id : null)) { setTeleportAllyPieceId(piece.id); setIsSelectingTeleportAlly(false); setIsSelectingTeleportShroom(true); addLog("Select a shroom to teleport to!"); } return; }
     if (isSelectingTeleportShroom && sq?.item?.type === 'shroom') {
         const mage = board[algebraicToCoords(selectedSquare!).row][algebraicToCoords(selectedSquare!).col].piece!;
         const newMoveInfo: LastMoveInfo = { type: mage.type, level: mage.level, item: mage.heldItem || null };
@@ -1731,6 +1732,7 @@ export default function EvolvingChessPage() {
                        else if (item === 'rally_scroll') audioManager.playRally();
                        else if (item === 'antidote') audioManager.playAntidote();
                        else if (item === 'demonic_possession') audioManager.playPossession();
+                       else if (item === 'phase_out') audioManager.playPhaseOut();
 
                        if (item === 'antidote') {
                            board.flat().forEach(sq => {
@@ -1753,6 +1755,13 @@ export default function EvolvingChessPage() {
                                addEffectCallback('conversion', e.at);
                                addLog(`Faith! ${e.originalPiece.type} has been converted.`);
                            });
+                       }
+
+                       if (item === 'phase_out') {
+                           for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+                               const nr = fR + dr; const nc = fC + dc;
+                               if (isValidSquare(nr, nc)) addEffectCallback('magic-burst', coordsToAlgebraic(nr, nc), undefined, undefined, 'phase_out');
+                           }
                        }
 
                        setBoard(res.newBoard);
@@ -2025,6 +2034,7 @@ export default function EvolvingChessPage() {
                 if (remoteEvents.soulLink) { addLog(`Soul Link! ${remoteEvents.soulLinkCount} bound units collapsed.`); }
                 if (remoteEvents.shroomSpawned) { audioManager.playShroom(); addLog("A mystical Shroom 🍄 has appeared!"); }
                 if (remoteEvents.possession) { audioManager.playPossession(); }
+                if (remoteEvents.phaseOut) { audioManager.playPhaseOut(); }
                 if (remoteEvents.anvilDroppedSquares) { remoteEvents.anvilDroppedSquares.forEach((sq: AlgebraicSquare, idx: number) => { setTimeout(() => { addEffectCallback('poof', sq); audioManager.playAnvil(); }, 300 + (idx * 150)); }); }
                 
                 remoteEvents.levelChanges?.forEach((lc: any) => {
@@ -2159,7 +2169,7 @@ export default function EvolvingChessPage() {
                <VibeChessTitle className="h-8 w-auto" suffix="-mob" /> 
                <div className={cn(headerIconsOpacity ? "opacity-100" : "opacity-0 transition-opacity duration-1000")}>
                   {headerIconsActive && (
-                    <div className="h-5 w-5 shrink-0 animate-shroom-spring">
+                    <div className="h-10 w-10 shrink-0 animate-shroom-spring">
                       <ShroomIcon className="w-full h-full text-[#EF4444] ascii-shader" />
                     </div>
                   )}
@@ -2274,7 +2284,7 @@ export default function EvolvingChessPage() {
                 </button>
                 <button onClick={() => setIsRoyalStoreOpen(true)} className="flex flex-col items-center gap-0.5 h-auto p-0 bg-transparent border-none outline-none group disabled:opacity-30" disabled={!user}>
                    <PixelStall className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
-                   <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Store</span>
+                   <span className="text-[0.4rem] font-pixel uppercase tracking-tighter">Store</span>
                 </button>
                 <button onClick={() => router.push('/leaderboard')} className="flex flex-col items-center gap-0.5 group">
                    <PixelTrophy className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />

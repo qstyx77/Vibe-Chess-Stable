@@ -740,12 +740,12 @@ export default function DungeonPage() {
                            setPromotionQueue(multiPromotions); setIsPromotingPawn(true); setPromotionSquare(multiPromotions[0].square); setPromotionTargetLevel(multiPromotions[0].targetLevel);
                            setSpecialActionContext({ boardForNextStep: nextBoard, playerWhoseTurnCompleted: actP, isExtraTurn: isEx, newEnPassantTarget: nEp, oldStreak: oldS, newStreak: newS, completedMilestones: [...compM, 'dance'], currentGraveyard: nG, currentKs: cKs, capturingPieceId: sil ? null : capId, trackWhite: nextAITracks.white, trackBlack: nextAITracks.black, trackGlobal: nextAITracks.global });
                         } else {
-                           triggerSpecialsChain(nextBoard, nG, cKs, oldS, newS, isEx, nEp, actP, [...compM, 'dance'], capId, wasCap, movedT, nextAITracks.white, nextAITracks.black, nextAITracks.global);
+                           triggerSpecialsChain(nextBoard, nG, cKs, oldS, newS, iEx, nEp, actP, [...compM, 'dance'], capId, wasCap, movedT, nextAITracks.white, nextAITracks.black, nextAITracks.global);
                         }
                         return;
                     }
                 }
-                triggerSpecialsChain(nextBoard, nG, cKs, oldS, newS, isEx, nEp, actP, [...compM, 'dance'], capId, wasCap, movedT, effWhite, effBlack, effGlobal); return;
+                triggerSpecialsChain(nextBoard, nG, cKs, oldS, newS, iEx, nEp, actP, [...compM, 'dance'], capId, wasCap, movedT, effWhite, effBlack, effGlobal); return;
             } else {
                 setSpecialActionContext({ boardForNextStep: bCh, playerWhoseTurnCompleted: actP, isExtraTurn: isEx, newEnPassantTarget: nEp, oldStreak: oldS, newStreak: newS, completedMilestones: [...compM, 'dance'], currentGraveyard: nG, currentKs: cKs, capturingPieceId: sil ? null : capId, trackWhite: effWhite, trackBlack: effBlack, trackGlobal: effGlobal });
                 setIsAwaitingDanceTarget(true); addLog("Dancer Skill: The Dance is ready!"); return;
@@ -758,7 +758,7 @@ export default function DungeonPage() {
             const nextBoard = bCh.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null})));
             const flSq = nextBoard.flat().find(sq => sq.piece && sq.piece.color === actP && sq.piece.level === 1 && FRONTLINE_TYPES.includes(sq.piece.type) && sq.piece.type !== 'commander' && sq.piece.type !== 'infiltrator');
             if (flSq) { const {row: pr, col: pc} = algebraicToCoords(flSq.algebraic); nextBoard[pr][pc].piece!.type = 'commander'; addLog(`${getPlayerDisplayName(actP)} promoted a Commander!`); }
-            triggerSpecialsChain(nextBoard, nG, cKs, oldS, newS, isEx, nEp, actP, [...compM, 'firstBlood'], capId, wasCap, movedT, effWhite, effBlack, effGlobal); return;
+            triggerSpecialsChain(nextBoard, nG, cKs, oldS, newS, iEx, nEp, actP, [...compM, 'firstBlood'], capId, wasCap, movedT, effWhite, effBlack, effGlobal); return;
         } else {
             const hasFL1 = bCh.flat().some(sq => sq.piece && sq.piece.color === actP && FRONTLINE_TYPES.includes(sq.piece.type) && sq.piece.type !== 'commander' && sq.piece.type !== 'infiltrator' && sq.piece.level === 1);
             if (hasFL1) {
@@ -794,13 +794,13 @@ export default function DungeonPage() {
                     }
                     addLog(`${getPlayerDisplayName(actP)} Archbishop applied a Holy Shield!`); 
                 }
-                triggerSpecialsChain(nxtB, nG, cKs, oldS, newS, isEx, nEp, actP, [...compM, 'shield'], capId, wasCap, movedT, effWhite, effBlack, effGlobal); return;
+                triggerSpecialsChain(nxtB, nG, cKs, oldS, newS, iEx, nEp, actP, [...compM, 'shield'], capId, wasCap, movedT, effWhite, effBlack, effGlobal); return;
             } else {
                 const hasElig = bCh.flat().some(sq => sq.piece && sq.piece.color === actP && sq.piece.type !== 'king' && sq.piece.type !== 'queen' && !sq.piece.isShielded && sq.piece.id !== capId);
                 if (hasElig) {
                     setSpecialActionContext({ boardForNextStep: bCh, playerWhoseTurnCompleted: actP, isExtraTurn: isExtraTurn, newEnPassantTarget: nEp, oldStreak: oldS, newStreak: newS, completedMilestones: [...compM, 'shield'], currentGraveyard: nG, currentKs: cKs, capturingPieceId: capId, trackWhite: effWhite, trackBlack: effBlack, trackGlobal: effGlobal });
                     setIsAwaitingHolyShield(true); addLog("Holy Shield ready!"); return;
-                } else { triggerSpecialsChain(bCh, nG, cKs, oldS, newS, isEx, nEp, actP, [...compM, 'shield'], capId, wasCap, movedT, effWhite, effBlack, effGlobal); return; }
+                } else { triggerSpecialsChain(bCh, nG, cKs, oldS, newS, iEx, nEp, actP, [...compM, 'shield'], capId, wasCap, movedT, effWhite, effBlack, effGlobal); return; }
             }
         }
     }
@@ -820,9 +820,9 @@ export default function DungeonPage() {
                 }, 300);
                 addLog(`${getPlayerDisplayName(actP)} dropped a defensive Anvil!`);
             }
-            triggerSpecialsChain(nxtB, nG, cKs, oldS, newS, isEx, nEp, actP, [...compM, 'anvil'], capId, wasCap, movedT, effWhite, effBlack, effGlobal); return;
+            triggerSpecialsChain(nxtB, nG, cKs, oldS, newS, iEx, nEp, actP, [...compM, 'anvil'], capId, wasCap, movedT, effWhite, effBlack, effGlobal); return;
         } else {
-            setSpecialActionContext({ boardForNextStep: bCh, playerWhoseTurnCompleted: actP, isExtraTurn: isEx, newEnPassantTarget: nEp, oldStreak: oldS, newStreak: newS, completedMilestones: [...compM, 'anvil'], currentGraveyard: nG, currentKs: cKs, capturingPieceId: capId, trackWhite: effWhite, trackBlack: effBlack, trackGlobal: effGlobal });
+            setSpecialActionContext({ boardForNextStep: bCh, playerWhoseTurnCompleted: actP, isExtraTurn: iEx, newEnPassantTarget: nEp, oldStreak: oldS, newStreak: newS, completedMilestones: [...compM, 'anvil'], currentGraveyard: nG, currentKs: cKs, capturingPieceId: capId, trackWhite: effWhite, trackBlack: effBlack, trackGlobal: effGlobal });
             setPlayerToDropAnvil(actP); setIsAwaitingAnvilDrop(true); addLog("Anvil Drop ready!"); return;
         }
     }
@@ -838,7 +838,7 @@ export default function DungeonPage() {
                 nxtB[rr][rc].piece = { ...choice, level: resLevel, id: `res_${choice.id}_${Date.now()}`, hasMoved: true, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 }; 
                 if (actP === 'white') nG.white = nG.white.filter(p => p.id !== choice.id); else nG.black = nG.black.filter(p => p.id !== choice.id);
                 addEffect('light-beam', sq.algebraic); audioManager.playResurrect(); addLog(`${actP === 'white' ? "Hero" : "Dungeon"} resurrected a ${choice.type}!`);
-                triggerSpecialsChain(nxtB, nG, cKs, oldS, newS, isEx, nEp, actP, [...compM, 'resurrection'], capId, wasCap, movedT, effWhite, effBlack, effGlobal); return;
+                triggerSpecialsChain(nxtB, nG, cKs, oldS, newS, iEx, nEp, actP, [...compM, 'resurrection'], capId, wasCap, movedT, effWhite, effBlack, effGlobal); return;
             }
         }
     }
@@ -891,14 +891,14 @@ export default function DungeonPage() {
                 }
                 addLog(`${actP === 'white' ? "Hero" : "Dungeon"} sniped a Level ${sniped.level} ${sniped.type}!`); audioManager.playSnipe(); addEffect('poof', coordsToAlgebraic(row, col));
                 const targetP = sniped.color; nG[targetP] = [...(nG[targetP]||[]), sniped];
-                triggerSpecialsChain(nxtB, nG, cKs, oldS, newS, isEx, nEp, actP, [...compM, 'snipe'], capId, wasCap, movedT, nextAITracks.white, nextAITracks.black, nextAITracks.global); return;
+                triggerSpecialsChain(nxtB, nG, cKs, oldS, newS, iEx, nEp, actP, [...compM, 'snipe'], capId, wasCap, movedT, nextAITracks.white, nextAITracks.black, nextAITracks.global); return;
             } else {
-                setSpecialActionContext({ boardForNextStep: bCh, playerWhoseTurnCompleted: actP, isExtraTurn: isEx, newEnPassantTarget: nEp, oldStreak: oldS, newStreak: newS, completedMilestones: [...compM, 'snipe'], currentGraveyard: nG, currentKs: cKs, capturingPieceId: capId, trackWhite: effWhite, trackBlack: effBlack, trackGlobal: effGlobal });
+                setSpecialActionContext({ boardForNextStep: bCh, playerWhoseTurnCompleted: actP, isExtraTurn: iEx, newEnPassantTarget: nEp, oldStreak: oldS, newStreak: newS, completedMilestones: [...compM, 'snipe'], currentGraveyard: nG, currentKs: cKs, capturingPieceId: capId, trackWhite: effWhite, trackBlack: effBlack, trackGlobal: effGlobal });
                 setIsAwaitingArcherSnipe(true); addLog("Sniper active! Select a target to snipe."); return;
             }
         }
     }
-    processMoveEnd(bCh, nG, cKs, actP, isEx, nEp, wasCap, movedT, effWhite, effBlack, effGlobal);
+    processMoveEnd(bCh, nG, cKs, actP, iEx, nEp, wasCap, movedT, effWhite, effBlack, effGlobal);
   }, [board, level, inventory, lastMoveWhite, lastMoveBlack, lastMoveGlobal, addLog, getPlayerDisplayName, addEffect, processMoveEnd, firstBloodAchieved]);
 
   const processPawnSacrificeCheck = useCallback((bAf: BoardState, g: { white: Piece[], black: Piece[] }, cKs: { white: number, black: number }, p: PlayerColor, m: Move | null, oL: number | undefined, oT: PieceType | undefined, iEx: boolean, ep: AlgebraicSquare | null, oS: number, nS: number, cId: string | null = null, wC: boolean = false, mT?: PieceType | null, trackWhite?: LastMoveInfo | null, trackBlack?: LastMoveInfo | null, trackGlobal?: LastMoveInfo | null) => {
@@ -1492,6 +1492,7 @@ export default function DungeonPage() {
                    else if (item === 'rally_scroll') audioManager.playRally();
                    else if (item === 'antidote') audioManager.playAntidote();
                    else if (item === 'demonic_possession') audioManager.playPossession();
+                   else if (item === 'phase_out') audioManager.playPhaseOut();
 
                    if (item === 'antidote') {
                        board.flat().forEach(sq => {
@@ -1517,6 +1518,13 @@ export default function DungeonPage() {
                            addEffect('conversion', e.at);
                            addLog(`Faith! ${e.originalPiece.type} has been converted.`);
                        });
+                   }
+
+                   if (item === 'phase_out') {
+                       for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+                           const nr = fR + dr; const nc = fC + dc;
+                           if (isValidSquare(nr, nc)) addEffect('magic-burst', coordsToAlgebraic(nr, nc), undefined, undefined, 'phase_out');
+                       }
                    }
 
                    setBoard(res.newBoard);
@@ -1804,6 +1812,7 @@ export default function DungeonPage() {
         if (oH === 'rally_scroll') audioManager.playRally();
         if (oH === 'antidote') audioManager.playAntidote();
         if (oH === 'demonic_possession') audioManager.playPossession();
+        if (oH === 'phase_out') audioManager.playPhaseOut();
 
         if (appRes.conversionEvents && appRes.conversionEvents.length > 0) {
             audioManager.playConversion();

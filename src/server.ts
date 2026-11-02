@@ -1008,6 +1008,7 @@ wss.on('connection', (ws: UserConnection) => {
                             soulLinkCount: result.obliteratedPieces?.filter(p => p.id.includes('_linked_')).length,
                             shroomSpawned: shroomSpawnedEvent, shroomPos: shroomSpawnedEvent ? shroomSpawnPos : null,
                             possession: movePayload.type === 'demonic-possession',
+                            phaseOut: movePayload.type === 'phase-out',
                             anvilDroppedSquares: result.anvilDroppedSquares || []
                         };
                         broadcastToRoom(ws.roomId!, { type: 'game-move', gameState: gs, move: movePayload, events: evs });
