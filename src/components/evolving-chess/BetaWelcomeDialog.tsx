@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -79,7 +78,7 @@ export function BetaWelcomeDialog({ isOpen, onOpenChange }: BetaWelcomeDialogPro
             <div className="w-full flex items-center justify-center gap-3 overflow-visible"> 
                <div className={cn("w-16 h-16 flex items-center justify-center", headerIconsOpacity ? "opacity-100" : "opacity-0 transition-opacity duration-1000")}>
                   {headerIconsActive && (
-                    <div className="h-12 w-12 shrink-0 animate-anvil-impact">
+                    <div className="h-9 w-9 shrink-0 animate-anvil-impact">
                       <PixelAnvil className="w-full h-full text-[#94A3B8] ascii-shader" />
                     </div>
                   )}
@@ -87,7 +86,7 @@ export function BetaWelcomeDialog({ isOpen, onOpenChange }: BetaWelcomeDialogPro
                <VibeChessTitle className="h-12 md:h-16 w-auto overflow-visible" suffix="-welcome" /> 
                <div className={cn("w-16 h-16 flex items-center justify-center", headerIconsOpacity ? "opacity-100" : "opacity-0 transition-opacity duration-1000")}>
                   {headerIconsActive && (
-                    <div className="h-12 w-12 shrink-0 animate-shroom-spring">
+                    <div className="h-9 w-9 shrink-0 animate-shroom-spring">
                       <ShroomIcon className="w-full h-full text-[#EF4444] ascii-shader" />
                     </div>
                   )}
