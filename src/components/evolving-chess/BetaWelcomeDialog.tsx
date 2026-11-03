@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -76,17 +77,17 @@ export function BetaWelcomeDialog({ isOpen, onOpenChange }: BetaWelcomeDialogPro
         {/* 1:1 Lobby Header Recreation - Centered and Spaced */}
         <div className="pt-16 pb-14 px-6 border-b border-border/50 bg-black sticky top-0 z-20 overflow-visible">
             <div className="w-full flex items-center justify-center gap-3 overflow-visible"> 
-               <div className={cn(headerIconsOpacity ? "opacity-100" : "opacity-0 transition-opacity duration-1000")}>
+               <div className={cn("w-16 h-16 flex items-center justify-center", headerIconsOpacity ? "opacity-100" : "opacity-0 transition-opacity duration-1000")}>
                   {headerIconsActive && (
-                    <div className="h-10 w-10 shrink-0 animate-anvil-impact">
+                    <div className="h-12 w-12 shrink-0 animate-anvil-impact">
                       <PixelAnvil className="w-full h-full text-[#94A3B8] ascii-shader" />
                     </div>
                   )}
                </div>
                <VibeChessTitle className="h-12 md:h-16 w-auto overflow-visible" suffix="-welcome" /> 
-               <div className={cn(headerIconsOpacity ? "opacity-100" : "opacity-0 transition-opacity duration-1000")}>
+               <div className={cn("w-16 h-16 flex items-center justify-center", headerIconsOpacity ? "opacity-100" : "opacity-0 transition-opacity duration-1000")}>
                   {headerIconsActive && (
-                    <div className="h-10 w-10 shrink-0 animate-shroom-spring">
+                    <div className="h-12 w-12 shrink-0 animate-shroom-spring">
                       <ShroomIcon className="w-full h-full text-[#EF4444] ascii-shader" />
                     </div>
                   )}
