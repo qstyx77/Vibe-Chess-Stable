@@ -1136,7 +1136,7 @@ export default function EvolvingChessPage() {
       }
 
       if (aiMove.type === 'antidote') {
-          board.flat().forEach(sq => {
+          nextB.flat().forEach(sq => {
               if (sq.piece && sq.piece.color === currentPlayer && (sq.piece.isPoisoned || sq.piece.isExhausted)) {
                   addEffectCallback('magic-burst', sq.algebraic, undefined, undefined, 'antidote');
               }
@@ -1544,7 +1544,7 @@ export default function EvolvingChessPage() {
           return; 
         }
         if (algebraic === dancerToDance) { setIsAwaitingDanceTarget(false); setDancerToDance(null); if (specialActionContext) triggerSpecialsChain(board, specialActionContext.currentGraveyard, specialActionContext.currentKs, specialActionContext.oldStreak, specialActionContext.newStreak, specialActionContext.isExtraTurn, specialActionContext.newEnPassantTarget, currentPlayer, specialActionContext.completedMilestones, specialActionContext.capturingPieceId, false, lastMoveGlobal?.type, specialActionContext.trackWhite, specialActionContext.trackBlack, specialActionContext.trackGlobal); return; }
-        const {row: fr, col: fC} = algebraicToCoords(dancerToDance); const isAdjacent = Math.abs(row - fr) <= 1 && Math.abs(col - fC) <= 1;
+        const {row: fr, col: fC} = algebraicToCoords(dancerToDance); const isAdjacent = Math.abs(actualRowIndex - fr) <= 1 && Math.abs(actualColIndex - fc) <= 1;
         const targetP = board[row][col].piece;
         const targetItem = board[row][col].item;
         const activeD = board[fr][fC].piece!;

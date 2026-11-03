@@ -910,7 +910,7 @@ export default function DungeonPage() {
                 }
                 addLog(`${actP === 'white' ? "Hero" : "Dungeon"} sniped a Level ${sniped.level} ${sniped.type}!`); audioManager.playSnipe(); addEffect('poof', coordsToAlgebraic(row, col));
                 const targetP = sniped.color; nG[targetP] = [...(nG[targetP]||[]), sniped];
-                triggerSpecialsChain(nxtB, nG, cKs, oldS, newS, isEx, nEp, actP, [...compM, 'snipe'], capId, wasCap, movedT, effWhite, effBlack, effGlobal, trapAffectedSquares); return;
+                triggerSpecialsChain(nxtB, nG, cKs, oldS, newS, isEx, nEp, actP, [...compM, 'snipe'], capId, wasCap, movedT, nextAITracks.white, nextAITracks.black, nextAITracks.global, trapAffectedSquares); return;
             } else {
                 setSpecialActionContext({ boardForNextStep: bCh, playerWhoseTurnCompleted: actP, isExtraTurn: isEx, newEnPassantTarget: nEp, oldStreak: oldS, newStreak: newS, completedMilestones: [...compM, 'snipe'], currentGraveyard: nG, currentKs: cKs, capturingPieceId: capId, trackWhite: effWhite, trackBlack: effBlack, trackGlobal: effGlobal });
                 setIsAwaitingArcherSnipe(true); addLog(`${getPlayerDisplayName(actP)}: Sniper active (KS 5)!`); return;
@@ -1905,7 +1905,7 @@ export default function DungeonPage() {
             const { row: tr, col: tc } = algebraicToCoords(toAlg);
             for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
                 const nr = tr + dr; const nc = tc + dc;
-                if (isValidSquareUtil(nr, nc)) addEffect('magic-burst', coordsToAlgebraic(nr, nc), undefined, undefined, 'oil_slick');
+                if (isValidSquare(nr, nc)) addEffect('magic-burst', coordsToAlgebraic(nr, nc), undefined, undefined, 'oil_slick');
             }
         }
         if (move.type === 'wind-scroll' || (oH === 'wind_sword' && (move.type === 'capture' || appRes.capturedPiece)) || oH === 'wind_cloak') audioManager.playWind();
@@ -2060,7 +2060,6 @@ export default function DungeonPage() {
     if (isSelectingSporeBombShroom) return "SELECT SHROOM TO DETONATE";
     if (isAwaitingShieldScrollTarget) return "SELECT ALLY TO SHIELD";
     if (isAwaitingSwapScrollTarget) return "SELECT ALLY TO SWAP";
-    if (isAwaiting攻击Target) return "SELECT PIECE"; // placeholder
     if (isAwaitingDecreeTarget) return "SELECT PAWN TO PROMOTE";
     if (gameInfo.message !== " ") return gameInfo.message; return "";
   }, [isAiThinking, gameInfo.message, isAwaitingPawnSacrifice, isPromotingPawn, isAwaitingCommanderPromotion, isAwaitingAnvilDrop, isAwaitingHolyShield, isAwaitingArcherSnipe, isAwaitingDanceTarget, dancerToDance, isAwaitingAnvilScrollTarget, isAwaitingWindScrollTarget, isAwaitingEarthquakeScrollTarget, isAwaitingOilSlickTarget, isAwaitingRayTarget, isSelectingMycoSpell, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget]);
