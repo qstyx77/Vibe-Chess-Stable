@@ -967,13 +967,13 @@ export default function EvolvingChessPage() {
                     nextGraveyard[targetPile] = Array.isArray(nextGraveyard[targetPile]) ? [...nextGraveyard[targetPile], snipedPiece] : [snipedPiece];
                     triggerSpecialsChain(nextBoard, nextGraveyard, currentKs, oldStreak, newStreak, isExtraTurn, nextEp, actingPlayer, [...completedMilestones, 'snipe'], capturingPieceId, wasCaptureThisTurn, movedPieceType, effWhite, effBlack, effGlobal); return;
                 } else if (!localPlayerColor || actingPlayer === localPlayerColor) {
-                    setSpecialActionContext({ boardToChain, playerWhoseTurnCompleted: actingPlayer, isExtraTurn, newEnPassantTarget: nextEp, oldStreak, newStreak, completedMilestones: [...completedMilestones, 'snipe'], currentGraveyard: nextGraveyard, currentKs, capturingPieceId, trackWhite: effWhite, trackBlack: trackBlack || lastMoveBlack, trackGlobal: effGlobal } as any);
+                    setSpecialActionContext({ boardToChain, playerWhoseTurnCompleted: actingPlayer, isExtraTurn, newEnPassantTarget: nextEp, oldStreak: oldStreak, newStreak: newStreak, completedMilestones: [...completedMilestones, 'snipe'], currentGraveyard: nextGraveyard, currentKs, capturingPieceId, trackWhite: effWhite, trackBlack: trackBlack || lastMoveBlack, trackGlobal: effGlobal } as any);
                     setIsAwaitingArcherSnipe(true); addLog(`${getPlayerDisplayName(actingPlayer)}: Sniper is active (Killstreak 5)!`); return;
                 }
             }
         }
     }
-    processMoveEnd(boardToChain, nextGraveyard, nextKs, actingPlayer, isExtraTurn, nextEp, wasCaptureThisTurn, movedPieceType, effWhite, effBlack, effGlobal, trapAffectedSquares);
+    processMoveEnd(boardToChain, nextGraveyard, currentKs, actingPlayer, isExtraTurn, nextEp, wasCaptureThisTurn, movedPieceType, effWhite, effBlack, effGlobal, trapAffectedSquares);
   }, [board, isWhiteAI, isBlackAI, firstBloodAchieved, addEffectCallback, processMoveEnd, localPlayerColor, addLog, getPlayerDisplayName, lastMoveWhite, lastMoveBlack, lastMoveGlobal, onlineStatus, playOutcomeSound, handleGameEndCleanup]);
 
   const processPawnSacrificeCheck = useCallback((boardAfter: BoardState, graveyard: { white: Piece[], black: Piece[] }, currentKs: { white: number, black: number }, player: PlayerColor, move: Move | null, oldL: number | undefined, oldT: PieceType | undefined, isExtraTurn: boolean, ep: AlgebraicSquare | null, oldS: number, newS: number, capturingPieceId: string | null = null, wasCaptureThisTurn: boolean = false, movedPieceType?: PieceType | null, trackWhite?: LastMoveInfo | null, trackBlack?: LastMoveInfo | null, trackGlobal?: LastMoveInfo | null, trapAffectedSquares?: AlgebraicSquare[]) => {

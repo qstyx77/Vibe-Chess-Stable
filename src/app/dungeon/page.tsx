@@ -1186,7 +1186,7 @@ export default function DungeonPage() {
             if (currentPlayer === 'white') setLastMoveWhite(newMoveInfo); else setLastMoveBlack(newMoveInfo);
             setLastMoveGlobal(newMoveInfo);
             const result = applyMove(board, move, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, false);
-            const updatedG = { white: Array.isArray(capturedPieces?.white) ? [...capturedPieces.white] : [], black: Array.isArray(capturedPieces?.black) ? [...capturedPieces.black] : [] };
+            const updatedG = { white: Array.isArray(capturedPieces?.white) ? [...capturedPieces.white] : [], black: Array.isArray(capturedPieces?.black) ? [...capturedPieces?.black] : [] };
 
             if (result.conversionEvents && result.conversionEvents.length > 0) {
               audioManager.playConversion();
@@ -1249,7 +1249,7 @@ export default function DungeonPage() {
     }
     if (isInventoryOpen) {
         if (selectedInventoryItemType && !selectedInventoryItemType.startsWith('portal_scroll_')) {
-          const itemMeta = ITEM_META_INFO[selectedInventoryItemType];
+          const itemMeta = ITEM_METADATA[selectedInventoryItemType];
           if (itemMeta.rarity === 'rare' && board.flat().some(sq => sq.piece?.heldItem === selectedInventoryItemType)) {
               if (piece?.heldItem !== selectedInventoryItemType) {
                   addLog(`LIMIT REACHED: Only one ${itemMeta.name} allowed!`); return;
@@ -2055,7 +2055,7 @@ export default function DungeonPage() {
     if (isSelectingSporeBombShroom) return "SELECT SHROOM TO DETONATE";
     if (isAwaitingShieldScrollTarget) return "SELECT ALLY TO SHIELD";
     if (isAwaitingSwapScrollTarget) return "SELECT ALLY TO SWAP";
-    if (isAwaiting攻擊Target) return "SELECT PIECE"; // placeholder
+    if (isAwaiting攻击Target) return "SELECT PIECE"; // placeholder
     if (isAwaitingDecreeTarget) return "SELECT PAWN TO PROMOTE";
     if (gameInfo.message !== " ") return gameInfo.message; return "";
   }, [isAiThinking, gameInfo.message, isAwaitingPawnSacrifice, isPromotingPawn, isAwaitingCommanderPromotion, isAwaitingAnvilDrop, isAwaitingHolyShield, isAwaitingArcherSnipe, isAwaitingDanceTarget, dancerToDance, isAwaitingAnvilScrollTarget, isAwaitingWindScrollTarget, isAwaitingEarthquakeScrollTarget, isAwaitingOilSlickTarget, isAwaitingRayTarget, isSelectingMycoSpell, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget]);
