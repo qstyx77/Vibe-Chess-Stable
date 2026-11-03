@@ -1,4 +1,3 @@
-
 import WebSocket from 'ws';
 import http from 'http';
 import { URL } from 'url';
@@ -1005,6 +1004,7 @@ wss.on('connection', (ws: UserConnection) => {
                         }
                         const isSwap = movePayload.type === 'swap' || movePayload.type === 'dance-swap' || movePayload.type === 'grapple-hook-swap' || (movePayload.type === 'swap-scroll');
                         const evs = {
+                            movedType: movingPiece?.type,
                             captured: wasCapture,
                             capturedType: (result.capturedPiece || result.obliteratedPieces?.[0] || result.smokeBombEvent?.piece)?.type,
                             obliterated: result.obliteratedPieces && result.obliteratedPieces.length > 0,

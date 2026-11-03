@@ -1110,7 +1110,8 @@ export default function DungeonPage() {
         addLog(`${getPlayerDisplayName(currentPlayer)} activated King's Decree!`);
         addEffect('magic-burst', selectedSquare!, undefined, undefined, 'kings_decree');
         audioManager.playLevelUp();
-        setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(alg);
+        setIsMoveProcessing(true)
+        clickGuard.current = true; setAnimatedSquareTo(alg);
         if (currentPlayer === 'white') setLastMoveWhite(newMoveInfo); else setLastMoveBlack(newMoveInfo);
         setLastMoveGlobal(newMoveInfo);
         const res = applyMove(board, move, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, false);
@@ -1606,7 +1607,7 @@ export default function DungeonPage() {
                        global: newMoveInfo 
                    };
 
-                   deductConsumable(item);
+                   if (ITEM_META_INFO[item].isConsumable) deductConsumable(item);
                    addLog(`${getPlayerDisplayName(currentPlayer)} activated Detonation Scroll!`);
                    addEffect('magic-burst', selectedSquare, undefined, undefined, item);
                    audioManager.playExplosion();
@@ -1679,6 +1680,10 @@ export default function DungeonPage() {
           };
           if (currentPlayer === 'white') setLastMoveWhite(newMoveInfo); else setLastMoveBlack(newMoveInfo);
           setLastMoveGlobal(newMoveInfo);
+
+          // Hero movement log
+          addLog(`${getPlayerDisplayName(currentPlayer)}: ${oT} to ${alg}`);
+
           const res = applyMove(board, { from: selectedSquare, to: alg, type: mType }, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, false);
           
           if (res.conversionEvents && res.conversionEvents.length > 0) {
@@ -1981,7 +1986,7 @@ export default function DungeonPage() {
             landed.type = 'queen'; landed.level = Math.min(7, targetL); aiPromoted = true;
         }
         
-        let aiLogMsg = `Dungeon: ${mP.type} from ${fromAlg} to ${toAlg}${aiPromoted ? " (PROMOTED)" : ""}`;
+        let aiLogMsg = `Dungeon: ${mP.type} to ${toAlg}${aiPromoted ? " (PROMOTED)" : ""}`;
         if (move.type === 'grapple-throw') aiLogMsg = `Dungeon: Grappler tossed piece to ${toAlg}`;
         else if (move.type === 'self-destruct') aiLogMsg = `Dungeon: Knight self-destructed at ${toAlg}`;
         else if (move.type === 'swap') aiLogMsg = `Dungeon: Ally swap to ${toAlg}`;

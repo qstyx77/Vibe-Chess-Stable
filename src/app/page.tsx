@@ -900,7 +900,7 @@ export default function EvolvingChessPage() {
             }
             triggerSpecialsChain(nextBoard, nextGraveyard, currentKs, oldStreak, newStreak, isExtraTurn, nextEp, actingPlayer, [...completedMilestones, 'anvil'], capturingPieceId, wasCaptureThisTurn, movedPieceType, effWhite, effBlack, effGlobal); return;
         } else if (!localPlayerColor || actingPlayer === localPlayerColor) {
-            setSpecialActionContext({ boardForNextStep: boardToChain, playerWhoseTurnCompleted: actingPlayer, isExtraTurn: isExtraTurn, newEnPassantTarget: nextEp, oldStreak: oldStreak, newStreak: newStreak, completedMilestones: [...completedMilestones, 'anvil'], currentGraveyard: nextGraveyard, currentKs, capturingPieceId, trackWhite: effWhite, trackBlack: trackBlack || lastMoveBlack, trackGlobal: effGlobal });
+            setSpecialActionContext({ boardForNextStep: boardToChain, playerWhoseTurnCompleted: actingPlayer, isExtraTurn: isExtraTurn, newEnPassantTarget: nextEp, oldStreak: oldStreak, newStreak: newStreak, completedMilestones: [...completedMilestones, 'anvil'], currentGraveyard: nextGraveyard, currentKs: currentKs, capturingPieceId, trackWhite: effWhite, trackBlack: trackBlack || lastMoveBlack, trackGlobal: effGlobal });
             setPlayerToDropAnvil(actingPlayer); setIsAwaitingAnvilDrop(true); addLog(`${getPlayerDisplayName(actingPlayer)}: Anvil Drop is ready (Killstreak 3)!`); return;
         }
     }
@@ -967,7 +967,7 @@ export default function EvolvingChessPage() {
                     nextGraveyard[targetPile] = Array.isArray(nextGraveyard[targetPile]) ? [...nextGraveyard[targetPile], snipedPiece] : [snipedPiece];
                     triggerSpecialsChain(nextBoard, nextGraveyard, currentKs, oldStreak, newStreak, isExtraTurn, nextEp, actingPlayer, [...completedMilestones, 'snipe'], capturingPieceId, wasCaptureThisTurn, movedPieceType, effWhite, effBlack, effGlobal); return;
                 } else if (!localPlayerColor || actingPlayer === localPlayerColor) {
-                    setSpecialActionContext({ boardToChain, playerWhoseTurnCompleted: actingPlayer, isExtraTurn, newEnPassantTarget: nextEp, oldStreak: oldStreak, newStreak: newStreak, completedMilestones: [...completedMilestones, 'snipe'], currentGraveyard: nextGraveyard, currentKs, capturingPieceId, trackWhite: effWhite, trackBlack: trackBlack || lastMoveBlack, trackGlobal: effGlobal } as any);
+                    setSpecialActionContext({ boardToChain, playerWhoseTurnCompleted: actingPlayer, isExtraTurn, newEnPassantTarget: nextEp, oldStreak: oldStreak, newStreak: newStreak, completedMilestones: [...completedMilestones, 'snipe'], currentGraveyard: nextGraveyard, currentKs: currentKs, capturingPieceId, trackWhite: effWhite, trackBlack: trackBlack || lastMoveBlack, trackGlobal: effGlobal } as any);
                     setIsAwaitingArcherSnipe(true); addLog(`${getPlayerDisplayName(actingPlayer)}: Sniper is active (Killstreak 5)!`); return;
                 }
             }
@@ -998,7 +998,7 @@ export default function EvolvingChessPage() {
             return true;
         }
         setIsAwaitingPawnSacrifice(true); setPlayerToSacrificePawn(player); setBoardForPostSacrifice(boardAfter); setPlayerWhoMadeQueenMove(player); setIsExtraTurnFromQueenMove(isExtraTurn);
-        setSpecialActionContext({ boardForNextStep: boardAfter, playerWhoseTurnCompleted: player, isExtraTurn: isExtraTurn, newEnPassantTarget: ep, oldStreak: oldS, newStreak: nS, currentGraveyard: graveyard, currentKs: currentKs, capturingPieceId, trackWhite: effWhite, trackBlack: trackBlack || lastMoveBlack, trackGlobal: effGlobal }); 
+        setSpecialActionContext({ boardForNextStep: boardAfter, playerWhoseTurnCompleted: player, isExtraTurn: isExtraTurn, newEnPassantTarget: ep, oldStreak: oldS, newStreak: newS, currentGraveyard: graveyard, currentKs: currentKs, capturingPieceId, trackWhite: effWhite, trackBlack: effBlack, trackGlobal: effGlobal }); 
         addLog("Royal Sacrifice required! Select a Frontline unit to give up."); return true;
       }
     }
@@ -1118,7 +1118,7 @@ export default function EvolvingChessPage() {
       if (isObliteration) { audioManager.playObliterate(); addLog("AI Obliterated a unit!"); addEffectCallback('poof', toAlg); }
       else if (applyResult.capturedPiece || (applyResult.selfDestructCaptures && applyResult.selfDestructCaptures.length > 0)) { audioManager.playCapture(); addEffectCallback('poof', toAlg); if (applyResult.capturedPiece) addLog(`AI Captured ${applyResult.capturedPiece.type}!`); }
       else { 
-        let aiLogMsg = `AI ${p.type} to ${toAlg}`;
+        let aiLogMsg = `${getPlayerDisplayName(currentPlayer)}: ${p.type} to ${toAlg}`;
         if (aiMove.type === 'grapple-throw') aiLogMsg = `AI Grappler tossed piece to ${toAlg}`;
         else if (aiMove.type === 'self-destruct') aiLogMsg = `AI Knight triggered a Self-Destruct!`;
         else if (aiMove.type === 'swap') aiLogMsg = `AI swapped with ally at ${toAlg}`;
@@ -1500,7 +1500,7 @@ export default function EvolvingChessPage() {
         }
         return;
     }
-    if (isSelectingTeleportAlly) { if (piece && piece.color === currentPlayer && piece.type !== 'king' && piece.type !== 'queen' && piece.id !== (selectedSquare ? board[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece?.id : null)) { setTeleportAllyPieceId(piece.id); setIsSelectingTeleportAlly(false); setIsSelectingTeleportShroom(true); addLog("Select a shroom to teleport to!"); } return; }
+    if (isSelectingTeleportAlly) { if (piece && piece.color === currentPlayer && piece.type !== 'king' && piece.type !== 'queen' && piece.id !== (selectedSquare ? boardState[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece?.id : null)) { setTeleportAllyPieceId(piece.id); setIsSelectingTeleportAlly(false); setIsSelectingTeleportShroom(true); addLog("Select a shroom to teleport to!"); } return; }
     if (isSelectingTeleportShroom && sq?.item?.type === 'shroom') {
         const mage = board[algebraicToCoords(selectedSquare!).row][algebraicToCoords(selectedSquare!).col].piece!;
         const newMoveInfo: LastMoveInfo = { type: mage.type, level: mage.level, item: mage.heldItem || null };
@@ -1952,6 +1952,10 @@ export default function EvolvingChessPage() {
               pushHistory(); clickGuardRef.current = true; setLastMoveFrom(selectedSquare); setLastMoveTo(algebraic); setIsMoveProcessing(true); setAnimatedSquareTo(algebraic); setSelectedSquare(null); setPossibleMoves([]);
               if (currentPlayer === 'white') setLastMoveWhite(newMoveInfo); else setLastMoveBlack(newMoveInfo);
               setLastMoveGlobal(newMoveInfo);
+              
+              // Local movement log
+              addLog(`${getPlayerDisplayName(currentPlayer)}: ${oT} to ${algebraic}`);
+
               const applyRes = applyMove(board, { from: selectedSquare, to: algebraic, type: mType }, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, false);
               let nextB = applyRes.newBoard; 
               const updatedG = { white: Array.isArray(capturedPieces?.white) ? [...capturedPieces.white] : [], black: Array.isArray(capturedPieces?.black) ? [...capturedPieces?.black] : [] }; 
@@ -2091,6 +2095,9 @@ export default function EvolvingChessPage() {
               const moveInfo: LastMoveInfo = { type: remoteEvents?.movedType || 'pawn', item: remoteEvents?.movedItem || null, level: remoteEvents?.movedLevel || 1 };
               if (actingColor === 'white') setLastMoveWhite(moveInfo); else setLastMoveBlack(moveInfo);
               setLastMoveGlobal(moveInfo);
+
+              // NEW: Log the movement for online games
+              addLog(`${getPlayerDisplayName(actingColor)}: ${remoteEvents?.movedType || 'Piece'} to ${remoteMove.to}`);
             }
             setBoard(nextGs.board); setCurrentPlayer(nextGs.currentPlayer); setEnPassantTargetSquare(nextGs.enPassantTargetSquare); setKillStreaks(nextGs.killStreaks); setCapturedPieces(nextGs.capturedPieces);
             setShroomSpawnCounter(nextGs.shroomSpawnCounter);
