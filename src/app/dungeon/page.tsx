@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -872,8 +871,8 @@ export default function DungeonPage() {
           else if (p.heldItem === 'mimic_blade') lastInfo = actP === 'white' ? effWhite : effBlack;
           return lastInfo?.type === 'archer';
         }
-        const coords = bCh.flat().find(sq => sq.piece?.id === p.id); 
-        if ((p.type === 'knight' || p.type === 'mimic') && p.heldItem === 'shortbow' && coords && getEffectiveLevel(board, coords.rowIndex, coords.colIndex) >= 3) return true; 
+        const crds = bCh.flat().find(sq => sq.piece?.id === p.id); 
+        if ((p.type === 'knight' || p.type === 'mimic') && p.heldItem === 'shortbow' && crds && getEffectiveLevel(board, crds.rowIndex, crds.colIndex) >= 3) return true; 
         return false; 
     });
     const maxSL = snipers.length > 0 ? Math.max(...snipers.map(a => a.level || 1)) : 0;
@@ -911,7 +910,7 @@ export default function DungeonPage() {
                 }
                 addLog(`${actP === 'white' ? "Hero" : "Dungeon"} sniped a Level ${sniped.level} ${sniped.type}!`); audioManager.playSnipe(); addEffect('poof', coordsToAlgebraic(row, col));
                 const targetP = sniped.color; nG[targetP] = [...(nG[targetP]||[]), sniped];
-                triggerSpecialsChain(nxtB, nG, cKs, oldS, newS, isEx, nEp, actP, [...compM, 'snipe'], capId, wasCap, movedT, nextAITracks.white, nextAITracks.black, nextAITracks.global, trapAffectedSquares); return;
+                triggerSpecialsChain(nxtB, nG, cKs, oldS, newS, isEx, nEp, actP, [...compM, 'snipe'], capId, wasCap, movedT, effWhite, effBlack, effGlobal, trapAffectedSquares); return;
             } else {
                 setSpecialActionContext({ boardForNextStep: bCh, playerWhoseTurnCompleted: actP, isExtraTurn: isEx, newEnPassantTarget: nEp, oldStreak: oldS, newStreak: newS, completedMilestones: [...compM, 'snipe'], currentGraveyard: nG, currentKs: cKs, capturingPieceId: capId, trackWhite: effWhite, trackBlack: effBlack, trackGlobal: effGlobal });
                 setIsAwaitingArcherSnipe(true); addLog(`${getPlayerDisplayName(actP)}: Sniper active (KS 5)!`); return;
@@ -2056,6 +2055,7 @@ export default function DungeonPage() {
     if (isSelectingSporeBombShroom) return "SELECT SHROOM TO DETONATE";
     if (isAwaitingShieldScrollTarget) return "SELECT ALLY TO SHIELD";
     if (isAwaitingSwapScrollTarget) return "SELECT ALLY TO SWAP";
+    if (isAwaiting攻擊Target) return "SELECT PIECE"; // placeholder
     if (isAwaitingDecreeTarget) return "SELECT PAWN TO PROMOTE";
     if (gameInfo.message !== " ") return gameInfo.message; return "";
   }, [isAiThinking, gameInfo.message, isAwaitingPawnSacrifice, isPromotingPawn, isAwaitingCommanderPromotion, isAwaitingAnvilDrop, isAwaitingHolyShield, isAwaitingArcherSnipe, isAwaitingDanceTarget, dancerToDance, isAwaitingAnvilScrollTarget, isAwaitingWindScrollTarget, isAwaitingEarthquakeScrollTarget, isAwaitingOilSlickTarget, isAwaitingRayTarget, isSelectingMycoSpell, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget]);
